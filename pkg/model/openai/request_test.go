@@ -7,7 +7,7 @@ import (
 )
 
 func TestUnmarshalAssistResponseJSONEncodedString(t *testing.T) {
-	input := `"{\"message\":\"Котик прекрасен\",\"action\":{\"send_files\":[{\"type\":\"photo\",\"url\":\"https://example.test/cat.jpg\",\"file_name\":\"котик.jpg\"}]}}"`
+	input := `"{\"message\":\"Котик прекрасен\",\"action\":{\"send_files\":[{\"type\":\"photo\",\"url\":\"https://example.urls/cat.jpg\",\"file_name\":\"котик.jpg\"}]}}"`
 
 	var response model.AssistResponse
 	if err := unmarshalAssistResponse(input, &response); err != nil {

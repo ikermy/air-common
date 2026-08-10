@@ -315,7 +315,7 @@ func TestMCP_FullCycle(t *testing.T) {
 	t.Log("=== Шаг 1: initialize ===")
 	initResp := mcpRequest(t, "initialize", map[string]any{
 		"protocolVersion": "2025-03-26",
-		"clientInfo":      map[string]any{"name": "test", "version": "0.1"},
+		"clientInfo":      map[string]any{"name": "urls", "version": "0.1"},
 		"capabilities":    map[string]any{},
 	}, false)
 	require.Nil(t, initResp["error"])

@@ -48,7 +48,7 @@ func (f audioRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 func testAudioClient(handler audioRoundTripper) *MistralAgentClient {
 	client := NewMistralAgentClient(context.Background())
 	client.httpClient = &http.Client{Transport: handler}
-	client.SetKeyResolver(func(uint32) string { return "test-key" })
+	client.SetKeyResolver(func(uint32) string { return "urls-key" })
 	return client
 }
 
@@ -57,7 +57,7 @@ func TestTranscribeAudioBuildsMultipartRequest(t *testing.T) {
 		if req.Method != http.MethodPost || !strings.HasSuffix(req.URL.Path, "/audio/transcriptions") {
 			t.Fatalf("unexpected request: %s %s", req.Method, req.URL)
 		}
-		if req.Header.Get("Authorization") != "Bearer test-key" {
+		if req.Header.Get("Authorization") != "Bearer urls-key" {
 			t.Fatalf("missing authorization header")
 		}
 		if err := req.ParseMultipartForm(1024 * 1024); err != nil {

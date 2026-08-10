@@ -16,7 +16,7 @@ import (
 	"golang.org/x/text/language"
 )
 
-const notificationsURL = "http://airbff:8080/int/notification"
+const notificationsURL = "http://airorc:8080/int/notification"
 
 // sendHTTPRequest отправляет HTTP POST запрос с JSON payload
 func sendHTTPRequest(url string, payload map[string]any) error {

@@ -374,7 +374,7 @@ func (m *GoogleAgentClient) createGoogleAgent(modelData *commdom.UniversalModelD
 		"contents": []map[string]any{
 			{
 				"parts": []map[string]any{
-					{"text": "test"},
+					{"text": "urls"},
 				},
 			},
 		},

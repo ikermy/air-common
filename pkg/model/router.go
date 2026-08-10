@@ -106,7 +106,7 @@ func (r *Router) GetMistralVoiceSample(userID uint32, voiceID string) (io.ReadCl
 // NewModelRouter создаёт новый маршрутизатор с опциями.
 //
 //	router, err := model.NewModelRouter(ctx, conf, db,
-//	    model.WithMasterKeyProvider(bffClient), // должна идти первой, если используется
+//	    model.WithMasterKeyProvider(orcClient), // должна идти первой, если используется
 //	    openai.NewAsRouterOption(),
 //	    mistral.NewAsRouterOption())
 func NewModelRouter(ctx context.Context, db DB, options ...RouterOption) *Router {
@@ -189,11 +189,11 @@ func WithDialogSaver(saver DialogSaver) RouterOption {
 // и все последующие опции (провайдеры) автоматически получат обёрнутую версию.
 //
 //	router := model.NewModelRouter(ctx, db,
-//	    model.WithMasterKeyProvider(bffClient),
+//	    model.WithMasterKeyProvider(orcClient),
 //	    openai.NewAsRouterOption(),
 //	    ...)
 //
-// rpc.Client из пакета bff удовлетворяет интерфейсу MasterKeyProvider без изменений.
+// rpc.Client из пакета orc удовлетворяет интерфейсу MasterKeyProvider без изменений.
 // Если пользователь запрашивает $mk$-зашифрованный ключ, а Landing недоступен —
 // пользователю автоматически отправляется уведомление "reauth-userkey" и
 // вызывающий сервис получает ErrMasterKeyUnavailable.

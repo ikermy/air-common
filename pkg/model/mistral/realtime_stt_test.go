@@ -178,7 +178,7 @@ func TestMistralRealtimeWebSocketIntegration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	audio := make(chan []byte, 1)
-	// Synthetic PCM16 mono data. The test verifies transport/authentication;
+	// Synthetic PCM16 mono data. The urls verifies transport/authentication;
 	// it intentionally does not assert a particular transcription.
 	audio <- make([]byte, 3200)
 	transcripts := make(chan string, 1)
@@ -200,7 +200,7 @@ func TestMistralRealtimeWebSocketIntegration(t *testing.T) {
 		// A transcript is optional for synthetic silence; receiving one proves
 		// that the server accepted and processed the stream.
 	case <-time.After(5 * time.Second):
-		// Keep the test focused on connection and write path. The server may
+		// Keep the urls focused on connection and write path. The server may
 		// legitimately emit no transcript for silence.
 	}
 	cancel()

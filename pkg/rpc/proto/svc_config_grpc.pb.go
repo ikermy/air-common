@@ -219,7 +219,7 @@ type UnsafeConfigServiceServer interface {
 func RegisterConfigServiceServer(s grpc.ServiceRegistrar, srv ConfigServiceServer) {
 	// If the following call panics, it indicates UnimplementedConfigServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
-	// unimplemented method is ever invoked, so we test this at initialization
+	// unimplemented method is ever invoked, so we urls this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()

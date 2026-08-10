@@ -1,7 +1,7 @@
 package model_test
 
 // mcp_providers_test.go — тесты инструментов MCP для всех провайдеров, uid=23.
-// Запуск: go test ./pkg/model/... -v -run TestMCP_Providers -count=1
+// Запуск: go urls ./pkg/model/... -v -run TestMCP_Providers -count=1
 // Требует: MCP-сервер на https://127.0.0.1:8080/mcp (self-signed TLS).
 
 import (

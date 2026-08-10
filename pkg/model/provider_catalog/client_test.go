@@ -39,7 +39,7 @@ func TestFetchOpenAIModelsReturnsGeneralModelsOnly(t *testing.T) {
 		}),
 	}}
 
-	got, err := client.generalOpenAIModels(context.Background(), "test-api-key")
+	got, err := client.generalOpenAIModels(context.Background(), "urls-api-key")
 	if err != nil {
 		t.Fatalf("generalOpenAIModels() returned error: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestFetchOpenAIModelsReturnsRealtimeModelsOnly(t *testing.T) {
 		}),
 	}}
 
-	got, err := client.realtimeOpenAIModels(context.Background(), "test-api-key")
+	got, err := client.realtimeOpenAIModels(context.Background(), "urls-api-key")
 	if err != nil {
 		t.Fatalf("realtimeOpenAIModels() returned error: %v", err)
 	}

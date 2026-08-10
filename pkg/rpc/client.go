@@ -2,7 +2,7 @@
 //
 // Usage:
 //
-//	c, err := bff.New("landing:50051", "my-service-key")
+//	c, err := orc.New("landing:50051", "my-service-key")
 //	if err != nil { ... }
 //	defer c.Close()
 //
@@ -51,7 +51,7 @@ func New() (*Client, error) {
 
 	conn, err := grpc.NewClient(host, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, fmt.Errorf("bff.New: dial %s: %w", host, err)
+		return nil, fmt.Errorf("orc.New: dial %s: %w", host, err)
 	}
 	return &Client{
 		conn:       conn,
@@ -78,11 +78,11 @@ func (c *Client) GetUserMasterKey(ctx context.Context, userId uint32) ([32]byte,
 
 	resp, err := c.stub.GetUserMasterKey(ctx, &proto.GetUserMasterKeyRequest{UserId: userId})
 	if err != nil {
-		return [32]byte{}, fmt.Errorf("bff.GetUserMasterKey(user=%d): %w", userId, err)
+		return [32]byte{}, fmt.Errorf("orc.GetUserMasterKey(user=%d): %w", userId, err)
 	}
 
 	if len(resp.MasterKey) != 32 {
-		return [32]byte{}, fmt.Errorf("bff.GetUserMasterKey: invalid key length %d (expected 32)", len(resp.MasterKey))
+		return [32]byte{}, fmt.Errorf("orc.GetUserMasterKey: invalid key length %d (expected 32)", len(resp.MasterKey))
 	}
 
 	var key [32]byte
@@ -97,7 +97,7 @@ func (c *Client) GetBotConfig(ctx context.Context) (*proto.BotConfigResponse, er
 
 	resp, err := c.stub.GetBotConfig(ctx, &proto.GetBotConfigRequest{})
 	if err != nil {
-		return nil, fmt.Errorf("bff.GetBotConfig: %w", err)
+		return nil, fmt.Errorf("orc.GetBotConfig: %w", err)
 	}
 
 	return resp, nil
@@ -110,7 +110,7 @@ func (c *Client) GetOperBotConfig(ctx context.Context) (*proto.BotConfigResponse
 
 	resp, err := c.stub.GetOperBotConfig(ctx, &proto.GetBotConfigRequest{})
 	if err != nil {
-		return nil, fmt.Errorf("bff.GetOperBotConfig: %w", err)
+		return nil, fmt.Errorf("orc.GetOperBotConfig: %w", err)
 	}
 
 	return resp, nil

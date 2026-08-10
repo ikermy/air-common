@@ -12,7 +12,7 @@ import (
 	"github.com/ikermy/air_common/pkg/model/commdom"
 )
 
-const mcpURL = "http://airbff:8080/int/mcp"
+const mcpURL = "http://airorc:8080/int/mcp"
 
 // UniversalActionHandler универсальный обработчик функций для всех провайдеров
 type UniversalActionHandler struct {

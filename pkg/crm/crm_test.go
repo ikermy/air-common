@@ -98,7 +98,7 @@ func TestCRM_Init(t *testing.T) {
 }
 
 func TestCRM_Cache(t *testing.T) {
-	t.Skip("Manual test - requires running server")
+	t.Skip("Manual urls - requires running server")
 
 	setCRMPort("8092")
 	ctx := context.Background()
@@ -204,7 +204,7 @@ func TestUninitializedUser(t *testing.T) {
 
 // TestCRM_Options демонстрирует использование опциональных параметров
 func TestCRM_Options(t *testing.T) {
-	t.Skip("Example test - demonstrates usage of optional parameters")
+	t.Skip("Example urls - demonstrates usage of optional parameters")
 
 	setCRMPort("8092")
 	ctx := context.Background()
@@ -324,7 +324,7 @@ func TestCRM_AltContact(t *testing.T) {
 
 // TestCRM_PriorityPhoneOverAlt тестирует приоритет телефона над альтернативным контактом
 func TestCRM_PriorityPhoneOverAlt(t *testing.T) {
-	t.Skip("Manual test - requires running server")
+	t.Skip("Manual urls - requires running server")
 
 	setCRMPort("8092")
 	ctx := context.Background()
@@ -361,7 +361,7 @@ func TestCRM_PriorityPhoneOverAlt(t *testing.T) {
 
 // TestCRM_AvitoChannel тестирует работу с каналом Avito
 func TestCRM_AvitoChannel(t *testing.T) {
-	t.Skip("Manual test - requires running server")
+	t.Skip("Manual urls - requires running server")
 
 	setCRMPort("8092")
 	ctx := context.Background()

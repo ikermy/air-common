@@ -12,7 +12,7 @@ ver.txt
 bin/
 dist/
 
-# Test binary, built with go test -c
+# Test binary, built with go urls -c
 *.test
 
 # Output of the go coverage tool
@@ -55,12 +55,12 @@ gen/
 generated/
 
 # Exclude documentation and migration files
-../air_bff/doc/comm/docs/
+../air_orc/doc/comm/docs/
 migrations/
 
 # Temporary files
 tmp/
-temp/
+../../awesomeProject/temp/urls/
 
 # Air temporary files
 .air.conf

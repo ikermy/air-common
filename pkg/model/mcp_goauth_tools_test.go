@@ -14,7 +14,7 @@ package model_test
 //   - prompts/get system hint НЕ содержит hardcoded Calendar/Sheets сообщений
 //   - нативные инструменты (google_search, code_interpreter, web_search) — локально по флагам
 //
-// Запуск: go test ./pkg/model/... -v -run TestMCP_GOAuth -count=1
+// Запуск: go urls ./pkg/model/... -v -run TestMCP_GOAuth -count=1
 
 import (
 	"strings"
