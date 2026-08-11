@@ -95,23 +95,34 @@ type MCPConfigProvider interface {
 	FetchSystemPrompt(ctx context.Context, userID uint32, provider commdom.ProviderType) (string, error)
 }
 
-// RealtimeEvent — событие голосовой сессии Realtime API (OpenAI / Google Live).
-// Type:
+// RealtimeEvent — публичное событие голосовой realtime-сессии.
 //
-//	"audio_delta"           — дельта аудио (не используется, аудио идёт через AudioOut канал)
-//	"transcript_delta"      — частичный текст ответа модели
-//	"input_transcript_done" — транскрипт речи пользователя готов
-//	"response_done"         — нормальное завершение хода модели (turnComplete)
-//	"interrupted"           — пользователь перебил модель (barge-in); клиент ДОЛЖЕН
-//	                          немедленно остановить воспроизведение и очистить буфер
-//	"function_result"       — результат вызова инструмента
-//	"token_usage"           — статистика токенов
-//	"error"                 — ошибка сессии
+// PCM-аудио не является RealtimeEvent: оно передаётся отдельно через
+// RealtimeProvider.GetRealtimeAudio.
+//
+// Type может иметь значения:
+//
+//   - "session_started"        — realtime-сессия провайдера готова
+//   - "speech_started"         — VAD обнаружил начало речи пользователя
+//   - "speech_stopped"         — VAD обнаружил окончание речи пользователя
+//   - "input_transcript_delta" — частичная транскрипция речи пользователя
+//   - "input_transcript_done"  — транскрипция речи пользователя завершена
+//   - "response_started"       — провайдер начал формировать ответ
+//   - "response_text_delta"    — частичная текстовая транскрипция ответа
+//   - "response_done"          — ответ провайдера завершён
+//   - "interrupted"            — ответ прерван пользователем (barge-in)
+//   - "function_result"        — результат вызова инструмента
+//   - "token_usage"            — статистика использованных токенов
+//   - "error"                  — ошибка realtime-сессии
 type RealtimeEvent struct {
-	Type  string
-	Text  string
+	Type       string
+	Text       string
+	Delta      string
+	Err        error
+	ResponseID string
+
+	// Deprecated compatibility fields used by existing provider integrations.
 	Data  []byte
-	Err   error
 	Files []File
 }
 

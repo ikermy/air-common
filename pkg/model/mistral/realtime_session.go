@@ -368,7 +368,6 @@ func (s *MistralRealtimeSession) PublishAudio(turnID uint64, pcm []byte) bool {
 	select {
 	case s.AudioOut <- pcmCopy:
 		s.MarkFirstTTSAudio()
-		s.PublishEvent(model.RealtimeEvent{Type: "audio_delta", Data: append([]byte(nil), pcmCopy...)})
 		return true
 	default:
 		return false

@@ -40,7 +40,8 @@ type RealtimeSession struct {
 	// и отписывается через UnsubscribeEvents() при дисконнекте.
 	// Telegram-звонок не подписывается → eventSubs пустой → publishEvent() — no-op.
 	eventSubsMu sync.RWMutex
-	eventSubs   []chan RealtimeEvent
+	eventSubs   map[chan RealtimeEvent]struct{}
+	closed      bool
 
 	// Накопление транскрипций по itemId.
 	// Карты нужны потому что транскрипция пользователя приходит ПОСЛЕ response.done,
@@ -71,7 +72,10 @@ type RealtimeSession struct {
 func (rs *RealtimeSession) publishEvent(ev RealtimeEvent) {
 	rs.eventSubsMu.RLock()
 	defer rs.eventSubsMu.RUnlock()
-	for _, ch := range rs.eventSubs {
+	if rs.closed {
+		return
+	}
+	for ch := range rs.eventSubs {
 		select {
 		case ch <- ev:
 		default:
@@ -100,22 +104,16 @@ func (m *Model) SubscribeEvents(respId uint64) (<-chan model.RealtimeEvent, erro
 	}
 	ch := make(chan model.RealtimeEvent, 64)
 	rs.eventSubsMu.Lock()
-	rs.eventSubs = append(rs.eventSubs, ch)
-	rs.eventSubsMu.Unlock()
-
-	// Race-guard: pump мог уже завершиться (и rs.cancel() вызван) до того как мы подписались.
-	select {
-	case <-rs.ctx.Done():
-		//logger.Debug("[OpenAI SubscribeEvents] ctx ALREADY DONE respId=%d rs.ctx.Err=%v m.ctx.Err=%v", respId, rs.ctx.Err(), m.ctx.Err())
-		go func() {
-			ch <- model.RealtimeEvent{
-				Type: "error",
-				Text: "openai session terminated before subscription",
-				Err:  fmt.Errorf("session terminated before subscription"),
-			}
-		}()
-	default:
+	if rs.closed {
+		rs.eventSubsMu.Unlock()
+		close(ch)
+		return nil, fmt.Errorf("SubscribeEvents: сессия закрыта для respId=%d", respId)
 	}
+	if rs.eventSubs == nil {
+		rs.eventSubs = make(map[chan RealtimeEvent]struct{})
+	}
+	rs.eventSubs[ch] = struct{}{}
+	rs.eventSubsMu.Unlock()
 
 	return ch, nil
 }
@@ -129,19 +127,11 @@ func (m *Model) UnsubscribeEvents(respId uint64, sub <-chan model.RealtimeEvent)
 	}
 	rs.eventSubsMu.Lock()
 	defer rs.eventSubsMu.Unlock()
-	for i, ch := range rs.eventSubs {
+	for ch := range rs.eventSubs {
 		if ch == sub {
-			rs.eventSubs = append(rs.eventSubs[:i], rs.eventSubs[i+1:]...)
-			// Закрываем канал безопасно — защита от паники если канал уже закрыт
-			func() {
-				defer func() {
-					if r := recover(); r != nil {
-						//logger.Debug("UnsubscribeEvents: close на закрытом канале respId=%d", respId)
-					}
-				}()
-				close(ch)
-			}()
-			return
+			delete(rs.eventSubs, ch)
+			close(ch)
+			break
 		}
 	}
 }
@@ -215,6 +205,7 @@ func (m *Model) StartRealtimeSession(userID uint32, dialogID, respId uint64) err
 		AudioIn:       make(chan []byte, 256),
 		AudioOut:      make(chan []byte, 256),
 		DrainPlayback: make(chan struct{}, 1),
+		eventSubs:     make(map[chan RealtimeEvent]struct{}),
 	}
 
 	if err := m.sendSessionUpdate(rs); err != nil {
@@ -336,18 +327,11 @@ func (m *Model) CloseRealtimeSession(respId uint64) {
 
 	// Закрываем все каналы подписчиков для предотвращения утечки и паники при publish
 	rs.eventSubsMu.Lock()
-	for _, ch := range rs.eventSubs {
-		// Закрываем канал безопасно
-		func(c chan RealtimeEvent) {
-			defer func() {
-				if r := recover(); r != nil {
-					//logger.Debug("CloseRealtimeSession: close на закрытом канале respId=%d", respId)
-				}
-			}()
-			close(c)
-		}(ch)
+	rs.closed = true
+	for ch := range rs.eventSubs {
+		close(ch)
 	}
-	rs.eventSubs = nil
+	rs.eventSubs = make(map[chan RealtimeEvent]struct{})
 	rs.eventSubsMu.Unlock()
 
 	// Помечаем сессию как завершённую нормально — watchdog таймеры НЕ должны

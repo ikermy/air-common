@@ -175,7 +175,13 @@ func (m *Model) pumpFromOpenAI(rs *RealtimeSession) {
 		case "response.output_audio_transcript.delta":
 			delta, _ := event["delta"].(string)
 			if delta != "" {
-				rs.publishEvent(RealtimeEvent{Type: "transcript_delta", Text: delta})
+				rs.publishEvent(RealtimeEvent{Type: "response_text_delta", Text: delta, Delta: delta})
+			}
+
+		case "conversation.item.input_audio_transcription.delta":
+			delta, _ := event["delta"].(string)
+			if delta != "" {
+				rs.publishEvent(RealtimeEvent{Type: "input_transcript_delta", Text: delta, Delta: delta})
 			}
 
 		// ── Транскрипция ответа ассистента (финальная) (GA API: response.output_audio_transcript.done) ──
@@ -203,6 +209,7 @@ func (m *Model) pumpFromOpenAI(rs *RealtimeSession) {
 
 		// ── VAD: речь обнаружена ──────────────────────────────────────────────
 		case "input_audio_buffer.speech_started":
+			rs.publishEvent(RealtimeEvent{Type: "speech_started"})
 			select {
 			case rs.DrainPlayback <- struct{}{}:
 			default:
@@ -211,6 +218,7 @@ func (m *Model) pumpFromOpenAI(rs *RealtimeSession) {
 
 		// ── VAD: речь остановлена ─────────────────────────────────────────────
 		case "input_audio_buffer.speech_stopped":
+			rs.publishEvent(RealtimeEvent{Type: "speech_stopped"})
 			//logger.Debug("pumpFromOpenAI: VAD speech_stopped respId=%d", rs.respId, rs.userID)
 
 		case "input_audio_buffer.committed",
@@ -221,6 +229,8 @@ func (m *Model) pumpFromOpenAI(rs *RealtimeSession) {
 
 		// ── Ответ создаётся ───────────────────────────────────────────────────
 		case "response.created":
+			responseID, _ := event["response_id"].(string)
+			rs.publishEvent(RealtimeEvent{Type: "response_started", ResponseID: responseID})
 			rs.IsGenerating.Store(true)
 			fireWatchdog(3*time.Second, "нет audio.delta 3s после response.created")
 			//logger.Debug("pumpFromOpenAI: response.created respId=%d", rs.respId, rs.userID)
@@ -320,7 +330,8 @@ func (m *Model) pumpFromOpenAI(rs *RealtimeSession) {
 				//logger.Info("pumpFromOpenAI: response_done с файлами count=%d respId=%d", len(files), rs.respId, rs.userID)
 			}
 			rs.IsGenerating.Store(false)
-			rs.publishEvent(RealtimeEvent{Type: "response_done", Files: files})
+			responseID, _ := event["response_id"].(string)
+			rs.publishEvent(RealtimeEvent{Type: "response_done", ResponseID: responseID, Files: files})
 
 		// ── Function call: накопление аргументов ─────────────────────────────
 		case "response.function_call_arguments.delta":
