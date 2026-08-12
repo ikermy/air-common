@@ -23,7 +23,7 @@ import (
 //   - serverContent.interrupted    → rs.DrainPlayback (сигнал сбросить очередь)
 //   - serverContent.turnComplete   → publishEvent("response_done")
 //   - inputAudioTranscription      → saveGoogleRealtimeTranscript (пользователь)
-//   - outputAudioTranscription     → transcript_delta (модель, параллельно с аудио)
+//   - outputAudioTranscription     → response_text_delta (модель, параллельно с аудио)
 // ============================================================================
 
 func (m *Model) pumpFromGoogle(rs *GoogleRealtimeSession) {
@@ -107,7 +107,11 @@ func (m *Model) pumpFromGoogle(rs *GoogleRealtimeSession) {
 		if outputTransRaw, ok := event["outputAudioTranscription"].(map[string]any); ok {
 			if text, _ := outputTransRaw["text"].(string); text != "" {
 				assistTextBuf.WriteString(text)
-				rs.publishEvent(model.RealtimeEvent{Type: "transcript_delta", Text: text})
+				rs.publishEvent(model.RealtimeEvent{
+					Type:  "response_text_delta",
+					Text:  text,
+					Delta: text,
+				})
 			}
 			continue
 		}
@@ -197,7 +201,11 @@ func (m *Model) pumpFromGoogle(rs *GoogleRealtimeSession) {
 					// (избегаем дублирования). Простой heuristic: пишем только если assistTextBuf пуст
 					// или text не содержится уже.
 					assistTextBuf.WriteString(text)
-					rs.publishEvent(model.RealtimeEvent{Type: "transcript_delta", Text: text})
+					rs.publishEvent(model.RealtimeEvent{
+						Type:  "response_text_delta",
+						Text:  text,
+						Delta: text,
+					})
 					continue
 				}
 

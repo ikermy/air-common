@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/ikermy/air_common/pkg/model"
+	"github.com/ikermy/air_common/pkg/model/commdom"
 	"github.com/ikermy/air_common/pkg/model/create"
 )
 
@@ -173,6 +174,26 @@ func (m *Model) StartRealtimeSession(userID uint32, dialogID, respId uint64) err
 	}
 
 	val, ok := m.responders.Load(respId)
+	if !ok {
+		// A responder is normally created by the message path.  A realtime call
+		// can arrive first, however (notably after switching the active model),
+		// so bootstrap the same responder/configuration lazily.
+		record, loadErr := m.db.GetActiveModel(uint32(userID))
+		if loadErr != nil {
+			return fmt.Errorf("StartRealtimeSession: не удалось получить активную модель для respId=%d: %w", respId, loadErr)
+		}
+		if record == nil || record.Provider != commdom.ProviderOpenAI {
+			return fmt.Errorf("StartRealtimeSession: активная модель OpenAI не найдена для userID=%d", userID)
+		}
+		if _, initErr := m.GetOrSetRespGPT(model.Assistant{
+			UserID:   userID,
+			Provider: commdom.ProviderOpenAI,
+			AssistId: record.AssistId,
+		}, dialogID, respId, record.AssistId); initErr != nil {
+			return fmt.Errorf("StartRealtimeSession: инициализация RespModel для respId=%d: %w", respId, initErr)
+		}
+		val, ok = m.responders.Load(respId)
+	}
 	if !ok {
 		return fmt.Errorf("StartRealtimeSession: RespModel не найден для respId=%d", respId)
 	}
