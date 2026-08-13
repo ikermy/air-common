@@ -35,6 +35,7 @@ func (m *Model) pumpFromGoogle(rs *GoogleRealtimeSession) {
 	// assistTextBuf аккумулирует текстовые части ответа модели до turnComplete.
 	// Накопленный текст сохраняется в историю диалога (TEXT modality или outputAudioTranscription).
 	var assistTextBuf strings.Builder
+	var inputTextBuf strings.Builder
 
 	var pendingFiles []model.File
 
@@ -91,31 +92,6 @@ func (m *Model) pumpFromGoogle(rs *GoogleRealtimeSession) {
 			continue
 		}
 
-		// ── inputAudioTranscription — транскрипция речи пользователя ──────────
-		// Google Live API присылает этот event параллельно с обработкой аудио.
-		if inputTransRaw, ok := event["inputAudioTranscription"].(map[string]any); ok {
-			if transcript, _ := inputTransRaw["transcript"].(string); transcript != "" {
-				m.saveGoogleRealtimeTranscript(rs, transcript, "")
-				rs.publishEvent(model.RealtimeEvent{Type: "input_transcript_done", Text: transcript})
-			}
-			continue
-		}
-
-		// ── outputAudioTranscription — текстовая расшифровка речи модели ──────
-		// Приходит параллельно с аудио-дельтами при responseModalities=["TEXT","AUDIO"].
-		// Используем как основной источник транскрипта (точнее чем TEXT-части modelTurn).
-		if outputTransRaw, ok := event["outputAudioTranscription"].(map[string]any); ok {
-			if text, _ := outputTransRaw["text"].(string); text != "" {
-				assistTextBuf.WriteString(text)
-				rs.publishEvent(model.RealtimeEvent{
-					Type:  "response_text_delta",
-					Text:  text,
-					Delta: text,
-				})
-			}
-			continue
-		}
-
 		// ── toolCall — вызовы функций ────────────────────────────────────────
 		// Google Live API отправляет tool calls как отдельный top-level event.
 		if toolCallRaw, ok := event["toolCall"].(map[string]any); ok {
@@ -132,7 +108,54 @@ func (m *Model) pumpFromGoogle(rs *GoogleRealtimeSession) {
 		// ── serverContent — основной ответ модели ────────────────────────────
 		serverContent, ok := event["serverContent"].(map[string]any)
 		if !ok {
+			// Совместимость с вариантами Live API, где transcription приходит
+			// отдельным top-level событием. В setup эти поля называются
+			// inputAudioTranscription/outputAudioTranscription, а в стандартном
+			// response обычно находятся внутри serverContent.
+			if input, ok := event["inputAudioTranscription"].(map[string]any); ok {
+				if text, _ := input["text"].(string); text != "" {
+					inputTextBuf.WriteString(text)
+					rs.publishEvent(model.RealtimeEvent{Type: "input_transcript_delta", Text: text, Delta: text})
+				}
+				if finished, _ := input["finished"].(bool); finished {
+					text := inputTextBuf.String()
+					if text != "" {
+						m.saveGoogleRealtimeTranscript(rs, text, "")
+						rs.publishEvent(model.RealtimeEvent{Type: "input_transcript_done", Text: text})
+						inputTextBuf.Reset()
+					}
+				}
+			}
+			if output, ok := event["outputAudioTranscription"].(map[string]any); ok {
+				if text, _ := output["text"].(string); text != "" {
+					assistTextBuf.WriteString(text)
+					rs.publishEvent(model.RealtimeEvent{Type: "response_text_delta", Text: text, Delta: text})
+				}
+			}
 			continue
+		}
+
+		// В response Google имена отличаются от setup-полей:
+		// serverContent.inputTranscription/outputTranscription.
+		if input, ok := serverContent["inputTranscription"].(map[string]any); ok {
+			if text, _ := input["text"].(string); text != "" {
+				inputTextBuf.WriteString(text)
+				rs.publishEvent(model.RealtimeEvent{Type: "input_transcript_delta", Text: text, Delta: text})
+			}
+			if finished, _ := input["finished"].(bool); finished {
+				text := inputTextBuf.String()
+				if text != "" {
+					m.saveGoogleRealtimeTranscript(rs, text, "")
+					rs.publishEvent(model.RealtimeEvent{Type: "input_transcript_done", Text: text})
+					inputTextBuf.Reset()
+				}
+			}
+		}
+		if output, ok := serverContent["outputTranscription"].(map[string]any); ok {
+			if text, _ := output["text"].(string); text != "" {
+				assistTextBuf.WriteString(text)
+				rs.publishEvent(model.RealtimeEvent{Type: "response_text_delta", Text: text, Delta: text})
+			}
 		}
 
 		// interrupted — пользователь перебил модель (barge-in)
