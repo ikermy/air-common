@@ -109,18 +109,19 @@ air_-сервис
 
 ## Основные пакеты
 
-| Пакет | Назначение |
-| --- | --- |
+| Пакет | Назначение                                   |
+| --- |----------------------------------------------|
+| `pkg/mode` | Конфигурация параметров работы библиотеки    |
 | `pkg/model` | Общие модели, интерфейсы, роутер и AI-сессии |
-| `pkg/model/openai` | Интеграция с OpenAI |
+| `pkg/model/openai` | Интеграция с OpenAI                          |
 | `pkg/model/mistral` | Интеграция с Mistral и голосовыми сценариями |
-| `pkg/model/google` | Интеграция с Google AI |
-| `pkg/startpoint` | Запуск и жизненный цикл сессий |
-| `pkg/endpoint` | Диалоги, уведомления и внешние endpoints |
-| `pkg/comdb` | Контракты и операции хранения |
-| `pkg/rpc` | RPC/gRPC-клиент и protobuf-контракты |
-| `pkg/crypto` | Шифрование и работа с ключами |
-| `pkg/google_services` | Google Calendar и Google Sheets |
+| `pkg/model/google` | Интеграция с Google AI                       |
+| `pkg/startpoint` | Запуск и жизненный цикл сессий               |
+| `pkg/endpoint` | Диалоги, уведомления и внешние endpoints     |
+| `pkg/comdb` | Контракты и операции хранения                |
+| `pkg/rpc` | RPC/gRPC-клиент и protobuf-контракты         |
+| `pkg/crypto` | Шифрование и работа с ключами                |
+| `pkg/google_services` | Google Calendar и Google Sheets              |
 
 ## Конфигурация
 

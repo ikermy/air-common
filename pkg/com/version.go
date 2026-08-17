@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -11,13 +12,11 @@ var (
 	Version     string
 	BuildTime   string
 	GitCommit   string
-	initialized bool
+	initialized sync.Once
 )
 
 func init() {
-	if !initialized {
-		initialize()
-	}
+	initialized.Do(func() { initialize() })
 }
 
 func initialize() {
@@ -40,8 +39,6 @@ func initialize() {
 
 	// Текущее время сборки
 	BuildTime = time.Now().Format("2006-01-02 15:04:05")
-
-	initialized = true
 }
 
 func GetVersionInfo() string {

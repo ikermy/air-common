@@ -116,7 +116,7 @@ func (s *Start) handleAskFailure(
 		s.sendError(errCh, fmt.Errorf("%s: %v", fatalMessage, err))
 		return true
 	}
-	if mode.ErrMsgToUser {
+	if mode.IsSendErrMsgToUser() {
 		s.sendFallbackAnswer(u.Assist.UserID, answerCh, err)
 	}
 	return false
@@ -130,12 +130,15 @@ func operatorSystemAnswer(message string) Answer {
 }
 
 func (s *Start) operatorTimeoutMessage(userId uint32) string {
-	if mode.OperatorResponseTimeout%60 == 0 && mode.OperatorResponseTimeout >= 60 {
+	seconds := int(mode.GetOperatorResponseTimeout().Seconds())
+
+	if seconds%60 == 0 && seconds >= 60 {
 		message := s.End.TranslateMessageWithUserID(userId, "operator.timeout.minutes")
-		return fmt.Sprintf(message, mode.OperatorResponseTimeout/60)
+		return fmt.Sprintf(message, seconds/60)
 	}
+
 	message := s.End.TranslateMessageWithUserID(userId, "operator.timeout.seconds")
-	return fmt.Sprintf(message, mode.OperatorResponseTimeout)
+	return fmt.Sprintf(message, seconds)
 }
 
 func stopOperatorTimeoutTimer(timer *time.Timer, timeoutCh <-chan struct{}) *time.Timer {
@@ -152,7 +155,7 @@ func stopOperatorTimeoutTimer(timer *time.Timer, timeoutCh <-chan struct{}) *tim
 
 func (s *Start) startOperatorMode(u *model.RespModel, treadId uint64, timeoutCh chan<- struct{}) (<-chan model.Message, *time.Timer) {
 	operatorRxCh := s.Oper.ReceiveFromOperator(s.ctx, u.Assist.UserID, treadId)
-	operatorTimeoutTimer := time.AfterFunc(time.Duration(mode.OperatorResponseTimeout)*time.Second, func() {
+	operatorTimeoutTimer := time.AfterFunc(mode.GetOperatorResponseTimeout(), func() {
 		select {
 		case timeoutCh <- struct{}{}:
 		default:
@@ -672,7 +675,7 @@ func (s *Start) ask(userID uint32, respId, dialogID uint64, arrAsk []string, fil
 		return emptyResponse, fmt.Errorf("ASK EMPTY MESSAGE AND NO FILES")
 	}
 
-	if mode.TestAnswer {
+	if mode.IsTestModeEnabled() {
 		filesInfo := ""
 		if len(files) > 0 {
 			filesInfo = fmt.Sprintf(" with %d files", len(files))

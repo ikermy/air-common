@@ -182,7 +182,7 @@ func (s *Start) AskWithRetry(userID uint32, respId, dialogID uint64, arrAsk []st
 		if isFatalErrorPattern(err) {
 			message := s.End.TranslateMessageWithUserID(userID, "event.model-fatal")
 			select {
-			case mode.CarpinteroCh <- com.CarpCh{
+			case mode.GetCarpinteroChannel() <- com.CarpCh{
 				Event:  "model-fatal",
 				Target: message,
 				UserID: userID,
@@ -198,7 +198,7 @@ func (s *Start) AskWithRetry(userID uint32, respId, dialogID uint64, arrAsk []st
 			if attempt == mode.RetryMaxAttempts-1 {
 				message := s.End.TranslateMessageWithUserID(userID, "event.model-retry-exhausted")
 				select {
-				case mode.CarpinteroCh <- com.CarpCh{
+				case mode.GetCarpinteroChannel() <- com.CarpCh{
 					Event:  "model-retry-exhausted",
 					Target: message,
 					UserID: userID,

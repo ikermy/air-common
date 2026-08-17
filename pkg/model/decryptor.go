@@ -65,7 +65,7 @@ func (d *masterKeyDecryptingDB) GetUserAPIKey(userID uint32, provider commdom.Pr
 	// Вспомогательная функция: отправить уведомление о необходимости повторной авторизации.
 	sendReauthNotification := func() {
 		select {
-		case mode.CarpinteroCh <- com.CarpCh{
+		case mode.GetCarpinteroChannel() <- com.CarpCh{
 			Event:  "reauth-userkey",
 			UserID: userID,
 		}:

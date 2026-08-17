@@ -76,7 +76,7 @@ func New(parent context.Context, d DB) *Endpoint {
 	go func() {
 		for {
 			select {
-			case threadId, ok := <-mode.Event:
+			case threadId, ok := <-mode.GetEndDialogChannel():
 				if !ok {
 					//logger.Error("НЕВОЗМОЖНОЕСООБЩЕНИЕ: канал Event был закрыт, сохранение диалогов по событиям остановлено")
 					return

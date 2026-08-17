@@ -167,7 +167,7 @@ func New(parent context.Context, d DB, actionHandler model.ActionHandler) *Model
 		cancel:        cancel,
 		client:        googleClient,
 		db:            d,
-		UserModelTTl:  mode.UserModelTTl,
+		UserModelTTl:  mode.GetUserModeTTL(),
 		actionHandler: actionHandler,
 	}
 

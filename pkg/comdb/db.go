@@ -306,14 +306,14 @@ func (d *DB) ReadContext(dialogId uint64, provider commdom.ProviderType) (json.R
 		return nil, fmt.Errorf("получен пустой dialogId")
 	}
 
-	ctx, cancel := context.WithTimeout(d.Context(), mode.SqlTimeToCancel)
+	ctx, cancel := context.WithTimeout(d.Context(), mode.GetSQLTimeToCancel())
 	defer cancel()
 
 	var data sql.NullString
 	if err := d.Conn().QueryRowContext(ctx, "SELECT ReadContext(?, ?)", dialogId, provider.String()).Scan(&data); err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
-			return nil, fmt.Errorf("тайм-аут (%d с) при вызове ReadContext: %w", mode.SqlTimeToCancel, err)
+			return nil, fmt.Errorf("тайм-аут (%d с) при вызове ReadContext: %w", mode.GetSQLTimeToCancel(), err)
 		case errors.Is(err, context.Canceled):
 			return nil, fmt.Errorf("операция отменена при вызове ReadContext: %w", err)
 		case errors.Is(err, sql.ErrNoRows):
@@ -336,13 +336,13 @@ func (d *DB) SaveContext(threadId uint64, provider commdom.ProviderType, dialogC
 		return fmt.Errorf("получен пустой тред")
 	}
 
-	ctx, cancel := context.WithTimeout(d.Context(), mode.SqlTimeToCancel)
+	ctx, cancel := context.WithTimeout(d.Context(), mode.GetSQLTimeToCancel())
 	defer cancel()
 
 	if _, err := d.Conn().ExecContext(ctx, "CALL SaveContext(?, ?, ?)", threadId, provider.String(), dialogContext); err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
-			return fmt.Errorf("тайм-аут (%d с) при сохранении контекста: %w", mode.SqlTimeToCancel, err)
+			return fmt.Errorf("тайм-аут (%d с) при сохранении контекста: %w", mode.GetSQLTimeToCancel(), err)
 		case errors.Is(err, context.Canceled):
 			return fmt.Errorf("операция отменена: %w", err)
 		default:
@@ -507,7 +507,7 @@ func (d *DB) SaveDialog(treadId uint64, message json.RawMessage) error {
 		return fmt.Errorf("получен пустой тред")
 	}
 
-	ctx, cancel := context.WithTimeout(d.Context(), mode.SqlTimeToCancel)
+	ctx, cancel := context.WithTimeout(d.Context(), mode.GetSQLTimeToCancel())
 	defer cancel()
 
 	// Если resolver задан — обрабатываем шифрование сами (минуя SP)
@@ -597,13 +597,13 @@ func (d *DB) UpdateDialogsMeta(dialogId uint64, meta string) error {
 		return fmt.Errorf("получен пустой dialogId")
 	}
 
-	ctx, cancel := context.WithTimeout(d.Context(), mode.SqlTimeToCancel)
+	ctx, cancel := context.WithTimeout(d.Context(), mode.GetSQLTimeToCancel())
 	defer cancel()
 
 	if _, err := d.Conn().ExecContext(ctx, "CALL UpdateDialogsMeta(?,?)", dialogId, meta); err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
-			return fmt.Errorf("тайм-аут (%d с) при сохранении достижения цели: %w", mode.SqlTimeToCancel, err)
+			return fmt.Errorf("тайм-аут (%d с) при сохранении достижения цели: %w", mode.GetSQLTimeToCancel(), err)
 		case errors.Is(err, context.Canceled):
 			return fmt.Errorf("операция отменена: %w", err)
 		default:
@@ -625,14 +625,14 @@ func (d *DB) GetOrSetTreadAndResponder(
 		return 0, fmt.Errorf("получен пустой userID")
 	}
 
-	ctx, cancel := context.WithTimeout(d.Context(), mode.SqlTimeToCancel)
+	ctx, cancel := context.WithTimeout(d.Context(), mode.GetSQLTimeToCancel())
 	defer cancel()
 
 	// Создаём временную переменную для выхода
 	if _, err := d.Conn().ExecContext(ctx, "SET @out_dialogId = 0;"); err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
-			return 0, fmt.Errorf("тайм-аут (%d с) при создании временной переменной: %w", mode.SqlTimeToCancel, err)
+			return 0, fmt.Errorf("тайм-аут (%d с) при создании временной переменной: %w", mode.GetSQLTimeToCancel(), err)
 		case errors.Is(err, context.Canceled):
 			return 0, fmt.Errorf("операция отменена: %w", err)
 		default:
@@ -645,7 +645,7 @@ func (d *DB) GetOrSetTreadAndResponder(
 		userID, responderRealId, responderName, chatType); err != nil { // Тип чата TgBot
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
-			return 0, fmt.Errorf("тайм-аут (%d с) при вызове процедуры GetOrSetTreadAndResponder: %w", mode.SqlTimeToCancel, err)
+			return 0, fmt.Errorf("тайм-аут (%d с) при вызове процедуры GetOrSetTreadAndResponder: %w", mode.GetSQLTimeToCancel(), err)
 		case errors.Is(err, context.Canceled):
 			return 0, fmt.Errorf("операция отменена: %w", err)
 		default:
@@ -658,7 +658,7 @@ func (d *DB) GetOrSetTreadAndResponder(
 	if err := d.Conn().QueryRowContext(ctx, "SELECT @out_dialogId;").Scan(&dialogId); err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
-			return 0, fmt.Errorf("тайм-аут (%d с) при получении значения @out_dialogId: %w", mode.SqlTimeToCancel, err)
+			return 0, fmt.Errorf("тайм-аут (%d с) при получении значения @out_dialogId: %w", mode.GetSQLTimeToCancel(), err)
 		case errors.Is(err, context.Canceled):
 			return 0, fmt.Errorf("операция отменена: %w", err)
 		default:
@@ -675,14 +675,14 @@ func (d *DB) GetUserSubscriptionLimites(userID uint32) (json.RawMessage, error) 
 		return nil, fmt.Errorf("получен пустой userID")
 	}
 
-	ctx, cancel := context.WithTimeout(d.Context(), mode.SqlTimeToCancel)
+	ctx, cancel := context.WithTimeout(d.Context(), mode.GetSQLTimeToCancel())
 	defer cancel()
 
 	var data sql.NullString
 	if err := d.Conn().QueryRowContext(ctx, "SELECT GetUserSubscriptionLimites(?)", userID).Scan(&data); err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
-			return nil, fmt.Errorf("тайм-аут (%d с) при вызове функции GetUserSubscriptionLimites: %w", mode.SqlTimeToCancel, err)
+			return nil, fmt.Errorf("тайм-аут (%d с) при вызове функции GetUserSubscriptionLimites: %w", mode.GetSQLTimeToCancel(), err)
 		case errors.Is(err, context.Canceled):
 			return nil, fmt.Errorf("операция отменена: %w", err)
 		case errors.Is(err, sql.ErrNoRows):
@@ -705,13 +705,13 @@ func (d *DB) DisableAllUserChannel(userID uint32) error {
 		return fmt.Errorf("получен пустой userID")
 	}
 
-	ctx, cancel := context.WithTimeout(d.Context(), mode.SqlTimeToCancel)
+	ctx, cancel := context.WithTimeout(d.Context(), mode.GetSQLTimeToCancel())
 	defer cancel()
 
 	if _, err := d.Conn().ExecContext(ctx, "CALL DisableAllUserChannel(?)", userID); err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
-			return fmt.Errorf("тайм-аут (%d с) при отключении каналов: %w", mode.SqlTimeToCancel, err)
+			return fmt.Errorf("тайм-аут (%d с) при отключении каналов: %w", mode.GetSQLTimeToCancel(), err)
 		case errors.Is(err, context.Canceled):
 			return fmt.Errorf("операция отменена: %w", err)
 		default:
@@ -728,13 +728,13 @@ func (d *DB) SetChannelEnabled(userID uint32, chName string, status bool) error 
 		return fmt.Errorf("получены некорректные значения: userID или chName пусты")
 	}
 
-	ctx, cancel := context.WithTimeout(d.Context(), mode.SqlTimeToCancel)
+	ctx, cancel := context.WithTimeout(d.Context(), mode.GetSQLTimeToCancel())
 	defer cancel()
 
 	if _, err := d.Conn().ExecContext(ctx, "CALL SetChannelEnabled(?,?,?)", userID, chName, status); err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
-			return fmt.Errorf("тайм-аут (%d с) при сохранении статуса канала: %w", mode.SqlTimeToCancel, err)
+			return fmt.Errorf("тайм-аут (%d с) при сохранении статуса канала: %w", mode.GetSQLTimeToCancel(), err)
 		case errors.Is(err, context.Canceled):
 			return fmt.Errorf("операция отменена: %w", err)
 		default:
@@ -751,14 +751,14 @@ func (d *DB) GetNotificationChannel(userID uint32) (json.RawMessage, error) {
 		return nil, fmt.Errorf("получен пустой userID")
 	}
 
-	ctx, cancel := context.WithTimeout(d.Context(), mode.SqlTimeToCancel)
+	ctx, cancel := context.WithTimeout(d.Context(), mode.GetSQLTimeToCancel())
 	defer cancel()
 
 	var data sql.NullString
 	if err := d.Conn().QueryRowContext(ctx, "SELECT GetNotificationChannel(?)", userID).Scan(&data); err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
-			return nil, fmt.Errorf("тайм-аут (%d с) при вызове функции GetNotificationChannel: %w", mode.SqlTimeToCancel, err)
+			return nil, fmt.Errorf("тайм-аут (%d с) при вызове функции GetNotificationChannel: %w", mode.GetSQLTimeToCancel(), err)
 		case errors.Is(err, context.Canceled):
 			return nil, fmt.Errorf("операция отменена: %w", err)
 		case errors.Is(err, sql.ErrNoRows):
@@ -1446,7 +1446,7 @@ func (d *DB) SetActiveModel(userID uint32, modelId uint64) error {
 		return fmt.Errorf("получен пустой modelId")
 	}
 
-	ctx, cancel := context.WithTimeout(d.Context(), mode.SqlTimeToCancel)
+	ctx, cancel := context.WithTimeout(d.Context(), mode.GetSQLTimeToCancel())
 	defer cancel()
 
 	// Начинаем транзакцию
@@ -1464,7 +1464,7 @@ func (d *DB) SetActiveModel(userID uint32, modelId uint64) error {
 	if err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
-			return fmt.Errorf("тайм-аут (%d с) при деактивации старых моделей: %w", mode.SqlTimeToCancel, err)
+			return fmt.Errorf("тайм-аут (%d с) при деактивации старых моделей: %w", mode.GetSQLTimeToCancel(), err)
 		case errors.Is(err, context.Canceled):
 			return fmt.Errorf("операция отменена: %w", err)
 		default:
@@ -1480,7 +1480,7 @@ func (d *DB) SetActiveModel(userID uint32, modelId uint64) error {
 	if err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
-			return fmt.Errorf("тайм-аут (%d с) при переключении активной модели: %w", mode.SqlTimeToCancel, err)
+			return fmt.Errorf("тайм-аут (%d с) при переключении активной модели: %w", mode.GetSQLTimeToCancel(), err)
 		case errors.Is(err, context.Canceled):
 			return fmt.Errorf("операция отменена: %w", err)
 		default:
@@ -1517,7 +1517,7 @@ func (d *DB) SetActiveModelByProvider(userID uint32, provider commdom.ProviderTy
 		return fmt.Errorf("получен пустой userID")
 	}
 
-	ctx, cancel := context.WithTimeout(d.Context(), mode.SqlTimeToCancel)
+	ctx, cancel := context.WithTimeout(d.Context(), mode.GetSQLTimeToCancel())
 	defer cancel()
 
 	// Начинаем транзакцию
@@ -1537,7 +1537,7 @@ func (d *DB) SetActiveModelByProvider(userID uint32, provider commdom.ProviderTy
 	if err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
-			return fmt.Errorf("тайм-аут (%d с) при деактивации старой модели: %w", mode.SqlTimeToCancel, err)
+			return fmt.Errorf("тайм-аут (%d с) при деактивации старой модели: %w", mode.GetSQLTimeToCancel(), err)
 		case errors.Is(err, context.Canceled):
 			return fmt.Errorf("операция отменена: %w", err)
 		default:
@@ -1557,7 +1557,7 @@ func (d *DB) SetActiveModelByProvider(userID uint32, provider commdom.ProviderTy
 	if err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
-			return fmt.Errorf("тайм-аут (%d с) при переключении активной модели: %w", mode.SqlTimeToCancel, err)
+			return fmt.Errorf("тайм-аут (%d с) при переключении активной модели: %w", mode.GetSQLTimeToCancel(), err)
 		case errors.Is(err, context.Canceled):
 			return fmt.Errorf("операция отменена: %w", err)
 		default:

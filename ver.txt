@@ -1,2 +1,2 @@
-v1.50.86
-Extended Google RealtimeEvent fix
+v1.50.87
+refactor(mode): add getters and setters

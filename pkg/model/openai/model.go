@@ -149,7 +149,7 @@ func New(parent context.Context, d DB, actionHandler model.ActionHandler) *Model
 		responders:    sync.Map{},
 		waitChannels:  sync.Map{},
 		dialogCache:   sync.Map{},
-		UserModelTTl:  mode.UserModelTTl,
+		UserModelTTl:  mode.GetUserModeTTL(),
 		actionHandler: actionHandler,
 	}
 

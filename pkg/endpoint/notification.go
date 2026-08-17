@@ -68,7 +68,7 @@ func (e *Endpoint) SendEvent(userID uint32, event, userName, assistName, target 
 	}
 
 	select {
-	case mode.CarpinteroCh <- msg:
+	case mode.GetCarpinteroChannel() <- msg:
 	default:
 		//logger.Warn("CarpinteroCh: канал закрыт или переполнен, не удалось отправить сообщение: %+v", msg)
 	}
@@ -633,7 +633,7 @@ func (e *Endpoint) NotificationListener(notifCh chan<- com.LogMsg) {
 				UID: 0,
 			}
 			return
-		case msg, ok := <-mode.CarpinteroCh:
+		case msg, ok := <-mode.GetCarpinteroChannel():
 			if !ok {
 				notifCh <- com.LogMsg{
 					Msg: "mode.CarpinteroCh closed",

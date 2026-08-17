@@ -108,18 +108,19 @@ air_ service
 
 ## Main packages
 
-| Package | Purpose |
-| --- | --- |
+| Package | Purpose                                            |
+| --- |----------------------------------------------------|
+| `pkg/mode` | Parameters for configuring library                 |
 | `pkg/model` | Shared models, interfaces, router, and AI sessions |
-| `pkg/model/openai` | OpenAI integration |
-| `pkg/model/mistral` | Mistral integration and voice workflows |
-| `pkg/model/google` | Google AI integration |
-| `pkg/startpoint` | Session startup and lifecycle management |
-| `pkg/endpoint` | Dialogs, notifications, and external endpoints |
-| `pkg/comdb` | Storage contracts and operations |
-| `pkg/rpc` | RPC/gRPC client and protobuf contracts |
-| `pkg/crypto` | Encryption and key handling |
-| `pkg/google_services` | Google Calendar and Google Sheets |
+| `pkg/model/openai` | OpenAI integration                                 |
+| `pkg/model/mistral` | Mistral integration and voice workflows            |
+| `pkg/model/google` | Google AI integration                              |
+| `pkg/startpoint` | Session startup and lifecycle management           |
+| `pkg/endpoint` | Dialogs, notifications, and external endpoints     |
+| `pkg/comdb` | Storage contracts and operations                   |
+| `pkg/rpc` | RPC/gRPC client and protobuf contracts             |
+| `pkg/crypto` | Encryption and key handling                        |
+| `pkg/google_services` | Google Calendar and Google Sheets                  |
 
 ## Configuration
 

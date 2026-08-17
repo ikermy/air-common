@@ -123,7 +123,7 @@ func New(parent context.Context, actionHandler model.ActionHandler, db DB, route
 		db:            db,
 		responders:    sync.Map{},
 		waitChannels:  sync.Map{},
-		UserModelTTl:  mode.UserModelTTl,
+		UserModelTTl:  mode.GetUserModeTTL(),
 		actionHandler: actionHandler,
 		router:        router,
 		realtime:      NewRealtimeManager(ctx),

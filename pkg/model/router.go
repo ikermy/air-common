@@ -628,7 +628,7 @@ func (r *Router) syncProviderModelsCatalog(userID uint32, union commdom.Union) {
 
 	for _, affectedUser := range result.AffectedUsers {
 		select {
-		case mode.CarpinteroCh <- com.CarpCh{
+		case mode.GetCarpinteroChannel() <- com.CarpCh{
 			Event:      "model-removed",
 			UserID:     affectedUser.UserID,
 			Target:     union.Provider.String(),
