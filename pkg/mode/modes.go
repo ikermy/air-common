@@ -75,6 +75,9 @@ func SetLogLevel(level string) error {
 	}
 	return nil
 }
+func GetLogLevel() string {
+	return logLevel
+}
 func SetLogPath(logPath string) error {
 	if logPath == "" {
 		return fmt.Errorf("log path is empty")
