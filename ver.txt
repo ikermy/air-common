@@ -1,2 +1,2 @@
-v1.50.90
-refactor(mode): add getters and setters
+v1.50.91
+feat: SetEndDialogChannel

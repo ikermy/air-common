@@ -48,6 +48,9 @@ func GetRealHost() string {
 func SetUserModelTTL(ttl time.Duration) {
 	userModelTTl = ttl
 }
+func SetEndDialogChannel(channel chan uint64) {
+	endDialogCh = channel
+}
 func GetEndDialogChannel() chan uint64 {
 	return endDialogCh
 }
