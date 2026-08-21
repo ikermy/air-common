@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -209,7 +210,6 @@ func (c *OpenAIAgentClient) doRequest(ctx context.Context, method, path string, 
 
 	req.Header.Set("Authorization", "Bearer "+c.resolveKey(userID))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("OpenAI-Beta", "assistants=v2")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -218,7 +218,7 @@ func (c *OpenAIAgentClient) doRequest(ctx context.Context, method, path string, 
 
 	if resp.StatusCode >= 400 {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		func() { _ = resp.Body.Close() }()
+		_ = resp.Body.Close()
 		return nil, fmt.Errorf("OpenAI API error: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
@@ -345,7 +345,7 @@ func (c *OpenAIAgentClient) CreateResponse(
 
 func (c *OpenAIAgentClient) createResponseInternal(
 	ctx context.Context,
-	input string,
+	input any,
 	agentConfig any, // *OpenAIAgentConfig
 	onDelta func(string) error,
 	onToolCall func([]any) ([]any, error),
@@ -496,6 +496,7 @@ func (c *OpenAIAgentClient) createResponseInternal(
 	// Читаем streaming ответ (Server-Sent Events)
 	fullText := ""
 	scanner := bufio.NewScanner(resp.Body)
+	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
 	var result map[string]any
 	var tokenUsageData map[string]any // Сохраняем информацию о токенах
 
@@ -722,10 +723,15 @@ func (c *OpenAIAgentClient) createResponseInternal(
 	if len(functionCallsMap) > 0 && onToolCall != nil {
 		//logger.Debug("🔧 [CreateResponse] Обнаружено %d function calls, начинаю обработку...", len(functionCallsMap), userID)
 
-		// Преобразуем map в массив (извлекаем все значения)
+		// Преобразуем map в массив в стабильном порядке output_index.
 		var functionCallsArray []any
-		//for outputIndex, fn := range functionCallsMap {
-		for _, fn := range functionCallsMap {
+		indices := make([]int, 0, len(functionCallsMap))
+		for index := range functionCallsMap {
+			indices = append(indices, index)
+		}
+		sort.Ints(indices)
+		for _, index := range indices {
+			fn := functionCallsMap[index]
 			// Преобразуем *StreamingFunctionCall в map[string]any для совместимости с onToolCall
 			toolCallMap := map[string]any{
 				"call_id":   fn.CallID,
@@ -780,44 +786,46 @@ func (c *OpenAIAgentClient) createResponseInternal(
 		// Для Responses API формируем новый запрос с tool_outputs
 		// Формат: добавляем в input информацию о результатах вызова функций
 
-		// Собираем результаты функций в структурированный JSON контекст
-		var toolResultsContext strings.Builder
-		toolResultsContext.WriteString("\n\n## РЕЗУЛЬТАТЫ ВЫЗОВА ФУНКЦИЙ (используй их в финальном ответе!):\n```json\n")
-
-		// Формируем массив результатов в JSON
-		toolResults := make([]map[string]any, 0, len(toolOutputs))
+		// Формируем структурированные function_call_output для Responses API.
+		outputsByCallID := make(map[string]any, len(toolOutputs))
 		for _, output := range toolOutputs {
 			if outputMap, ok := output.(map[string]any); ok {
 				callID, _ := outputMap["call_id"].(string)
-				content, _ := outputMap["content"].(string)
-
-				// Парсим content как JSON если возможно
-				var contentJSON any
-				if err := json.Unmarshal([]byte(content), &contentJSON); err == nil {
-					toolResults = append(toolResults, map[string]any{
-						"call_id": callID,
-						"result":  contentJSON,
-					})
-				} else {
-					toolResults = append(toolResults, map[string]any{
-						"call_id": callID,
-						"result":  content,
-					})
+				if content, ok := outputMap["content"]; ok {
+					outputsByCallID[callID] = content
 				}
 			}
 		}
 
-		// Сериализуем результаты в читаемый JSON
-		if resultsJSON, err := json.MarshalIndent(toolResults, "", "  "); err == nil {
-			toolResultsContext.Write(resultsJSON)
+		var newInput []any
+		switch value := input.(type) {
+		case []any:
+			newInput = append(newInput, value...)
+		case string:
+			if value != "" {
+				newInput = append(newInput, map[string]any{
+					"type": "message", "role": "user",
+					"content": []any{map[string]any{"type": "input_text", "text": value}},
+				})
+			}
 		}
-		toolResultsContext.WriteString("\n```\n")
-		toolResultsContext.WriteString("ИНСТРУКЦИЯ: Используй поля из result (file_name, Url, type) для заполнения action.send_files в финальном ответе!\n")
 
-		// Создаём новый запрос с результатами функций
-		// Модифицируем input чтобы включить контекст результатов
-		newInput := input + toolResultsContext.String()
-
+		for _, index := range indices {
+			fn := functionCallsMap[index]
+			newInput = append(newInput, map[string]any{
+				"type": "function_call", "call_id": fn.CallID,
+				"name": fn.Name, "arguments": fn.Arguments,
+			})
+		}
+		for _, index := range indices {
+			fn := functionCallsMap[index]
+			if output, ok := outputsByCallID[fn.CallID]; ok {
+				newInput = append(newInput, map[string]any{
+					"type": "function_call_output", "call_id": fn.CallID,
+					"output": output,
+				})
+			}
+		}
 		// Рекурсивный вызов с результатами функций (увеличиваем глубину)
 		return c.createResponseInternal(ctx, newInput, agentConfig, onDelta, onToolCall, userID, depth+1)
 	}

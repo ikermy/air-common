@@ -1437,7 +1437,7 @@ func (s *Start) StarterListener(start model.StartCh, errCh chan<- error) {
 			default:
 			}
 
-			if err := s.Listener(start.Model, start.Chanel, start.RespId, start.TreadId); err != nil {
+			if err := s.Listener(listenerCtx, start.Model, start.Chanel, start.RespId, start.TreadId); err != nil {
 				//logger.Error("[%s] StarterListener: ошибка в Listener для respId=%d: %v", start.Provider, start.RespId, err, start.Model.Assist.UserID)
 				select {
 				case errCh <- err: // Отправляем ошибку в App
@@ -1461,7 +1461,7 @@ type saveTask struct {
 }
 
 // Listener слушает канал от пользователя и обрабатывает сообщения
-func (s *Start) Listener(u *model.RespModel, usrCh *model.Ch, respId uint64, treadId uint64) error {
+func (s *Start) Listener(ctx context.Context, u *model.RespModel, usrCh *model.Ch, respId uint64, treadId uint64) error {
 	// Сохраняем provider для этого respId (берем из StartCh через responderProviders)
 	// Defer удалит его при завершении Listener
 	defer s.responderProviders.Delete(respId)
@@ -1475,7 +1475,7 @@ func (s *Start) Listener(u *model.RespModel, usrCh *model.Ch, respId uint64, tre
 	saveCh := make(chan saveTask, create.RxChanBuffer)
 
 	// Создаем контекст для координированного завершения
-	listenerCtx, listenerCancel := context.WithCancel(s.ctx)
+	listenerCtx, listenerCancel := context.WithCancel(ctx)
 
 	defer func() {
 		//logger.Debug("Закрытие каналов в Listener")
@@ -1486,27 +1486,14 @@ func (s *Start) Listener(u *model.RespModel, usrCh *model.Ch, respId uint64, tre
 		if wgInterface, ok := s.respondentWG.Load(treadId); ok {
 			wg := wgInterface.(*sync.WaitGroup)
 
-			// Ждем с таймаутом
-			done := make(chan struct{})
-			go func() {
-				wg.Wait()
-				close(done)
-			}()
-
-			select {
-			case <-done:
-				//logger.Debug("Respondent завершен, закрываем каналы")
-			case <-time.After(5 * time.Second):
-				//logger.Warn("Таймаут ожидания завершения Respondent")
-			}
+			// Каналы закрываются только после завершения всех отправителей.
+			wg.Wait()
 		}
 
 		close(question)
 		close(fullQuestCh)
 		close(answerCh)
 		close(errCh)
-		// saveCh закрываем последним: воркер дочитает все оставшиеся задачи
-		// и завершится корректно
 		close(saveCh)
 	}()
 

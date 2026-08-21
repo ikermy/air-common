@@ -1,2 +1,2 @@
-v1.50.91
-feat: SetEndDialogChannel
+v1.50.92
+chore: refactor Listener function to use context and Josh - thanks
