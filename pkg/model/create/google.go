@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ikermy/air_common/pkg/comerrors"
 	"github.com/ikermy/air_common/pkg/mode"
 	"github.com/ikermy/air_common/pkg/model/commdom"
 )
@@ -186,7 +187,7 @@ func executeGoogleAPIRequest(ctx context.Context, url string, payload any) ([]by
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка HTTP запроса: %w", err)
+		return nil, comerrors.NewProviderTransportError(commdom.ProviderGoogle, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -196,7 +197,7 @@ func executeGoogleAPIRequest(ctx context.Context, url string, payload any) ([]by
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(responseBody))
+		return nil, comerrors.NewProviderError(commdom.ProviderGoogle, resp.StatusCode, string(responseBody), nil)
 	}
 
 	return responseBody, nil
@@ -211,13 +212,13 @@ func executeGoogleAPIGetRequest(ctx context.Context, url string) ([]byte, error)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка HTTP запроса: %w", err)
+		return nil, comerrors.NewProviderTransportError(commdom.ProviderGoogle, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		responseBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(responseBody))
+		return nil, comerrors.NewProviderError(commdom.ProviderGoogle, resp.StatusCode, string(responseBody), nil)
 	}
 
 	responseBody, err := io.ReadAll(resp.Body)
@@ -238,13 +239,13 @@ func executeGoogleAPIDeleteRequest(ctx context.Context, url string) error {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("ошибка HTTP запроса: %w", err)
+		return comerrors.NewProviderTransportError(commdom.ProviderGoogle, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusNotFound {
 		responseBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(responseBody))
+		return comerrors.NewProviderError(commdom.ProviderGoogle, resp.StatusCode, string(responseBody), nil)
 	}
 
 	return nil
@@ -404,7 +405,7 @@ func (m *GoogleAgentClient) createGoogleAgent(modelData *commdom.UniversalModelD
 
 	// Проверяем наличие candidates в ответе (признак успешной конфигурации)
 	if _, ok := response["candidates"]; !ok {
-		return commdom.UMCR{}, fmt.Errorf("модель не вернула candidates, возможно конфигурация некорректна: %s", string(responseBody))
+		return commdom.UMCR{}, comerrors.NewProviderError(commdom.ProviderGoogle, http.StatusBadGateway, string(responseBody), nil)
 	}
 
 	// Для Google моделей Alldomain.Ids всегда nil (пустое поле commdom.Ids в БД)
@@ -441,14 +442,14 @@ func (m *GoogleAgentClient) DeleteGoogleAgent(agentID string) error {
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			return fmt.Errorf("ошибка HTTP запроса: %v", err)
+			return comerrors.NewProviderTransportError(commdom.ProviderGoogle, err)
 		}
 		defer func() { _ = resp.Body.Close() }()
 
 		responseBody, _ := io.ReadAll(resp.Body)
 
 		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusNotFound {
-			return fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(responseBody))
+			return comerrors.NewProviderError(commdom.ProviderGoogle, resp.StatusCode, string(responseBody), nil)
 		}
 	}
 
@@ -820,7 +821,7 @@ func GenerateGoogleEmbedding(ctx context.Context, apiKey, text string) ([]float3
 	}
 
 	if len(embedResp.Embedding.Values) == 0 {
-		return nil, fmt.Errorf("API вернул пустой эмбеддинг")
+		return nil, comerrors.NewProviderError(commdom.ProviderGoogle, http.StatusBadGateway, "API вернул пустой эмбеддинг", nil)
 	}
 
 	//logger.Debug("generateGoogleEmbedding: создан эмбеддинг размерности %d", len(embedResp.Embedding.Values))
@@ -1126,7 +1127,7 @@ func (m *GoogleAgentClient) GenerateImage(prompt string, aspectRatio string) ([]
 	}
 
 	if len(geminiResp.Candidates) == 0 {
-		return nil, "", fmt.Errorf("API не вернул результатов")
+		return nil, "", comerrors.NewProviderError(commdom.ProviderGoogle, http.StatusBadGateway, "API не вернул результатов", nil)
 	}
 
 	// Ищем изображение в ответе

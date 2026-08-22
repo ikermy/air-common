@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/ikermy/air_common/pkg/comerrors"
 	"github.com/ikermy/air_common/pkg/model/commdom"
 	"github.com/ikermy/air_common/pkg/model/create"
 )
@@ -54,7 +55,7 @@ func (m *Model) GetFileAsReader(_ uint32, url string) (io.Reader, error) {
 	}
 	if resp.StatusCode != http.StatusOK {
 		_ = resp.Body.Close()
-		return nil, fmt.Errorf("ошибка HTTP: статус %d", resp.StatusCode)
+		return nil, comerrors.NewProviderError(commdom.ProviderGoogle, resp.StatusCode, "ошибка HTTP", nil)
 	}
 	return resp.Body, nil
 }
@@ -70,13 +71,13 @@ func (m *Model) downloadFileFromGoogle(fileURI string) ([]byte, error) {
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка HTTP запроса: %v", err)
+		return nil, comerrors.NewProviderTransportError(commdom.ProviderGoogle, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		responseBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(responseBody))
+		return nil, comerrors.NewProviderError(commdom.ProviderGoogle, resp.StatusCode, string(responseBody), nil)
 	}
 	content, err := io.ReadAll(resp.Body)
 	if err != nil {

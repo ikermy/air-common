@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/ikermy/air_common/pkg/comerrors"
 	"github.com/ikermy/air_common/pkg/mode"
 	modeldomain "github.com/ikermy/air_common/pkg/model/commdom"
 )
@@ -78,14 +79,14 @@ func (m *MistralAgentClient) MintRealtimeToken(ctx context.Context, userID uint3
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		data, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
-		return RealtimeClientSession{}, fmt.Errorf("realtime token вернул %d: %s", response.StatusCode, string(data))
+		return RealtimeClientSession{}, comerrors.NewProviderError(modeldomain.ProviderMistral, response.StatusCode, string(data), nil)
 	}
 	var result RealtimeClientSession
 	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
 		return RealtimeClientSession{}, fmt.Errorf("разбор realtime token: %w", err)
 	}
 	if !strings.HasPrefix(result.ClientSecret.Value, "rt_") {
-		return RealtimeClientSession{}, fmt.Errorf("Mistral вернул некорректный realtime token")
+		return RealtimeClientSession{}, comerrors.NewProviderError(modeldomain.ProviderMistral, http.StatusBadGateway, "Mistral вернул некорректный realtime token", nil)
 	}
 	return result, nil
 }
@@ -461,7 +462,7 @@ func (m *MistralAgentClient) TranscribeAudio(ctx context.Context, userID uint32,
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		data, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
-		return "", fmt.Errorf("transcription вернул %d: %s", response.StatusCode, string(data))
+		return "", comerrors.NewProviderError(modeldomain.ProviderMistral, response.StatusCode, string(data), nil)
 	}
 	var result AudioTranscription
 	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
@@ -510,7 +511,7 @@ func (m *MistralAgentClient) StreamTranscribeAudio(ctx context.Context, userID u
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		data, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
-		return fmt.Errorf("stream transcription вернул %d: %s", response.StatusCode, string(data))
+		return comerrors.NewProviderError(modeldomain.ProviderMistral, response.StatusCode, string(data), nil)
 	}
 	scanner := bufio.NewScanner(response.Body)
 	scanner.Buffer(make([]byte, 4096), 4*1024*1024)
@@ -561,7 +562,7 @@ func (m *MistralAgentClient) Speech(ctx context.Context, userID uint32, request 
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		data, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
 		response.Body.Close()
-		return nil, "", fmt.Errorf("speech вернул %d: %s", response.StatusCode, string(data))
+		return nil, "", comerrors.NewProviderError(modeldomain.ProviderMistral, response.StatusCode, string(data), nil)
 	}
 	return response.Body, response.Header.Get("Content-Type"), nil
 }
@@ -580,7 +581,7 @@ func (m *MistralAgentClient) Voices(ctx context.Context, userID uint32) ([]Mistr
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		data, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
-		return nil, fmt.Errorf("voices вернул %d: %s", response.StatusCode, string(data))
+		return nil, comerrors.NewProviderError(modeldomain.ProviderMistral, response.StatusCode, string(data), nil)
 	}
 	var result struct {
 		Items  []MistralVoice `json:"items"`
@@ -623,7 +624,7 @@ func (m *MistralAgentClient) ListVoices(ctx context.Context, userID uint32, limi
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		data, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
-		return VoiceList{}, fmt.Errorf("voices вернул %d: %s", response.StatusCode, string(data))
+		return VoiceList{}, comerrors.NewProviderError(modeldomain.ProviderMistral, response.StatusCode, string(data), nil)
 	}
 	var result VoiceList
 	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
@@ -664,7 +665,7 @@ func (m *MistralAgentClient) GetVoiceSample(ctx context.Context, userID uint32, 
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		response.Body.Close()
-		return nil, "", fmt.Errorf("voice sample вернул %d", response.StatusCode)
+		return nil, "", comerrors.NewProviderError(modeldomain.ProviderMistral, response.StatusCode, "voice sample error", nil)
 	}
 	return response.Body, response.Header.Get("Content-Type"), nil
 }
@@ -690,7 +691,7 @@ func (m *MistralAgentClient) voiceJSON(ctx context.Context, userID uint32, metho
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		data, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
-		return fmt.Errorf("voice API вернул %d: %s", response.StatusCode, string(data))
+		return comerrors.NewProviderError(modeldomain.ProviderMistral, response.StatusCode, string(data), nil)
 	}
 	if output != nil {
 		return json.NewDecoder(response.Body).Decode(output)

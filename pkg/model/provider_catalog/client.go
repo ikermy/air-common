@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/ikermy/air_common/pkg/comerrors"
 	"github.com/ikermy/air_common/pkg/mode"
 	"github.com/ikermy/air_common/pkg/model/commdom"
 )
@@ -124,7 +125,7 @@ func (c *Client) FetchMistralVoiceModels(ctx context.Context, apiKey string) (st
 }
 
 func (c *Client) fetchOpenAIModels(ctx context.Context, apiKey string) ([]string, error) {
-	return c.fetchListModels(ctx, mode.OpenAIAgentsURL+"/models", apiKey, func(body []byte) ([]string, error) {
+	return c.fetchListModels(ctx, mode.OpenAIAgentsURL+"/models", apiKey, commdom.ProviderOpenAI, func(body []byte) ([]string, error) {
 		var payload struct {
 			Data []struct {
 				ID string `json:"id"`
@@ -251,7 +252,7 @@ func isGeneralGoogleModel(modelName string) bool {
 }
 
 func (c *Client) fetchMistralModels(ctx context.Context, apiKey string) ([]string, error) {
-	return c.fetchListModels(ctx, mode.MistralBaseURL+"/models", apiKey, func(body []byte) ([]string, error) {
+	return c.fetchListModels(ctx, mode.MistralBaseURL+"/models", apiKey, commdom.ProviderMistral, func(body []byte) ([]string, error) {
 		var payload struct {
 			Data []struct {
 				ID string `json:"id"`
@@ -371,7 +372,7 @@ func (c *Client) fetchGoogleModels(ctx context.Context, apiKey string) ([]string
 	q := u.Query()
 	q.Set("key", apiKey)
 	u.RawQuery = q.Encode()
-	return c.fetchListModels(ctx, u.String(), "", func(body []byte) ([]string, error) {
+	return c.fetchListModels(ctx, u.String(), "", commdom.ProviderGoogle, func(body []byte) ([]string, error) {
 		var payload struct {
 			Models []struct {
 				Name string `json:"name"`
@@ -391,7 +392,7 @@ func (c *Client) fetchGoogleModels(ctx context.Context, apiKey string) ([]string
 	})
 }
 
-func (c *Client) fetchListModels(ctx context.Context, url, apiKey string, parser func([]byte) ([]string, error)) ([]string, error) {
+func (c *Client) fetchListModels(ctx context.Context, url, apiKey string, provider commdom.ProviderType, parser func([]byte) ([]string, error)) ([]string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -409,7 +410,7 @@ func (c *Client) fetchListModels(ctx context.Context, url, apiKey string, parser
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API вернул %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return nil, comerrors.NewProviderError(provider, resp.StatusCode, strings.TrimSpace(string(body)), nil)
 	}
 
 	body, err := io.ReadAll(resp.Body)

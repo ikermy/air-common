@@ -11,8 +11,14 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/ikermy/air_common/pkg/comerrors"
 	"github.com/ikermy/air_common/pkg/mode"
+	"github.com/ikermy/air_common/pkg/model/commdom"
 )
+
+func providerError(statusCode int, message string, err error) error {
+	return comerrors.NewProviderError(commdom.ProviderMistral, statusCode, message, err)
+}
 
 // MistralAgentClient - обертка для работы с агентами и обычными моделями
 type MistralAgentClient struct {
@@ -135,7 +141,7 @@ func (m *MistralAgentClient) CreateLibrary(name, description string) (*MistralLi
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка HTTP запроса: %v", err)
+		return nil, providerError(0, err.Error(), err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -145,7 +151,7 @@ func (m *MistralAgentClient) CreateLibrary(name, description string) (*MistralLi
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return nil, fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(responseBody))
+		return nil, providerError(resp.StatusCode, string(responseBody), nil)
 	}
 
 	var library MistralLibrary
@@ -170,13 +176,13 @@ func (m *MistralAgentClient) DeleteLibrary(libraryID string) error {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("ошибка HTTP запроса: %v", err)
+		return providerError(0, err.Error(), err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusNotFound {
 		responseBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(responseBody))
+		return providerError(resp.StatusCode, string(responseBody), nil)
 	}
 
 	return nil
@@ -212,7 +218,7 @@ func (m *MistralAgentClient) UploadDocumentToLibrary(libraryID, fileName string,
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("ошибка HTTP запроса: %v", err)
+		return "", providerError(0, err.Error(), err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -222,7 +228,7 @@ func (m *MistralAgentClient) UploadDocumentToLibrary(libraryID, fileName string,
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return "", fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(responseBody))
+		return "", providerError(resp.StatusCode, string(responseBody), nil)
 	}
 
 	var document MistralDocument
@@ -247,13 +253,13 @@ func (m *MistralAgentClient) DeleteDocumentFromLibrary(libraryID, documentID str
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("ошибка HTTP запроса: %v", err)
+		return providerError(0, err.Error(), err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusNotFound {
 		responseBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(responseBody))
+		return providerError(resp.StatusCode, string(responseBody), nil)
 	}
 
 	return nil
@@ -273,7 +279,7 @@ func (m *MistralAgentClient) GetDocumentStatus(libraryID, documentID string) (st
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("ошибка HTTP запроса: %v", err)
+		return "", providerError(0, err.Error(), err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -283,7 +289,7 @@ func (m *MistralAgentClient) GetDocumentStatus(libraryID, documentID string) (st
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(responseBody))
+		return "", providerError(resp.StatusCode, string(responseBody), nil)
 	}
 
 	var document MistralDocument
@@ -308,13 +314,13 @@ func (m *MistralAgentClient) DownloadFile(fileID string) ([]byte, error) {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка HTTP запроса: %v", err)
+		return nil, providerError(0, err.Error(), err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyText, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(bodyText))
+		return nil, providerError(resp.StatusCode, string(bodyText), nil)
 	}
 
 	fileBytes, err := io.ReadAll(resp.Body)
@@ -381,7 +387,7 @@ func (m *MistralAgentClient) StartConversation(agentID string, inputs any, userI
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return ConversationResponse{}, fmt.Errorf("ошибка HTTP запроса: %v", err)
+		return ConversationResponse{}, providerError(0, err.Error(), err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -391,7 +397,7 @@ func (m *MistralAgentClient) StartConversation(agentID string, inputs any, userI
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return ConversationResponse{}, fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(responseBody))
+		return ConversationResponse{}, providerError(resp.StatusCode, string(responseBody), nil)
 	}
 
 	// RAW ответ для отладки
@@ -430,7 +436,7 @@ func (m *MistralAgentClient) ContinueConversation(conversationID string, inputs 
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return ConversationResponse{}, fmt.Errorf("ошибка HTTP запроса: %v", err)
+		return ConversationResponse{}, providerError(0, err.Error(), err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -440,7 +446,7 @@ func (m *MistralAgentClient) ContinueConversation(conversationID string, inputs 
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return ConversationResponse{}, fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(responseBody))
+		return ConversationResponse{}, providerError(resp.StatusCode, string(responseBody), nil)
 	}
 
 	// RAW ответ для отладки
@@ -490,7 +496,7 @@ func (m *MistralAgentClient) SendFunctionResult(conversationID string, toolCallI
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return ConversationResponse{}, fmt.Errorf("ошибка HTTP запроса: %v", err)
+		return ConversationResponse{}, providerError(0, err.Error(), err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -500,7 +506,7 @@ func (m *MistralAgentClient) SendFunctionResult(conversationID string, toolCallI
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return ConversationResponse{}, fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(responseBody))
+		return ConversationResponse{}, providerError(resp.StatusCode, string(responseBody), nil)
 	}
 
 	//logger.Debug("SendFunctionResult: сырой ответ от API: %s", string(responseBody))
@@ -542,13 +548,13 @@ func (m *MistralAgentClient) PatchAgent(agentID string, tools []map[string]any, 
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("ошибка HTTP запроса PATCH agent: %w", err)
+		return providerError(0, err.Error(), err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyText, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("PATCH agent вернул статус %d: %s", resp.StatusCode, string(bodyText))
+		return providerError(resp.StatusCode, string(bodyText), nil)
 	}
 
 	return nil
@@ -583,13 +589,13 @@ func (m *MistralAgentClient) StartConversationStreaming(agentID string, inputs a
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return ConversationResponse{}, fmt.Errorf("ошибка HTTP запроса: %v", err)
+		return ConversationResponse{}, providerError(0, err.Error(), err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyText, _ := io.ReadAll(resp.Body)
-		return ConversationResponse{}, fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(bodyText))
+		return ConversationResponse{}, providerError(resp.StatusCode, string(bodyText), nil)
 	}
 
 	// Читаем SSE поток
@@ -623,13 +629,13 @@ func (m *MistralAgentClient) ContinueConversationStreaming(conversationID string
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return ConversationResponse{}, fmt.Errorf("ошибка HTTP запроса: %v", err)
+		return ConversationResponse{}, providerError(0, err.Error(), err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyText, _ := io.ReadAll(resp.Body)
-		return ConversationResponse{}, fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(bodyText))
+		return ConversationResponse{}, providerError(resp.StatusCode, string(bodyText), nil)
 	}
 
 	return m.readStreamingResponse(resp.Body, onDelta)
@@ -666,13 +672,13 @@ func (m *MistralAgentClient) SendMultipleFunctionResultsStreaming(conversationID
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return ConversationResponse{}, fmt.Errorf("ошибка HTTP запроса: %v", err)
+		return ConversationResponse{}, providerError(0, err.Error(), err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyText, _ := io.ReadAll(resp.Body)
-		return ConversationResponse{}, fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(bodyText))
+		return ConversationResponse{}, providerError(resp.StatusCode, string(bodyText), nil)
 	}
 
 	return m.readStreamingResponse(resp.Body, onDelta)
@@ -880,7 +886,7 @@ func (m *MistralAgentClient) DeleteFile(fileID string) error {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("ошибка HTTP запроса: %w", err)
+		return providerError(0, err.Error(), err)
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
@@ -891,7 +897,7 @@ func (m *MistralAgentClient) DeleteFile(fileID string) error {
 	// Проверяем статус ответа
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		responseBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(responseBody))
+		return providerError(resp.StatusCode, string(responseBody), nil)
 	}
 
 	return nil

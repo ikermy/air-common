@@ -364,7 +364,13 @@ func eventLocalizer(lang string) (*localizerWrapper, error) {
 			{"id":"event.lead-start","translation":"Поиск лидов запущен:\n-всего контактов для обработки {{.Target}}"},
 			{"id":"event.lead-stop","translation":"Поиск лидов завершён:\n-всего контактов {{.Target}}\n-обработанно {{.AssistName}}"},
 			{"id":"event.ai-provider-limit.default","translation":"AI-провайдер"},
-			{"id":"event.ai-provider-limit","translation":"⚠️ Проблема с подключением к {{.LimitInfo}}:\nпревышен лимит запросов или требуется оплата.\nПожалуйста, проверьте статус подписки и пополните баланс."}
+			{"id":"event.ai-provider-limit","translation":"⚠️ Проблема с подключением к {{.LimitInfo}}:\nпревышен лимит запросов или требуется оплата.\nПожалуйста, проверьте статус подписки и пополните баланс."},
+			{"id":"event.ai-provider-auth","translation":"⚠️ Неверный или просроченный API-ключ для {{.LimitInfo}}."},
+			{"id":"event.ai-provider-permission","translation":"⚠️ У API-ключа {{.LimitInfo}} недостаточно прав для этой операции."},
+			{"id":"event.ai-provider-request","translation":"⚠️ {{.LimitInfo}} отклонил запрос. Проверьте параметры модели."},
+			{"id":"event.ai-provider-unavailable","translation":"⚠️ {{.LimitInfo}} временно недоступен. Попробуйте позже."},
+			{"id":"event.ai-provider-content-blocked","translation":"⚠️ Запрос заблокирован политикой безопасности {{.LimitInfo}}."},
+			{"id":"event.ai-provider-timeout","translation":"⚠️ {{.LimitInfo}} не ответил вовремя. Попробуйте ещё раз."}
 		]`,
 		"en": `[
 			{"id":"payment.status","translation":"\tStatus: {{.Status}}\n\tCurrency: {{.Currency}}\n\tAmount: {{.Amount}}\n\tAmount in USD: {{.AmountUSD}}\n\tReceived: {{.ReceivedAmount}}\n \tOrder ID: {{.OrderID}}\n\tNetwork: {{.Network}}\n\tTransaction hash: {{.TxHash}}\n\tConfirmations: {{.Confirmations}}\n\tCreated: {{.CreatedAt}}\n\tUpdated: {{.UpdatedAt}}\n\tExpires at: {{.ExpiresAt}}"},
@@ -396,7 +402,13 @@ func eventLocalizer(lang string) (*localizerWrapper, error) {
 			{"id":"event.lead-start","translation":"Lead search started:\n-total contacts to process {{.Target}}"},
 			{"id":"event.lead-stop","translation":"Lead search completed:\n-total contacts {{.Target}}\n-processed {{.AssistName}}"},
 			{"id":"event.ai-provider-limit.default","translation":"AI provider"},
-			{"id":"event.ai-provider-limit","translation":"⚠️ Connection issue with {{.LimitInfo}}:\nrequest limit exceeded or payment required.\nPlease check your subscription status and top up your balance."}
+			{"id":"event.ai-provider-limit","translation":"⚠️ Connection issue with {{.LimitInfo}}:\nrequest limit exceeded or payment required.\nPlease check your subscription status and top up your balance."},
+			{"id":"event.ai-provider-auth","translation":"⚠️ Invalid or expired API key for {{.LimitInfo}}."},
+			{"id":"event.ai-provider-permission","translation":"⚠️ The API key for {{.LimitInfo}} does not have sufficient permissions."},
+			{"id":"event.ai-provider-request","translation":"⚠️ {{.LimitInfo}} rejected the request. Check the model parameters."},
+			{"id":"event.ai-provider-unavailable","translation":"⚠️ {{.LimitInfo}} is temporarily unavailable. Please try again later."},
+			{"id":"event.ai-provider-content-blocked","translation":"⚠️ The request was blocked by {{.LimitInfo}} safety policy."},
+			{"id":"event.ai-provider-timeout","translation":"⚠️ {{.LimitInfo}} did not respond in time. Please try again."}
 		]`,
 		"es": `[
 			{"id":"payment.status","translation":"\tEstado: {{.Status}}\n\tMoneda: {{.Currency}}\n\tImporte: {{.Amount}}\n\tImporte en USD: {{.AmountUSD}}\n\tRecibido: {{.ReceivedAmount}}\n \tID del pedido: {{.OrderID}}\n\tRed: {{.Network}}\n\tHash de transacción: {{.TxHash}}\n\tConfirmaciones: {{.Confirmations}}\n\tCreado: {{.CreatedAt}}\n\tActualizado: {{.UpdatedAt}}\n\tExpira: {{.ExpiresAt}}"},
@@ -428,7 +440,13 @@ func eventLocalizer(lang string) (*localizerWrapper, error) {
 			{"id":"event.lead-stop","translation":"Búsqueda de leads finalizada:\n-total de contactos {{.Target}}\n-procesados {{.AssistName}}"},
 			{"id":"event.model-removed","translation":"Proveedor {{.Target}} eliminó el modelo disponible '{{.AssistName}}'. Por favor, seleccione otro modelo o vuelva a conectar el proveedor."},
 			{"id":"event.ai-provider-limit.default","translation":"Proveedor de IA"},
-			{"id":"event.ai-provider-limit","translation":"⚠️ Problema de conexión con {{.LimitInfo}}:\nse superó el límite de solicitudes o se requiere pago.\nPor favor, verifique el estado de su suscripción y recargue su saldo."}
+			{"id":"event.ai-provider-limit","translation":"⚠️ Problema de conexión con {{.LimitInfo}}:\nse superó el límite de solicitudes o se requiere pago.\nPor favor, verifique el estado de su suscripción y recargue su saldo."},
+			{"id":"event.ai-provider-auth","translation":"⚠️ La clave API de {{.LimitInfo}} es incorrecta o ha caducado."},
+			{"id":"event.ai-provider-permission","translation":"⚠️ La clave API de {{.LimitInfo}} no tiene permisos suficientes."},
+			{"id":"event.ai-provider-request","translation":"⚠️ {{.LimitInfo}} rechazó la solicitud. Verifique los parámetros del modelo."},
+			{"id":"event.ai-provider-unavailable","translation":"⚠️ {{.LimitInfo}} no está disponible temporalmente. Inténtelo más tarde."},
+			{"id":"event.ai-provider-content-blocked","translation":"⚠️ La solicitud fue bloqueada por la política de seguridad de {{.LimitInfo}}."},
+			{"id":"event.ai-provider-timeout","translation":"⚠️ {{.LimitInfo}} no respondió a tiempo. Inténtelo de nuevo."}
 		]`,
 	}
 
@@ -604,6 +622,12 @@ func CreateMessageFromEvent(lang, Event, UserName, AssistName, Target string) (s
 			}
 		}
 		msg, err = loc.mustLocalize("event.ai-provider-limit", map[string]any{"LimitInfo": limitInfo})
+	case "ai-provider-auth", "ai-provider-permission", "ai-provider-request", "ai-provider-unavailable", "ai-provider-content-blocked", "ai-provider-timeout":
+		limitInfo := Target
+		if limitInfo == "" {
+			limitInfo, err = loc.mustLocalize("event.ai-provider-limit.default", nil)
+		}
+		msg, err = loc.mustLocalize("event."+Event, map[string]any{"LimitInfo": limitInfo})
 	default:
 		return "", fmt.Errorf("неизвестное событие: %s", Event)
 	}

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"slices"
 
+	"github.com/ikermy/air_common/pkg/comerrors"
 	"github.com/ikermy/air_common/pkg/mode"
 	"github.com/ikermy/air_common/pkg/model/commdom"
 )
@@ -412,7 +413,7 @@ func (m *MistralAgentClient) createMistralAgent(modelData *commdom.UniversalMode
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return commdom.UMCR{}, fmt.Errorf("ошибка HTTP запроса: %v", err)
+		return commdom.UMCR{}, comerrors.NewProviderTransportError(commdom.ProviderMistral, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -422,7 +423,7 @@ func (m *MistralAgentClient) createMistralAgent(modelData *commdom.UniversalMode
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return commdom.UMCR{}, fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(responseBody))
+		return commdom.UMCR{}, comerrors.NewProviderError(commdom.ProviderMistral, resp.StatusCode, string(responseBody), nil)
 	}
 
 	var response map[string]any
@@ -487,7 +488,7 @@ func (m *MistralAgentClient) executeMistralRequest(method, url string, body []by
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка HTTP запроса: %w", err)
+		return nil, comerrors.NewProviderTransportError(commdom.ProviderMistral, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -511,7 +512,7 @@ func (m *MistralAgentClient) executeMistralRequest(method, url string, body []by
 	}
 
 	if !isSuccess {
-		return nil, fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(responseBody))
+		return nil, comerrors.NewProviderError(commdom.ProviderMistral, resp.StatusCode, string(responseBody), nil)
 	}
 
 	return responseBody, nil

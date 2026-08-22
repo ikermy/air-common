@@ -12,6 +12,7 @@ import (
 
 	"github.com/ikermy/air_common/pkg/com"
 	"github.com/ikermy/air_common/pkg/comdb"
+	"github.com/ikermy/air_common/pkg/comerrors"
 	"github.com/ikermy/air_common/pkg/endpoint"
 	"github.com/ikermy/air_common/pkg/mode"
 	"github.com/ikermy/air_common/pkg/model"
@@ -108,6 +109,9 @@ func (s *Start) handleAskFailure(
 	errCh chan<- error,
 	fatalMessage string,
 ) (shouldReturn bool) {
+	if s.handleProviderError(u, err) {
+		return false
+	}
 	if IsProviderLimitError(err) {
 		s.handleProviderLimitError(u.Assist.UserID, u.RespName, u.Assist.AssistName, err.Error())
 		return false
@@ -120,6 +124,29 @@ func (s *Start) handleAskFailure(
 		s.sendFallbackAnswer(u.Assist.UserID, answerCh, err)
 	}
 	return false
+}
+
+// handleProviderError отправляет пользователю специализированное событие
+// для типизированной ошибки AI-провайдера.
+func (s *Start) handleProviderError(u *model.RespModel, err error) bool {
+	var providerErr *comerrors.ProviderError
+	if !errors.As(err, &providerErr) {
+		return false
+	}
+
+	event := string(providerErr.Kind)
+	if event == "" {
+		event = string(comerrors.ProviderLimitErrorKind)
+	}
+
+	s.End.SendEvent(
+		u.Assist.UserID,
+		event,
+		u.RespName,
+		u.Assist.AssistName,
+		err.Error(),
+	)
+	return true
 }
 
 func operatorSystemAnswer(message string) Answer {
@@ -970,7 +997,7 @@ func (s *Start) Respondent(u *model.RespModel, questionCh chan Question, answerC
 				userAsk := currentQuest.Question
 
 				// Отправляем запрос в AI
-				answer, err := s.AskWithRetry(u.Assist.UserID, respId, treadId, userAsk, currentQuest.Files...)
+				answer, err := s.AskWithRetry(u.Assist.UserID, u.Assist.Provider, respId, treadId, userAsk, currentQuest.Files...)
 				if err != nil {
 					deaf = false
 					if s.handleAskFailure(u, err, answerCh, errCh, "критическая ошибка при обработке вопроса после таймаута оператора") {
@@ -1222,7 +1249,7 @@ func (s *Start) Respondent(u *model.RespModel, questionCh chan Question, answerC
 			if err != nil || (respMsg.Content.Message == "" && len(respMsg.Content.Action.SendFiles) == 0) {
 				s.sendError(errCh, fmt.Errorf("ошибка запроса к оператору или пустой ответ, фолбэк в OpenAI: %v", err))
 				// Отправляю запрос в OpenAI
-				answer, err = s.AskWithRetry(u.Assist.UserID, respId, treadId, userAsk, currentQuest.Files...)
+				answer, err = s.AskWithRetry(u.Assist.UserID, u.Assist.Provider, respId, treadId, userAsk, currentQuest.Files...)
 				if err != nil {
 					deaf = false
 					if s.handleAskFailure(u, err, answerCh, errCh, fmt.Sprintf("критическая ошибка для пользователя %d", u.Assist.UserID)) {
@@ -1252,7 +1279,7 @@ func (s *Start) Respondent(u *model.RespModel, questionCh chan Question, answerC
 
 		} else {
 			// Отправляю запрос в OpenAI
-			answer, err = s.AskWithRetry(u.Assist.UserID, respId, treadId, userAsk, currentQuest.Files...)
+			answer, err = s.AskWithRetry(u.Assist.UserID, u.Assist.Provider, respId, treadId, userAsk, currentQuest.Files...)
 			if err != nil {
 				deaf = false
 				if s.handleAskFailure(u, err, answerCh, errCh, fmt.Sprintf("критическая ошибка для пользователя %d", u.Assist.UserID)) {

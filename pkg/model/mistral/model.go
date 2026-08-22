@@ -16,6 +16,7 @@ import (
 
 	"github.com/ikermy/air_common/pkg/com"
 	"github.com/ikermy/air_common/pkg/comdb"
+	"github.com/ikermy/air_common/pkg/comerrors"
 	"github.com/ikermy/air_common/pkg/mode"
 	"github.com/ikermy/air_common/pkg/model"
 	"github.com/ikermy/air_common/pkg/model/commdom"
@@ -776,7 +777,7 @@ func (m *Model) GetFileAsReader(_ uint32, url string) (io.Reader, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		_ = resp.Body.Close()
-		return nil, fmt.Errorf("ошибка HTTP при загрузке файла: статус %d", resp.StatusCode)
+		return nil, comerrors.NewProviderError(commdom.ProviderMistral, resp.StatusCode, "ошибка HTTP при загрузке файла", nil)
 	}
 
 	return resp.Body, nil
@@ -1049,7 +1050,7 @@ func (m *Model) transcribeAudioFile(audioData []byte, fileName string) (string, 
 	// Отправляем запрос на Mistral API
 	req, err := http.NewRequestWithContext(m.ctx, http.MethodPost, mode.MistralBaseURL+"/audio/transcriptions", &requestBody)
 	if err != nil {
-		return "", fmt.Errorf("ошибка создания HTTP запроса: %w", err)
+		return "", comerrors.NewProviderTransportError(commdom.ProviderMistral, err)
 	}
 
 	// Используем x-api-key заголовок согласно документации Mistral
@@ -1073,7 +1074,7 @@ func (m *Model) transcribeAudioFile(audioData []byte, fileName string) (string, 
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("ошибка API Mistral (статус %d): %s", resp.StatusCode, string(responseBody))
+		return "", comerrors.NewProviderError(commdom.ProviderMistral, resp.StatusCode, string(responseBody), nil)
 	}
 
 	// Парсим ответ
@@ -1086,7 +1087,7 @@ func (m *Model) transcribeAudioFile(audioData []byte, fileName string) (string, 
 	}
 
 	if result.Text == "" {
-		return "", fmt.Errorf("Mistral вернул пустой текст транскрипции")
+		return "", comerrors.NewProviderError(commdom.ProviderMistral, http.StatusBadGateway, "Mistral вернул пустой текст транскрипции", nil)
 	}
 
 	//logger.Debug("TranscribeAudio: успешно транскрибировано аудио, длина текста: %d символов", len(result.Text))

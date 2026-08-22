@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ikermy/air_common/pkg/comerrors"
 	"github.com/ikermy/air_common/pkg/model"
 	"github.com/ikermy/air_common/pkg/model/commdom"
 	"github.com/ikermy/air_common/pkg/model/create"
@@ -194,7 +195,7 @@ func (m *Model) sendToGeminiAPI(modelName string, payload map[string]any, userID
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			return nil, fmt.Errorf("ошибка HTTP запроса: %v", err)
+			return nil, comerrors.NewProviderTransportError(commdom.ProviderGoogle, err)
 		}
 
 		responseBody, err := io.ReadAll(resp.Body)
@@ -240,7 +241,7 @@ func (m *Model) sendToGeminiAPI(modelName string, payload map[string]any, userID
 		}
 
 		// Другие ошибки или последняя попытка
-		return nil, fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(responseBody))
+		return nil, comerrors.NewProviderError(commdom.ProviderGoogle, resp.StatusCode, string(responseBody), nil)
 	}
 
 	return nil, fmt.Errorf("превышено количество попыток retry")
@@ -250,7 +251,11 @@ func (m *Model) sendToGeminiAPI(modelName string, payload map[string]any, userID
 // Использует endpoint streamGenerateContent для получения ответа в режиме реального времени
 // onDelta вызывается для каждого delta-события, onComplete - для финального ответа с токенами
 // Возвращает: fullText, usageMetadata, functionCalls, error
-func (m *Model) sendToGeminiAPIStreaming(modelName string, payload map[string]any, onDelta func(delta string) error, userID uint32) (string, map[string]any, []map[string]any, error) {
+func (m *Model) sendToGeminiAPIStreaming(
+	modelName string,
+	payload map[string]any,
+	onDelta func(delta string) error,
+	userID uint32) (string, map[string]any, []map[string]any, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("ошибка сериализации запроса: %v", err)
@@ -273,12 +278,15 @@ func (m *Model) sendToGeminiAPIStreaming(modelName string, payload map[string]an
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			return "", nil, nil, fmt.Errorf("ошибка HTTP запроса: %v", err)
+			return "", nil, nil, comerrors.NewProviderTransportError(commdom.ProviderGoogle, err)
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			responseBody, _ := io.ReadAll(resp.Body)
+			responseBody, err := io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
+			if err != nil {
+				return "", nil, nil, comerrors.NewProviderError(commdom.ProviderGoogle, resp.StatusCode, "ошибка чтения ответа", err)
+			}
 
 			// Обработка ошибки 429 (quota exceeded)
 			if resp.StatusCode == 429 && attempt < maxRetries {
@@ -309,7 +317,7 @@ func (m *Model) sendToGeminiAPIStreaming(modelName string, payload map[string]an
 				continue
 			}
 
-			return "", nil, nil, fmt.Errorf("API вернул статус %d: %s", resp.StatusCode, string(responseBody))
+			return "", nil, nil, comerrors.NewProviderError(commdom.ProviderGoogle, resp.StatusCode, string(responseBody), nil)
 		}
 
 		// Обрабатываем SSE поток в отдельной функции, чтобы defer корректно
@@ -326,6 +334,8 @@ func (m *Model) sendToGeminiAPIStreaming(modelName string, payload map[string]an
 			var fullText strings.Builder
 			var usageMetadata map[string]any
 			var functionCalls []map[string]any
+			var finishReason, finishMessage, blockReason string
+			var hasGroundingMetadata bool
 
 			eventCount := 0
 
@@ -347,15 +357,37 @@ func (m *Model) sendToGeminiAPIStreaming(modelName string, payload map[string]an
 
 				// Парсим SSE событие
 				var sseEvent struct {
+					PromptFeedback struct {
+						BlockReason string `json:"blockReason,omitempty"`
+					} `json:"promptFeedback,omitempty"`
 					Candidates []struct {
-						Content struct {
+						FinishReason  string `json:"finishReason,omitempty"`
+						FinishMessage string `json:"finishMessage,omitempty"`
+						Content       struct {
 							Parts []struct {
 								Text         string         `json:"text,omitempty"`
 								FunctionCall map[string]any `json:"functionCall,omitempty"`
 							} `json:"parts"`
 						} `json:"content"`
+						GroundingMetadata map[string]any `json:"groundingMetadata,omitempty"`
 					} `json:"candidates"`
 					UsageMetadata map[string]any `json:"usageMetadata,omitempty"`
+				}
+
+				if sseEvent.PromptFeedback.BlockReason != "" {
+					blockReason = sseEvent.PromptFeedback.BlockReason
+				}
+				if len(sseEvent.Candidates) > 0 {
+					candidate := sseEvent.Candidates[0]
+					if candidate.FinishReason != "" {
+						finishReason = candidate.FinishReason
+					}
+					if candidate.FinishMessage != "" {
+						finishMessage = candidate.FinishMessage
+					}
+					if candidate.GroundingMetadata != nil {
+						hasGroundingMetadata = true
+					}
 				}
 
 				if err := json.Unmarshal([]byte(data), &sseEvent); err != nil {
@@ -434,6 +466,13 @@ func (m *Model) sendToGeminiAPIStreaming(modelName string, payload map[string]an
 
 			if err := scanner.Err(); err != nil {
 				return "", nil, nil, fmt.Errorf("ошибка чтения SSE потока: %w", err)
+			}
+
+			if strings.TrimSpace(fullText.String()) == "" && len(functionCalls) == 0 {
+				return "", usageMetadata, nil, fmt.Errorf(
+					"Gemini вернул ответ без текста: blockReason=%q, finishReason=%q, finishMessage=%q, groundingMetadata=%t, sseEvents=%d",
+					blockReason, finishReason, finishMessage, hasGroundingMetadata, eventCount,
+				)
 			}
 
 			return fullText.String(), usageMetadata, functionCalls, nil

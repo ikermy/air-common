@@ -6,6 +6,8 @@ import (
 	"net/url"
 
 	"github.com/gorilla/websocket"
+	"github.com/ikermy/air_common/pkg/comerrors"
+	"github.com/ikermy/air_common/pkg/model/commdom"
 )
 
 // ============================================================================
@@ -43,10 +45,9 @@ func DialGoogleRealtimeSession(apiKey string) (*websocket.Conn, error) {
 	conn, resp, err := dialer.Dial(RealtimeGoogleURL, headers)
 	if err != nil {
 		if resp != nil {
-			return nil, fmt.Errorf("DialGoogleRealtimeSession: ошибка подключения (HTTP %d): %w",
-				resp.StatusCode, err)
+			return nil, comerrors.NewProviderError(commdom.ProviderGoogle, resp.StatusCode, "ошибка подключения к realtime API", err)
 		}
-		return nil, fmt.Errorf("DialGoogleRealtimeSession: ошибка подключения к %s: %w", RealtimeGoogleURL, err)
+		return nil, comerrors.NewProviderTransportError(commdom.ProviderGoogle, err)
 	}
 
 	return conn, nil
@@ -76,10 +77,9 @@ func DialRealtimeSession(apiKey, model string) (*websocket.Conn, error) {
 	conn, resp, err := dialer.Dial(baseURL.String(), headers)
 	if err != nil {
 		if resp != nil {
-			return nil, fmt.Errorf("DialRealtimeSession: ошибка подключения к %s (HTTP %d): %w",
-				baseURL.String(), resp.StatusCode, err)
+			return nil, comerrors.NewProviderError(commdom.ProviderOpenAI, resp.StatusCode, "ошибка подключения к realtime API", err)
 		}
-		return nil, fmt.Errorf("DialRealtimeSession: ошибка подключения к %s: %w", baseURL.String(), err)
+		return nil, comerrors.NewProviderTransportError(commdom.ProviderOpenAI, err)
 	}
 
 	return conn, nil

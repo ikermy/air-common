@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/ikermy/air_common/pkg/com"
+	"github.com/ikermy/air_common/pkg/comerrors"
 	"github.com/ikermy/air_common/pkg/mode"
 	"github.com/ikermy/air_common/pkg/model"
+	"github.com/ikermy/air_common/pkg/model/commdom"
 )
 
 // RetryableError представляет временную ошибку, которую можно повторить
@@ -53,17 +55,7 @@ func (e *NonCriticalError) Unwrap() error {
 
 // ProviderLimitError представляет ошибку превышения лимита/квоты/подписки AI-провайдера
 // (429 Too Many Requests, rate limit exceeded, quota exceeded, billing errors и т.п.)
-type ProviderLimitError struct {
-	Err error
-}
-
-func (e *ProviderLimitError) Error() string {
-	return e.Err.Error()
-}
-
-func (e *ProviderLimitError) Unwrap() error {
-	return e.Err
-}
+type ProviderLimitError = comerrors.ProviderLimitError
 
 // IsFatalError проверяет, является ли ошибка критической
 func IsFatalError(err error) bool {
@@ -80,7 +72,7 @@ func IsNonCriticalError(err error) bool {
 // IsProviderLimitError проверяет, является ли ошибка лимитной ошибкой AI-провайдера
 func IsProviderLimitError(err error) bool {
 	var limitErr *ProviderLimitError
-	return errors.As(err, &limitErr)
+	return errors.As(err, &limitErr) || isProviderLimitError(err)
 }
 
 // isProviderLimitError проверяет, связана ли ошибка с превышением лимита/квоты/подписки AI-провайдера
@@ -92,6 +84,11 @@ func isProviderLimitError(err error) bool {
 	errStr := strings.ToLower(err.Error())
 	limitPatterns := []string{
 		"429 too many requests",
+		"status 429",
+		"http 429",
+		"error 429",
+		"статус 429",
+		"http статус 429",
 		"rate limit",
 		"rate_limit",
 		"quota exceeded",
@@ -106,6 +103,19 @@ func isProviderLimitError(err error) bool {
 	}
 	for _, pattern := range limitPatterns {
 		if strings.Contains(errStr, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+func isProviderResponseError(err error) bool {
+	if err == nil {
+		return false
+	}
+	text := strings.ToLower(err.Error())
+	for _, pattern := range []string{"status 400", "status 401", "status 403", "status 408", "status 429", "status 500", "status 502", "status 503", "status 504", "http 400", "http 401", "http 403", "http 408", "http 429", "http 500", "http 502", "http 503", "http 504", "invalid api key", "unauthorized", "forbidden", "timeout", "safety", "content policy", "rate limit", "quota", "billing"} {
+		if strings.Contains(text, pattern) {
 			return true
 		}
 	}
@@ -160,7 +170,7 @@ func isRetryableErrorPattern(err error) bool {
 }
 
 // AskWithRetry выполняет запрос к модели с retry-логикой
-func (s *Start) AskWithRetry(userID uint32, respId, dialogID uint64, arrAsk []string, files ...model.FileUpload) (model.AssistResponse, error) {
+func (s *Start) AskWithRetry(userID uint32, provider commdom.ProviderType, respId, dialogID uint64, arrAsk []string, files ...model.FileUpload) (model.AssistResponse, error) {
 	var lastErr error
 
 	for attempt := 0; attempt < mode.RetryMaxAttempts; attempt++ {
@@ -173,9 +183,13 @@ func (s *Start) AskWithRetry(userID uint32, respId, dialogID uint64, arrAsk []st
 		lastErr = err
 
 		// Лимитная ошибка провайдера (429, rate limit, quota, billing) — немедленный возврат
-		if isProviderLimitError(err) {
+		if isProviderResponseError(err) {
 			//logger.Warn("Лимитная ошибка провайдера для диалога %d: %v", dialogID, err)
-			return response, &ProviderLimitError{Err: err}
+			return response, &ProviderLimitError{
+				Provider: provider,
+				Kind:     comerrors.ClassifyProviderError(0, err.Error()),
+				Message:  err.Error(),
+			}
 		}
 
 		// Критическая ошибка — немедленный возврат

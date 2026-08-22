@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ikermy/air_common/pkg/comerrors"
 	"github.com/ikermy/air_common/pkg/mode"
 	"github.com/ikermy/air_common/pkg/model/commdom"
 )
@@ -67,7 +68,7 @@ func generateOpenAIEmbedding(ctx context.Context, apiKey, text, model string, di
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка HTTP запроса: %w", err)
+		return nil, comerrors.NewProviderTransportError(commdom.ProviderOpenAI, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -78,7 +79,7 @@ func generateOpenAIEmbedding(ctx context.Context, apiKey, text, model string, di
 
 	if resp.StatusCode != http.StatusOK {
 		//logger.Error("generateOpenAIEmbedding: API вернул %d: %s", resp.StatusCode, string(responseBody))
-		return nil, fmt.Errorf("API вернул %d: %s", resp.StatusCode, string(responseBody))
+		return nil, comerrors.NewProviderError(commdom.ProviderOpenAI, resp.StatusCode, string(responseBody), nil)
 	}
 
 	var embedResp struct {
@@ -92,7 +93,7 @@ func generateOpenAIEmbedding(ctx context.Context, apiKey, text, model string, di
 	}
 
 	if len(embedResp.Data) == 0 || len(embedResp.Data[0].Embedding) == 0 {
-		return nil, fmt.Errorf("API вернул пустой эмбеддинг")
+		return nil, comerrors.NewProviderError(commdom.ProviderOpenAI, http.StatusBadGateway, "API вернул пустой эмбеддинг", nil)
 	}
 
 	//logger.Debug("generateOpenAIEmbedding: создан эмбеддинг размерности %d", len(embedResp.Data[0].Embedding))
@@ -219,7 +220,7 @@ func (c *OpenAIAgentClient) doRequest(ctx context.Context, method, path string, 
 	if resp.StatusCode >= 400 {
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
-		return nil, fmt.Errorf("OpenAI API error: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+		return nil, comerrors.NewProviderError(commdom.ProviderOpenAI, resp.StatusCode, string(bodyBytes), nil)
 	}
 
 	return resp, nil
@@ -287,7 +288,7 @@ func (c *OpenAIAgentClient) TranscribeAudio(ctx context.Context, audioData []byt
 
 	if resp.StatusCode >= 400 {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("OpenAI API error: HTTP %d: %s", resp.StatusCode, string(bodyBytes))
+		return "", comerrors.NewProviderError(commdom.ProviderOpenAI, resp.StatusCode, string(bodyBytes), nil)
 	}
 
 	var result struct {

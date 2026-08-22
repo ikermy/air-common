@@ -14,6 +14,7 @@ import (
 
 	"github.com/ikermy/air_common/pkg/com"
 	"github.com/ikermy/air_common/pkg/comdb"
+	"github.com/ikermy/air_common/pkg/comerrors"
 	"github.com/ikermy/air_common/pkg/mode"
 	"github.com/ikermy/air_common/pkg/model"
 	"github.com/ikermy/air_common/pkg/model/commdom"
@@ -233,7 +234,7 @@ func (m *Model) GetFileAsReader(_ uint32, url string) (io.Reader, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		_ = resp.Body.Close()
-		return nil, fmt.Errorf("ошибка HTTP при загрузке файла: статус %d", resp.StatusCode)
+		return nil, comerrors.NewProviderError(commdom.ProviderOpenAI, resp.StatusCode, "ошибка HTTP при загрузке файла", nil)
 	}
 
 	return resp.Body, nil

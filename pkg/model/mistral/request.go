@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ikermy/air_common/pkg/comerrors"
 	"github.com/ikermy/air_common/pkg/model"
 	"github.com/ikermy/air_common/pkg/model/commdom"
 	"github.com/ikermy/air_common/pkg/model/create"
@@ -1002,7 +1003,7 @@ func (m *Model) syncAgentTools(respModel *RespModel) error {
 
 	// Обновляем агент на стороне Mistral — теперь он знает об актуальных инструментах
 	if err := m.client.PatchAgent(respModel.Assist.AssistId, tools, respModel.Assist.UserID); err != nil {
-		return fmt.Errorf("PATCH agent вернул ошибку: %w", err)
+		return comerrors.NewProviderTransportError(commdom.ProviderMistral, err)
 	}
 
 	// Сбрасываем ConversationId: старая беседа была создана с прежней конфигурацией агента
