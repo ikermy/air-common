@@ -1,2 +1,2 @@
-v1.50.93
-chore: refactor error handling with comerrors package
+v1.50.94
+refactor: rename package from air_common to air-common and refactor comdb

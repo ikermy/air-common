@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ikermy/air_common/pkg/mode"
-	"github.com/ikermy/air_common/pkg/model"
+	"github.com/ikermy/air-common/pkg/mode"
+	"github.com/ikermy/air-common/pkg/model"
 	"github.com/r3labs/sse/v2"
 )
 

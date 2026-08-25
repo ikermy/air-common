@@ -8,9 +8,9 @@ import (
 	"sync/atomic"
 
 	"github.com/gorilla/websocket"
-	"github.com/ikermy/air_common/pkg/model"
-	"github.com/ikermy/air_common/pkg/model/commdom"
-	"github.com/ikermy/air_common/pkg/model/create"
+	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/pkg/model"
+	"github.com/ikermy/air-common/pkg/model/create"
 )
 
 // RealtimeEvent — алиас типа из пакета model для удобства внутри пакета openai
@@ -182,12 +182,12 @@ func (m *Model) StartRealtimeSession(userID uint32, dialogID, respId uint64) err
 		if loadErr != nil {
 			return fmt.Errorf("StartRealtimeSession: не удалось получить активную модель для respId=%d: %w", respId, loadErr)
 		}
-		if record == nil || record.Provider != commdom.ProviderOpenAI {
+		if record == nil || record.Provider != comdom.ProviderOpenAI {
 			return fmt.Errorf("StartRealtimeSession: активная модель OpenAI не найдена для userID=%d", userID)
 		}
 		if _, initErr := m.GetOrSetRespGPT(model.Assistant{
 			UserID:   userID,
-			Provider: commdom.ProviderOpenAI,
+			Provider: comdom.ProviderOpenAI,
 			AssistId: record.AssistId,
 		}, dialogID, respId, record.AssistId); initErr != nil {
 			return fmt.Errorf("StartRealtimeSession: инициализация RespModel для respId=%d: %w", respId, initErr)

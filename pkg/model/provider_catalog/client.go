@@ -9,9 +9,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/ikermy/air_common/pkg/comerrors"
-	"github.com/ikermy/air_common/pkg/mode"
-	"github.com/ikermy/air_common/pkg/model/commdom"
+	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/pkg/comerrors"
+	"github.com/ikermy/air-common/pkg/mode"
 )
 
 // Client fetches provider model lists from external provider APIs.
@@ -30,11 +30,11 @@ func NewClient() *Client {
 }
 
 type Syncer interface {
-	SyncProviderModels(union commdom.Union, modelNames []string) (commdom.ProviderModelsSyncResult, error)
+	SyncProviderModels(union comdom.Union, modelNames []string) (comdom.ProviderModelsSyncResult, error)
 }
 
-func SyncProviderModels(ctx context.Context, syncer Syncer, union commdom.Union, apiKey string) (commdom.ProviderModelsSyncResult, error) {
-	result := commdom.ProviderModelsSyncResult{Provider: union.Provider}
+func SyncProviderModels(ctx context.Context, syncer Syncer, union comdom.Union, apiKey string) (comdom.ProviderModelsSyncResult, error) {
+	result := comdom.ProviderModelsSyncResult{Provider: union.Provider}
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -57,7 +57,7 @@ func SyncProviderModels(ctx context.Context, syncer Syncer, union commdom.Union,
 // FetchModelNames получает актуальный список моделей провайдера из внешнего API.
 func (c *Client) FetchModelNames(
 	ctx context.Context,
-	union commdom.Union,
+	union comdom.Union,
 	apiKey string,
 ) ([]string, error) {
 	if ctx == nil {
@@ -77,7 +77,7 @@ func (c *Client) FetchModelNames(
 	}
 
 	switch union.Provider {
-	case commdom.ProviderOpenAI:
+	case comdom.ProviderOpenAI:
 		switch {
 		case union.ModelType.IsGeneral():
 			return client.generalOpenAIModels(ctx, apiKey)
@@ -86,7 +86,7 @@ func (c *Client) FetchModelNames(
 		default:
 			return client.fetchOpenAIModels(ctx, apiKey)
 		}
-	case commdom.ProviderMistral:
+	case comdom.ProviderMistral:
 		switch {
 		case union.ModelType.IsGeneral():
 			return client.generalMistralModels(ctx, apiKey)
@@ -95,7 +95,7 @@ func (c *Client) FetchModelNames(
 		default:
 			return client.fetchMistralModels(ctx, apiKey)
 		}
-	case commdom.ProviderGoogle:
+	case comdom.ProviderGoogle:
 		switch {
 		case union.ModelType.IsGeneral():
 			return client.generalGoogleModels(ctx, apiKey)
@@ -125,7 +125,7 @@ func (c *Client) FetchMistralVoiceModels(ctx context.Context, apiKey string) (st
 }
 
 func (c *Client) fetchOpenAIModels(ctx context.Context, apiKey string) ([]string, error) {
-	return c.fetchListModels(ctx, mode.OpenAIAgentsURL+"/models", apiKey, commdom.ProviderOpenAI, func(body []byte) ([]string, error) {
+	return c.fetchListModels(ctx, mode.OpenAIAgentsURL+"/models", apiKey, comdom.ProviderOpenAI, func(body []byte) ([]string, error) {
 		var payload struct {
 			Data []struct {
 				ID string `json:"id"`
@@ -252,7 +252,7 @@ func isGeneralGoogleModel(modelName string) bool {
 }
 
 func (c *Client) fetchMistralModels(ctx context.Context, apiKey string) ([]string, error) {
-	return c.fetchListModels(ctx, mode.MistralBaseURL+"/models", apiKey, commdom.ProviderMistral, func(body []byte) ([]string, error) {
+	return c.fetchListModels(ctx, mode.MistralBaseURL+"/models", apiKey, comdom.ProviderMistral, func(body []byte) ([]string, error) {
 		var payload struct {
 			Data []struct {
 				ID string `json:"id"`
@@ -372,7 +372,7 @@ func (c *Client) fetchGoogleModels(ctx context.Context, apiKey string) ([]string
 	q := u.Query()
 	q.Set("key", apiKey)
 	u.RawQuery = q.Encode()
-	return c.fetchListModels(ctx, u.String(), "", commdom.ProviderGoogle, func(body []byte) ([]string, error) {
+	return c.fetchListModels(ctx, u.String(), "", comdom.ProviderGoogle, func(body []byte) ([]string, error) {
 		var payload struct {
 			Models []struct {
 				Name string `json:"name"`
@@ -392,7 +392,7 @@ func (c *Client) fetchGoogleModels(ctx context.Context, apiKey string) ([]string
 	})
 }
 
-func (c *Client) fetchListModels(ctx context.Context, url, apiKey string, provider commdom.ProviderType, parser func([]byte) ([]string, error)) ([]string, error) {
+func (c *Client) fetchListModels(ctx context.Context, url, apiKey string, provider comdom.ProviderType, parser func([]byte) ([]string, error)) ([]string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ikermy/air_common/pkg/model/commdom"
+	"github.com/ikermy/air-common/pkg/comdom"
 )
 
 // ProviderErrorKind identifies the user-facing category of a provider error.
@@ -22,7 +22,7 @@ const (
 
 // ProviderError is the common error format for all AI providers.
 type ProviderError struct {
-	Provider   commdom.ProviderType
+	Provider   comdom.ProviderType
 	Kind       ProviderErrorKind
 	StatusCode int
 	Message    string
@@ -47,11 +47,11 @@ func (e *ProviderError) Unwrap() error {
 // ProviderLimitError is kept as a compatibility alias.
 type ProviderLimitError = ProviderError
 
-func NewProviderError(provider commdom.ProviderType, statusCode int, message string, err error) *ProviderError {
+func NewProviderError(provider comdom.ProviderType, statusCode int, message string, err error) *ProviderError {
 	return &ProviderError{Provider: provider, Kind: ClassifyProviderError(statusCode, message), StatusCode: statusCode, Message: message, Err: err}
 }
 
-func NewProviderTransportError(provider commdom.ProviderType, err error) *ProviderError {
+func NewProviderTransportError(provider comdom.ProviderType, err error) *ProviderError {
 	return &ProviderError{Provider: provider, Kind: ClassifyProviderError(0, err.Error()), Message: err.Error(), Err: err}
 }
 

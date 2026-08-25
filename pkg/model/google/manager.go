@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ikermy/air_common/pkg/model/commdom"
-	"github.com/ikermy/air_common/pkg/model/create"
+	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/pkg/model/create"
 )
 
 // CreateModel создаёт новую модель Google
-func (m *Model) CreateModel(userID uint32, provider commdom.ProviderType, modelData *commdom.UniversalModelData, fileIDs []commdom.Ids) (commdom.UMCR, error) {
+func (m *Model) CreateModel(userID uint32, provider comdom.ProviderType, modelData *comdom.UniversalModelData, fileIDs []comdom.Ids) (comdom.UMCR, error) {
 	// Создаем экземпляр universalModel для делегирования
 	modelsManager := &create.UniversalModel{}
 
@@ -22,7 +22,7 @@ func (m *Model) CreateModel(userID uint32, provider commdom.ProviderType, modelD
 
 // UploadDocumentWithEmbedding загружает документ и сохраняет эмбеддинг в MariaDB
 // Автоматически использует modelId активной Google модели пользователя
-func (m *Model) UploadDocumentWithEmbedding(userID uint32, docName, content string, metadata commdom.DocumentMetadata) (string, error) {
+func (m *Model) UploadDocumentWithEmbedding(userID uint32, docName, content string, metadata comdom.DocumentMetadata) (string, error) {
 	// Получаем modelId активной Google модели
 	modelId, err := m.getActiveModelId(userID)
 	if err != nil {
@@ -50,7 +50,7 @@ func (m *Model) UploadDocumentWithEmbedding(userID uint32, docName, content stri
 }
 
 // SearchSimilarDocuments ищет похожие документы по запросу через векторный поиск
-func (m *Model) SearchSimilarDocuments(userID uint32, query string, limit int) ([]commdom.VectorDocument, error) {
+func (m *Model) SearchSimilarDocuments(userID uint32, query string, limit int) ([]comdom.VectorDocument, error) {
 	// Получаем modelId активной Google модели
 	modelId, err := m.getActiveModelId(userID)
 	if err != nil {
@@ -67,7 +67,7 @@ func (m *Model) SearchSimilarDocuments(userID uint32, query string, limit int) (
 	if count == 0 {
 		// Нет эмбеддингов для поиска - возвращаем пустой массив без вызова API
 		//logger.Debug("SearchSimilarDocuments: нет эмбеддингов для modelId=%d, пропуск поиска", modelId)
-		return []commdom.VectorDocument{}, nil
+		return []comdom.VectorDocument{}, nil
 	}
 
 	//logger.Debug("SearchSimilarDocuments: найдено %d эмбеддингов для modelId=%d, выполняем поиск", count, modelId)
@@ -94,7 +94,7 @@ func (m *Model) DeleteDocument(userID uint32, docID string) error {
 }
 
 // ListUserDocuments возвращает список документов модели из БД
-func (m *Model) ListUserDocuments(userID uint32) ([]commdom.VectorDocument, error) {
+func (m *Model) ListUserDocuments(userID uint32) ([]comdom.VectorDocument, error) {
 	// Получаем modelId активной Google модели
 	modelId, err := m.getActiveModelId(userID)
 	if err != nil {
@@ -113,9 +113,9 @@ func (m *Model) getActiveModelId(userID uint32) (uint64, error) {
 	}
 
 	// Находим Google модель
-	var model *commdom.UserModelRecord
+	var model *comdom.UserModelRecord
 	for i := range allModels {
-		if allModels[i].Provider == commdom.ProviderGoogle {
+		if allModels[i].Provider == comdom.ProviderGoogle {
 			model = &allModels[i]
 			break
 		}

@@ -1,10 +1,10 @@
-# AiR_Common
+# air-common
 
-![AiR_Common](air_common_logo.png)
+![air-common](logo.png)
 
 [🇷🇺 Russian version](README.ru.md)
 
-`air_common` is a foundational Go library for the AI microservices of the `marusia_ai` project, created primarily for use by the internal microservices of the `air_` family.
+`air-common` is a foundational Go library for the AI microservices of the `marusia_ai` project, created primarily for use by the internal microservices of the `air_` family.
 
 ![Go version](https://img.shields.io/badge/Go-1.25.8-00ADD8?logo=go)
 ![License](https://img.shields.io/badge/license-MIT-blue)
@@ -12,7 +12,7 @@
 
 ## Related services
 
-- [air_common](https://github.com/ikermy/air_common) — shared library for AI microservices
+- [air-common](https://github.com/ikermy/air-common) — shared library for AI microservices
 - [air_orchestrator](https://github.com/ikermy/air_orchestrator) — main orchestration service
 - [air_tgbot](https://github.com/ikermy/air_tgbot) — Telegram bot operating in polling/webhook mode with delta streaming
 - [air_tguserbot](https://github.com/ikermy/air_tguserbot) — Telegram user bot that can receive and make voice calls
@@ -23,14 +23,14 @@
 - [air_lead-hunter](https://github.com/ikermy/air_lead-hunter) — service for bots to find leads in Telegram and WhatsApp, including outgoing voice calls
 - [air_payment](https://github.com/ikermy/air_payment) — service for receiving cryptocurrency payments from users through Bybit
 - [marusia_crm](https://github.com/ikermy/marusia_crm) — service for integrating with external CRM systems
-- [air_logger](https://github.com/ikermy/air_logger) — auxiliary event-logging service with multi-user support and Loki log collector support
+- [air-logger](https://github.com/ikermy/air-logger) — auxiliary event-logging service with multi-user support and Loki log collector support
 
 ## Installation
 
 Add the library to the service's Go module:
 
 ```bash
-go get github.com/ikermy/air_common
+go get github.com/ikermy/air-common
 ```
 
 ## Usage
@@ -43,7 +43,7 @@ package main
 import (
 	"context"
 
-	"github.com/ikermy/air_common/pkg/model"
+	"github.com/ikermy/air-common/pkg/model"
 )
 
 func main() {
@@ -104,7 +104,7 @@ air_ service
     +--> rpc / google_services / crypto
 ```
 
-`air_common` is not a standalone end-user application. Microservices use its packages and provide their own dependencies: a database, action handlers, key providers, and dialog persistence components.
+`air-common` is not a standalone end-user application. Microservices use its packages and provide their own dependencies: a database, action handlers, key providers, and dialog persistence components.
 
 ## Main packages
 

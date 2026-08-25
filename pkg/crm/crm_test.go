@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ikermy/air_common/pkg/mode"
+	"github.com/ikermy/air-common/pkg/mode"
 )
 
 func setCRMPort(port string) {

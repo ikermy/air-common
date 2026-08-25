@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ikermy/air_common/pkg/comerrors"
-	"github.com/ikermy/air_common/pkg/mode"
-	"github.com/ikermy/air_common/pkg/model/commdom"
+	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/pkg/comerrors"
+	"github.com/ikermy/air-common/pkg/mode"
 )
 
 // ============================================================================
@@ -68,7 +68,7 @@ func generateOpenAIEmbedding(ctx context.Context, apiKey, text, model string, di
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, comerrors.NewProviderTransportError(commdom.ProviderOpenAI, err)
+		return nil, comerrors.NewProviderTransportError(comdom.ProviderOpenAI, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -79,7 +79,7 @@ func generateOpenAIEmbedding(ctx context.Context, apiKey, text, model string, di
 
 	if resp.StatusCode != http.StatusOK {
 		//logger.Error("generateOpenAIEmbedding: API вернул %d: %s", resp.StatusCode, string(responseBody))
-		return nil, comerrors.NewProviderError(commdom.ProviderOpenAI, resp.StatusCode, string(responseBody), nil)
+		return nil, comerrors.NewProviderError(comdom.ProviderOpenAI, resp.StatusCode, string(responseBody), nil)
 	}
 
 	var embedResp struct {
@@ -93,7 +93,7 @@ func generateOpenAIEmbedding(ctx context.Context, apiKey, text, model string, di
 	}
 
 	if len(embedResp.Data) == 0 || len(embedResp.Data[0].Embedding) == 0 {
-		return nil, comerrors.NewProviderError(commdom.ProviderOpenAI, http.StatusBadGateway, "API вернул пустой эмбеддинг", nil)
+		return nil, comerrors.NewProviderError(comdom.ProviderOpenAI, http.StatusBadGateway, "API вернул пустой эмбеддинг", nil)
 	}
 
 	//logger.Debug("generateOpenAIEmbedding: создан эмбеддинг размерности %d", len(embedResp.Data[0].Embedding))
@@ -220,7 +220,7 @@ func (c *OpenAIAgentClient) doRequest(ctx context.Context, method, path string, 
 	if resp.StatusCode >= 400 {
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
-		return nil, comerrors.NewProviderError(commdom.ProviderOpenAI, resp.StatusCode, string(bodyBytes), nil)
+		return nil, comerrors.NewProviderError(comdom.ProviderOpenAI, resp.StatusCode, string(bodyBytes), nil)
 	}
 
 	return resp, nil
@@ -288,7 +288,7 @@ func (c *OpenAIAgentClient) TranscribeAudio(ctx context.Context, audioData []byt
 
 	if resp.StatusCode >= 400 {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return "", comerrors.NewProviderError(commdom.ProviderOpenAI, resp.StatusCode, string(bodyBytes), nil)
+		return "", comerrors.NewProviderError(comdom.ProviderOpenAI, resp.StatusCode, string(bodyBytes), nil)
 	}
 
 	var result struct {
@@ -941,7 +941,7 @@ func GenerateModelSchema(hasMetaAction bool, hasOperator bool) map[string]any {
 }
 
 // createModel Создаю новую модель OpenAI Assistant
-func (m *UniversalModel) createModel(_ uint32, modelData *commdom.UniversalModelData, _ []commdom.Ids) (commdom.UMCR, error) {
+func (m *UniversalModel) createModel(_ uint32, modelData *comdom.UniversalModelData, _ []comdom.Ids) (comdom.UMCR, error) {
 	// modelData уже распарсена и типизирована, используем напрямую
 
 	// НОВЫЙ ПОДХОД: Генерируем эмбеддинги локально вместо использования Vector Store API
@@ -967,21 +967,21 @@ func (m *UniversalModel) createModel(_ uint32, modelData *commdom.UniversalModel
 	//logger.Debug("Конфигурация OpenAI модели создана: model=%s, embeddings=local",
 	//	modelData.GptType.Name, userID)
 
-	return commdom.UMCR{
+	return comdom.UMCR{
 		AssistID: modelData.UseModelName.GptType.Name, // Просто имя модели (gpt-4o-mini и т.д.) фактически это легаси
 		AllIds:   allIds,                              // null - не используется для OpenAI с локальными эмбеддингами
-		Provider: commdom.ProviderOpenAI,
+		Provider: comdom.ProviderOpenAI,
 	}, nil
 }
 
 // deleteModel удаляет модель OpenAI и связанные ресурсы
-func (m *UniversalModel) deleteModel(_ uint32, modelRecord *commdom.UserModelRecord, _ bool, progressCallback func(string)) error {
+func (m *UniversalModel) deleteModel(_ uint32, modelRecord *comdom.UserModelRecord, _ bool, progressCallback func(string)) error {
 	if progressCallback != nil {
 		progressCallback("🔄 Удаление модели OpenAI...")
 	}
 
 	// Парсим VecIds из AllIds
-	var vecIds commdom.VecIds
+	var vecIds comdom.VecIds
 	if len(modelRecord.AllIds) > 0 {
 		if err := json.Unmarshal(modelRecord.AllIds, &vecIds); err != nil {
 			//logger.Warn("Ошибка парсинга VecIds: %v", err, userID)
@@ -1009,7 +1009,7 @@ func (m *UniversalModel) deleteModel(_ uint32, modelRecord *commdom.UserModelRec
 }
 
 // updateOpenAIModelInPlace обновляет OpenAI Assistant
-func (m *UniversalModel) updateOpenAIModelInPlace(userID uint32, _, updated *commdom.UniversalModelData) error {
+func (m *UniversalModel) updateOpenAIModelInPlace(userID uint32, _, updated *comdom.UniversalModelData) error {
 
 	// ВАЖНО: В новом подходе с Chat Completions API НЕ создаётся Assistant в OpenAI.
 	// AssistId в БД хранит имя модели (например "gpt-4o-mini"), а не ID ассистента.
@@ -1018,7 +1018,7 @@ func (m *UniversalModel) updateOpenAIModelInPlace(userID uint32, _, updated *com
 	// Поэтому обновление через ModifyAssistant НЕ требуется и было удалено.
 
 	// Получаем запись из БД для получения AssistId
-	record, err := m.db.GetModelByProviderAnyStatus(userID, commdom.ProviderOpenAI)
+	record, err := m.db.GetModelByProviderAnyStatus(userID, comdom.ProviderOpenAI)
 	if err != nil {
 		return fmt.Errorf("ошибка получения записи модели: %w", err)
 	}
@@ -1028,10 +1028,10 @@ func (m *UniversalModel) updateOpenAIModelInPlace(userID uint32, _, updated *com
 
 	// Для OpenAI с локальными эмбеддингами AllIds не используется
 	// Оставляем существующее значение из БД без изменений
-	umcr := commdom.UMCR{
+	umcr := comdom.UMCR{
 		AssistID: record.AssistId,
 		AllIds:   record.AllIds, // Сохраняем как было (для обратной совместимости)
-		Provider: commdom.ProviderOpenAI,
+		Provider: comdom.ProviderOpenAI,
 	}
 
 	// Сохраняем в БД

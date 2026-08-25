@@ -1,4 +1,4 @@
-package commdom
+package comdom
 
 type Ids struct {
 	Name string `json:"name"`

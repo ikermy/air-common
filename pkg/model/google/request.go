@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ikermy/air_common/pkg/comerrors"
-	"github.com/ikermy/air_common/pkg/model"
-	"github.com/ikermy/air_common/pkg/model/commdom"
-	"github.com/ikermy/air_common/pkg/model/create"
+	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/pkg/comerrors"
+	"github.com/ikermy/air-common/pkg/model"
+	"github.com/ikermy/air-common/pkg/model/create"
 )
 
 // DialogMessage представляет сообщение из истории диалога (формат БД)
@@ -195,7 +195,7 @@ func (m *Model) sendToGeminiAPI(modelName string, payload map[string]any, userID
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			return nil, comerrors.NewProviderTransportError(commdom.ProviderGoogle, err)
+			return nil, comerrors.NewProviderTransportError(comdom.ProviderGoogle, err)
 		}
 
 		responseBody, err := io.ReadAll(resp.Body)
@@ -241,7 +241,7 @@ func (m *Model) sendToGeminiAPI(modelName string, payload map[string]any, userID
 		}
 
 		// Другие ошибки или последняя попытка
-		return nil, comerrors.NewProviderError(commdom.ProviderGoogle, resp.StatusCode, string(responseBody), nil)
+		return nil, comerrors.NewProviderError(comdom.ProviderGoogle, resp.StatusCode, string(responseBody), nil)
 	}
 
 	return nil, fmt.Errorf("превышено количество попыток retry")
@@ -278,14 +278,14 @@ func (m *Model) sendToGeminiAPIStreaming(
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			return "", nil, nil, comerrors.NewProviderTransportError(commdom.ProviderGoogle, err)
+			return "", nil, nil, comerrors.NewProviderTransportError(comdom.ProviderGoogle, err)
 		}
 
 		if resp.StatusCode != http.StatusOK {
 			responseBody, err := io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
 			if err != nil {
-				return "", nil, nil, comerrors.NewProviderError(commdom.ProviderGoogle, resp.StatusCode, "ошибка чтения ответа", err)
+				return "", nil, nil, comerrors.NewProviderError(comdom.ProviderGoogle, resp.StatusCode, "ошибка чтения ответа", err)
 			}
 
 			// Обработка ошибки 429 (quota exceeded)
@@ -317,7 +317,7 @@ func (m *Model) sendToGeminiAPIStreaming(
 				continue
 			}
 
-			return "", nil, nil, comerrors.NewProviderError(commdom.ProviderGoogle, resp.StatusCode, string(responseBody), nil)
+			return "", nil, nil, comerrors.NewProviderError(comdom.ProviderGoogle, resp.StatusCode, string(responseBody), nil)
 		}
 
 		// Обрабатываем SSE поток в отдельной функции, чтобы defer корректно
@@ -490,7 +490,7 @@ func (m *Model) sendToGeminiAPIStreaming(
 // parseGeminiResponseWithFunctionHandling парсит ответ и обрабатывает function calls через multi-turn conversation
 // Если модель вызывает функцию без текста, отправляем результат обратно модели для продолжения
 func (m *Model) parseGeminiResponseWithFunctionHandling(responseBody []byte, history []GoogleContent,
-	payload map[string]any, modelName string, provider commdom.ProviderType, userID uint32) (model.AssistResponse, error) {
+	payload map[string]any, modelName string, provider comdom.ProviderType, userID uint32) (model.AssistResponse, error) {
 
 	var emptyResponse model.AssistResponse
 
@@ -687,7 +687,7 @@ func (m *Model) parseGeminiResponseWithFunctionHandling(responseBody []byte, his
 }
 
 // handleFunctionCall обрабатывает вызов функции от модели
-func (m *Model) handleFunctionCall(functionCall map[string]any, provider commdom.ProviderType, userID uint32) (map[string]any, error) {
+func (m *Model) handleFunctionCall(functionCall map[string]any, provider comdom.ProviderType, userID uint32) (map[string]any, error) {
 	functionName, ok := functionCall["name"].(string)
 	if !ok {
 		return nil, fmt.Errorf("function call не содержит имени")
@@ -724,7 +724,7 @@ func (m *Model) handleFunctionCall(functionCall map[string]any, provider commdom
 
 // processVideoGeneration автоматически генерирует видео если модель вызвала generate_video
 // или если в промпте агента включен флаг Video и обнаружены ключевые слова
-func (m *Model) processVideoGeneration(userID uint32, userText string, response model.AssistResponse, agentConfig *GoogleAgentConfig, provider commdom.ProviderType) (model.AssistResponse, error) {
+func (m *Model) processVideoGeneration(userID uint32, userText string, response model.AssistResponse, agentConfig *GoogleAgentConfig, provider comdom.ProviderType) (model.AssistResponse, error) {
 	// Проверяем включена ли генерация видео в конфигурации
 	if !m.isVideoEnabled(agentConfig) {
 		return response, nil
@@ -893,7 +893,7 @@ func getStringField(m map[string]any, key string) string {
 
 // processImageGeneration автоматически генерирует изображение если модель включила Image
 // и обнаружены ключевые слова в запросе пользователя
-func (m *Model) processImageGeneration(userID uint32, userText string, response model.AssistResponse, agentConfig *GoogleAgentConfig, provider commdom.ProviderType) (model.AssistResponse, error) {
+func (m *Model) processImageGeneration(userID uint32, userText string, response model.AssistResponse, agentConfig *GoogleAgentConfig, provider comdom.ProviderType) (model.AssistResponse, error) {
 	// Проверяем включена ли генерация изображений в конфигурации
 	if !agentConfig.Image {
 		return response, nil

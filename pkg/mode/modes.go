@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/ikermy/air_common/pkg/com"
+	"github.com/ikermy/air-common/pkg/com"
 )
 
 func SetTextMode(enabled bool) {

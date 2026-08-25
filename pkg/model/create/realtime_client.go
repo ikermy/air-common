@@ -6,8 +6,8 @@ import (
 	"net/url"
 
 	"github.com/gorilla/websocket"
-	"github.com/ikermy/air_common/pkg/comerrors"
-	"github.com/ikermy/air_common/pkg/model/commdom"
+	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/pkg/comerrors"
 )
 
 // ============================================================================
@@ -45,9 +45,9 @@ func DialGoogleRealtimeSession(apiKey string) (*websocket.Conn, error) {
 	conn, resp, err := dialer.Dial(RealtimeGoogleURL, headers)
 	if err != nil {
 		if resp != nil {
-			return nil, comerrors.NewProviderError(commdom.ProviderGoogle, resp.StatusCode, "ошибка подключения к realtime API", err)
+			return nil, comerrors.NewProviderError(comdom.ProviderGoogle, resp.StatusCode, "ошибка подключения к realtime API", err)
 		}
-		return nil, comerrors.NewProviderTransportError(commdom.ProviderGoogle, err)
+		return nil, comerrors.NewProviderTransportError(comdom.ProviderGoogle, err)
 	}
 
 	return conn, nil
@@ -77,9 +77,9 @@ func DialRealtimeSession(apiKey, model string) (*websocket.Conn, error) {
 	conn, resp, err := dialer.Dial(baseURL.String(), headers)
 	if err != nil {
 		if resp != nil {
-			return nil, comerrors.NewProviderError(commdom.ProviderOpenAI, resp.StatusCode, "ошибка подключения к realtime API", err)
+			return nil, comerrors.NewProviderError(comdom.ProviderOpenAI, resp.StatusCode, "ошибка подключения к realtime API", err)
 		}
-		return nil, comerrors.NewProviderTransportError(commdom.ProviderOpenAI, err)
+		return nil, comerrors.NewProviderTransportError(comdom.ProviderOpenAI, err)
 	}
 
 	return conn, nil

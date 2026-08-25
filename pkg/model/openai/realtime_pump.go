@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/ikermy/air_common/pkg/comdb"
-	"github.com/ikermy/air_common/pkg/model"
+	"github.com/ikermy/air-common/pkg/comdb"
+	"github.com/ikermy/air-common/pkg/model"
 )
 
 // ============================================================================

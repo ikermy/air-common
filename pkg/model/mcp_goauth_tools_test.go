@@ -3,7 +3,7 @@ package model_test
 // mcp_goauth_tools_test.go — тесты, проверяющие что Calendar/Sheets инструменты
 // приходят исключительно от MCP сервера (tools/list), а НЕ хардкодятся на стороне клиента.
 //
-// Контекст: до рефакторинга (2026-05-15) AiR_Common хардкодил:
+// Контекст: до рефакторинга (2026-05-15) air-common хардкодил:
 //   - определение hasCalendar / hasSheets путём сканирования tools по имени функции
 //   - добавление "GOOGLE CALENDAR ACCESS ENABLED!" / "GOOGLE SHEETS ACCESS ENABLED" в промпт
 //   - модификацию system_instruction при HasSheets=true
@@ -107,7 +107,7 @@ func TestMCP_GOAuth_GoogleProviderToolsFromMCP(t *testing.T) {
 // ============================================================================
 // TestMCP_GOAuth_SystemPromptNoHardcodedCalendarSheets
 // Проверяет что system prompt hint НЕ содержит hardcoded Calendar/Sheets сообщений.
-// До рефакторинга AiR_Common добавлял:
+// До рефакторинга air-common добавлял:
 //   "GOOGLE CALENDAR ACCESS ENABLED!"
 //   "GOOGLE SHEETS ACCESS ENABLED"
 // в JSONreminder и system_instruction. Теперь это запрещено.
@@ -312,7 +312,7 @@ func TestMCP_GOAuth_ToolsPerProviderSummary(t *testing.T) {
 	}
 
 	t.Log("=== MCP tools/list по провайдерам (uid=23) ===")
-	t.Log("Инструменты определяются ТОЛЬКО MCP сервером — не клиентом AiR_Common")
+	t.Log("Инструменты определяются ТОЛЬКО MCP сервером — не клиентом air-common")
 	for _, s := range summaries {
 		t.Logf("%-10s (%s): %v", s.provider, s.session, s.tools)
 	}

@@ -1,17 +1,17 @@
-# AiR_Common
+# air-common
 
-![AiR_Common](air_common_logo.png)
+![air-common](logo.png)
 
 [🇬🇧 English version](README.md)
 
-`air_common` — базовая Go-библиотека для AI-микросервисов проекта `marusia_ai`, созданная в первую очередь для использования во внутренних микросервисах семейства `air_`.
+`air-common` — базовая Go-библиотека для AI-микросервисов проекта `marusia_ai`, созданная в первую очередь для использования во внутренних микросервисах семейства `air_`.
 
 ![Go version](https://img.shields.io/badge/Go-1.25.8-00ADD8?logo=go)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 [![Telegram](https://img.shields.io/badge/Telegram-Join%20Chat-blue?logo=telegram)](https://t.me/marusia_dev)
 
 ## Связанные сервисы
-- [air_common](https://github.com/ikermy/air_common) — общая библиотека для AI‑микросервисов
+- [air-common](https://github.com/ikermy/air-common) — общая библиотека для AI‑микросервисов
 - [air_orchestrator](https://github.com/ikermy/air_orchestrator) — главный сервис оркестратор
 - [air_tgbot](https://github.com/ikermy/air_tgbot) — Telegram Bot работа в режиме polling/webhook с возможностью стриминга дельт
 - [air_tguserbot](https://github.com/ikermy/air_tguserbot) — Telegram пользовательский бот с возможностью принимать и совершать голосовые звонки
@@ -22,14 +22,14 @@
 - [air_lead-hunter](https://github.com/ikermy/air_lead-hunter) — Сервис поиска лидов ботами в Telegram и WhatsApp, в том числе с исходязими голосовыми вызовами
 - [air_payment](https://github.com/ikermy/air_payment) — Сервис приёма криптоплатежей от пользователей через Bybit
 - [marusia_crm](https://github.com/ikermy/marusia_crm) — Сервис интеграции с внешними CRM системами
-- [air_logger](https://github.com/ikermy/air_logger) — Вспомогательный сервис логирования событий с поддержкой многопользовательского режима и поддержкой сборщика логов loki
+- [air-logger](https://github.com/ikermy/air-logger) — Вспомогательный сервис логирования событий с поддержкой многопользовательского режима и поддержкой сборщика логов loki
 
 ## Установка
 
 Добавьте библиотеку в Go-модуль сервиса:
 
 ```bash
-go get github.com/ikermy/air_common
+go get github.com/ikermy/air-common
 ```
 
 ## Использование
@@ -42,7 +42,7 @@ package main
 import (
 	"context"
 
-	"github.com/ikermy/air_common/pkg/model"
+	"github.com/ikermy/air-common/pkg/model"
 )
 
 func main() {
@@ -105,7 +105,7 @@ air_-сервис
     +--> rpc / google_services / crypto
 ```
 
-`air_common` не является самостоятельным конечным приложением. Микросервисы используют её пакеты, передавая собственные зависимости: базу данных, обработчики действий, провайдеры ключей и компоненты сохранения диалогов.
+`air-common` не является самостоятельным конечным приложением. Микросервисы используют её пакеты, передавая собственные зависимости: базу данных, обработчики действий, провайдеры ключей и компоненты сохранения диалогов.
 
 ## Основные пакеты
 

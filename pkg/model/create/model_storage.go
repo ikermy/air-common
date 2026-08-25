@@ -4,15 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ikermy/air_common/pkg/model/commdom"
+	"github.com/ikermy/air-common/pkg/comdom"
 )
 
 // ReadModel получает модель из БД в универсальном формате
 // Если provider != nil - получает модель конкретного провайдера
 // Если provider == nil - получает активную модель пользователя
 // Работает для любого провайдера (OpenAI, Mistral...)
-func (m *UniversalModel) ReadModel(userID uint32, provider *commdom.ProviderType) (*commdom.UniversalModelData, error) {
-	var record *commdom.UserModelRecord
+func (m *UniversalModel) ReadModel(userID uint32, provider *comdom.ProviderType) (*comdom.UniversalModelData, error) {
+	var record *comdom.UserModelRecord
 	var err error
 
 	// Если провайдер не указан - получаем активную модель
@@ -56,7 +56,7 @@ func (m *UniversalModel) ReadModel(userID uint32, provider *commdom.ProviderType
 
 	// Устанавливаем провайдера и AssistantId из БД
 	modelData.Provider = record.Provider
-	modelData.UseModelName = &commdom.UseModelName{GptType: record.GptType, Realtime: record.Realtime}
+	modelData.UseModelName = &comdom.UseModelName{GptType: record.GptType, Realtime: record.Realtime}
 
 	//logger.Debug("Модель успешно загружена (Provider: %s, Name: %s, IsActive: %v)",
 	//	modelData.Provider, modelData.Name, record.IsActive, userID)
@@ -90,7 +90,7 @@ func (m *UniversalModel) GetModelAsJSON(userID uint32) (json.RawMessage, error) 
 // работает для любого провайдера (OpenAI, Mistral)
 // Если удаляется активная модель и есть другие модели - автоматически переключает активную
 // progressCallback - функция для отправки статуса через WebSocket (с эмодзи)
-func (m *UniversalModel) DeleteModel(userID uint32, provider commdom.ProviderType, deleteFiles bool, progressCallback func(string)) error {
+func (m *UniversalModel) DeleteModel(userID uint32, provider comdom.ProviderType, deleteFiles bool, progressCallback func(string)) error {
 	if progressCallback != nil {
 		progressCallback("🔄 Получение информации о модели пользователя...")
 	}
@@ -102,7 +102,7 @@ func (m *UniversalModel) DeleteModel(userID uint32, provider commdom.ProviderTyp
 	}
 
 	// Находим модель с нужным провайдером
-	var modelRecord *commdom.UserModelRecord
+	var modelRecord *comdom.UserModelRecord
 	for i := range allModels {
 		if allModels[i].Provider == provider {
 			modelRecord = &allModels[i]
@@ -116,19 +116,19 @@ func (m *UniversalModel) DeleteModel(userID uint32, provider commdom.ProviderTyp
 
 	// В зависимости от провайдера удаляем модель
 	switch modelRecord.Provider {
-	case commdom.ProviderOpenAI:
+	case comdom.ProviderOpenAI:
 		err = m.deleteModel(userID, modelRecord, deleteFiles, progressCallback)
 		if err != nil {
 			return err
 		}
 
-	case commdom.ProviderMistral:
+	case comdom.ProviderMistral:
 		err = m.deleteMistralModel(userID, modelRecord, deleteFiles, progressCallback)
 		if err != nil {
 			return err
 		}
 
-	case commdom.ProviderGoogle:
+	case comdom.ProviderGoogle:
 		err = m.deleteGoogleModel(userID, modelRecord, deleteFiles, progressCallback)
 		if err != nil {
 			return err
@@ -178,7 +178,7 @@ func (m *UniversalModel) DeleteModel(userID uint32, provider commdom.ProviderTyp
 
 // UpdateModelToDB обновляет существующую модель (только БД, без обновления в API провайдера)
 // Используйте UpdateModelEveryWhere для полного обновления
-func (m *UniversalModel) UpdateModelToDB(userID uint32, data *commdom.UniversalModelData) error {
+func (m *UniversalModel) UpdateModelToDB(userID uint32, data *comdom.UniversalModelData) error {
 	// Проверяем существование модели
 	provider := data.Provider
 	existing, err := m.ReadModel(userID, &provider)
@@ -196,7 +196,7 @@ func (m *UniversalModel) UpdateModelToDB(userID uint32, data *commdom.UniversalM
 		return fmt.Errorf("ошибка получения моделей пользователя: %w", err)
 	}
 
-	var existingModelData *commdom.UserModelRecord
+	var existingModelData *comdom.UserModelRecord
 	for i := range allModels {
 		if allModels[i].Provider == provider {
 			existingModelData = &allModels[i]
@@ -215,7 +215,7 @@ func (m *UniversalModel) UpdateModelToDB(userID uint32, data *commdom.UniversalM
 	}
 
 	// Сохраняем обновленные данные
-	return m.SaveModel(userID, commdom.UMCR{
+	return m.SaveModel(userID, comdom.UMCR{
 		AssistID: existingModelData.AssistId,
 		AllIds:   vecIdsJSON,
 		Provider: data.Provider,
@@ -226,7 +226,7 @@ func (m *UniversalModel) UpdateModelToDB(userID uint32, data *commdom.UniversalM
 // - Обновляет модель в API провайдера (OpenAI Assistant или Mistral Agent)
 // - Управляет файлами и векторными хранилищами
 // - Сохраняет изменения в БД
-func (m *UniversalModel) UpdateModelEveryWhere(userID uint32, data *commdom.UniversalModelData) error {
+func (m *UniversalModel) UpdateModelEveryWhere(userID uint32, data *comdom.UniversalModelData) error {
 	// Получаем текущую модель (любого статуса активности)
 	provider := data.Provider
 	record, err := m.db.GetModelByProviderAnyStatus(userID, provider)
@@ -255,7 +255,7 @@ func (m *UniversalModel) UpdateModelEveryWhere(userID uint32, data *commdom.Univ
 
 	// Устанавливаем провайдера из БД (он не хранится в Data)
 	existing.Provider = provider
-	existing.UseModelName = &commdom.UseModelName{GptType: record.GptType, Realtime: record.Realtime}
+	existing.UseModelName = &comdom.UseModelName{GptType: record.GptType, Realtime: record.Realtime}
 
 	// Проверяем, что провайдер не изменился
 	if data.Provider != existing.Provider {
@@ -264,13 +264,13 @@ func (m *UniversalModel) UpdateModelEveryWhere(userID uint32, data *commdom.Univ
 
 	// Обновляем в зависимости от провайдера
 	switch data.Provider {
-	case commdom.ProviderOpenAI:
+	case comdom.ProviderOpenAI:
 		return m.updateOpenAIModelInPlace(userID, existing, data)
 
-	case commdom.ProviderMistral:
+	case comdom.ProviderMistral:
 		return m.updateMistralModelInPlace(userID, existing, data)
 
-	case commdom.ProviderGoogle:
+	case comdom.ProviderGoogle:
 		return m.updateGoogleModelInPlace(userID, existing, data)
 
 	default:
@@ -283,17 +283,17 @@ func (m *UniversalModel) UpdateModelEveryWhere(userID uint32, data *commdom.Univ
 // ============================================================================
 
 // GetUserModels получает все модели пользователя
-func (m *UniversalModel) GetUserModels(userID uint32) ([]commdom.UniversalModelData, error) {
+func (m *UniversalModel) GetUserModels(userID uint32) ([]comdom.UniversalModelData, error) {
 	records, err := m.db.GetAllUserModels(userID)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка получения моделей пользователя: %w", err)
 	}
 
 	if len(records) == 0 {
-		return []commdom.UniversalModelData{}, nil
+		return []comdom.UniversalModelData{}, nil
 	}
 
-	models := make([]commdom.UniversalModelData, 0, len(records))
+	models := make([]comdom.UniversalModelData, 0, len(records))
 	for _, record := range records {
 		// Читаем данные модели по провайдеру
 		compressedData, vecIds, err := m.db.ReadUserModelByProvider(userID, record.Provider)
@@ -316,7 +316,7 @@ func (m *UniversalModel) GetUserModels(userID uint32) ([]commdom.UniversalModelD
 
 		// Обновляем провайдера и AssistantId из БД
 		modelData.Provider = record.Provider
-		modelData.UseModelName = &commdom.UseModelName{GptType: record.GptType, Realtime: record.Realtime}
+		modelData.UseModelName = &comdom.UseModelName{GptType: record.GptType, Realtime: record.Realtime}
 		models = append(models, *modelData)
 	}
 
@@ -326,16 +326,16 @@ func (m *UniversalModel) GetUserModels(userID uint32) ([]commdom.UniversalModelD
 
 // GetAllUserModelsResponse получает все модели пользователя в формате для API
 // Возвращает объект с моделями по провайдерам и информацией об активной модели
-func (m *UniversalModel) GetAllUserModelsResponse(userID uint32) (*commdom.UserModelsResponse, error) {
+func (m *UniversalModel) GetAllUserModelsResponse(userID uint32) (*comdom.UserModelsResponse, error) {
 	records, err := m.db.GetAllUserModels(userID)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка получения моделей пользователя: %w", err)
 	}
-	response := &commdom.UserModelsResponse{
-		Models: make(map[string]*commdom.UniversalModelData),
+	response := &comdom.UserModelsResponse{
+		Models: make(map[string]*comdom.UniversalModelData),
 	}
 
-	var activeProvider commdom.ProviderType
+	var activeProvider comdom.ProviderType
 
 	for _, record := range records {
 		// Читаем данные модели по провайдеру
@@ -363,7 +363,7 @@ func (m *UniversalModel) GetAllUserModelsResponse(userID uint32) (*commdom.UserM
 		modelData.Provider = record.Provider
 		// Имена и ID моделей берём из каталогов моделей БД, а не из сжатого JSON.
 		// Это гарантирует актуальные значения после синхронизации каталогов.
-		modelData.UseModelName = &commdom.UseModelName{
+		modelData.UseModelName = &comdom.UseModelName{
 			GptType:  record.GptType,
 			Realtime: record.Realtime,
 		}
@@ -386,7 +386,7 @@ func (m *UniversalModel) GetAllUserModelsResponse(userID uint32) (*commdom.UserM
 }
 
 // GetActiveUserModel получает активную модель пользователя
-func (m *UniversalModel) GetActiveUserModel(userID uint32) (*commdom.UniversalModelData, error) {
+func (m *UniversalModel) GetActiveUserModel(userID uint32) (*comdom.UniversalModelData, error) {
 	record, err := m.db.GetActiveModel(userID)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка получения активной модели: %w", err)
@@ -414,7 +414,7 @@ func (m *UniversalModel) GetActiveUserModel(userID uint32) (*commdom.UniversalMo
 
 	// Устанавливаем провайдера и AssistantId из БД
 	modelData.Provider = record.Provider
-	modelData.UseModelName = &commdom.UseModelName{GptType: record.GptType, Realtime: record.Realtime}
+	modelData.UseModelName = &comdom.UseModelName{GptType: record.GptType, Realtime: record.Realtime}
 
 	//logger.Debug("Загружена активная модель (Provider: %s, Name: %s)",
 	//	modelData.Provider, modelData.Name, userID)
@@ -423,7 +423,7 @@ func (m *UniversalModel) GetActiveUserModel(userID uint32) (*commdom.UniversalMo
 }
 
 // GetUserModelByProvider получает модель пользователя по провайдеру
-func (m *UniversalModel) GetUserModelByProvider(userID uint32, provider commdom.ProviderType) (*commdom.UniversalModelData, error) {
+func (m *UniversalModel) GetUserModelByProvider(userID uint32, provider comdom.ProviderType) (*comdom.UniversalModelData, error) {
 	record, err := m.db.GetModelByProviderAnyStatus(userID, provider)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка получения модели по провайдеру %s: %w", provider, err)
@@ -451,7 +451,7 @@ func (m *UniversalModel) GetUserModelByProvider(userID uint32, provider commdom.
 
 	// Устанавливаем провайдера и AssistantId из БД
 	modelData.Provider = record.Provider
-	modelData.UseModelName = &commdom.UseModelName{GptType: record.GptType, Realtime: record.Realtime}
+	modelData.UseModelName = &comdom.UseModelName{GptType: record.GptType, Realtime: record.Realtime}
 
 	//logger.Debug("Загружена модель провайдера %s (ID: %d)",
 	//	provider, modelData.Provider, userID)
@@ -460,7 +460,7 @@ func (m *UniversalModel) GetUserModelByProvider(userID uint32, provider commdom.
 }
 
 // SetActiveModelByProvider переключает активную модель пользователя (в транзакции)
-func (m *UniversalModel) SetActiveModelByProvider(userID uint32, provider commdom.ProviderType) error {
+func (m *UniversalModel) SetActiveModelByProvider(userID uint32, provider comdom.ProviderType) error {
 	err := m.db.SetActiveModelByProvider(userID, provider)
 	if err != nil {
 		return fmt.Errorf("ошибка переключения активной модели: %w", err)

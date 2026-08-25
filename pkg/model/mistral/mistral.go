@@ -11,13 +11,13 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ikermy/air_common/pkg/comerrors"
-	"github.com/ikermy/air_common/pkg/mode"
-	"github.com/ikermy/air_common/pkg/model/commdom"
+	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/pkg/comerrors"
+	"github.com/ikermy/air-common/pkg/mode"
 )
 
 func providerError(statusCode int, message string, err error) error {
-	return comerrors.NewProviderError(commdom.ProviderMistral, statusCode, message, err)
+	return comerrors.NewProviderError(comdom.ProviderMistral, statusCode, message, err)
 }
 
 // MistralAgentClient - обертка для работы с агентами и обычными моделями

@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ikermy/air_common/pkg/com"
-	"github.com/ikermy/air_common/pkg/comdb"
-	"github.com/ikermy/air_common/pkg/crypto"
-	"github.com/ikermy/air_common/pkg/mode"
-	"github.com/ikermy/air_common/pkg/model/commdom"
+	"github.com/ikermy/air-common/pkg/com"
+	"github.com/ikermy/air-common/pkg/comdb"
+	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/pkg/crypto"
+	"github.com/ikermy/air-common/pkg/mode"
 )
 
 // MasterKeyProvider умеет получать пользовательский MasterKey от Landing-сервиса.
@@ -53,7 +53,7 @@ func WrapDBWithMasterKeyDecryption(ctx context.Context, db comdb.Exterior, mkPro
 //   - Ключ зашифрован $mk$ и mkProvider == nil → уведомление "reauth-userkey" + ErrMasterKeyUnavailable.
 //   - Ключ зашифрован $mk$ и GetUserMasterKey вернул ошибку (codes.Unavailable = ключ не в кэше,
 //     пользователь не входил с момента перезапуска Landing) → уведомление "reauth-userkey" + ErrMasterKeyUnavailable.
-func (d *masterKeyDecryptingDB) GetUserAPIKey(userID uint32, provider commdom.ProviderType) (string, error) {
+func (d *masterKeyDecryptingDB) GetUserAPIKey(userID uint32, provider comdom.ProviderType) (string, error) {
 	key, err := d.Exterior.GetUserAPIKey(userID, provider)
 	if err != nil {
 		return "", err

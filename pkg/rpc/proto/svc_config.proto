@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package svcpb;
 
-option go_package = "github.com/ikermy/AiR_Common/pkg/rpc/proto";
+option go_package = "github.com/ikermy/air-common/pkg/rpc/proto";
 
 // ConfigService — gRPC service for inter-service communication with Landing.
 // Authorization: metadata header "x-service-key" must contain the service key

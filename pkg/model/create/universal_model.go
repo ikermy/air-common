@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ikermy/air_common/pkg/mode"
-	"github.com/ikermy/air_common/pkg/model/commdom"
+	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/pkg/mode"
 )
 
 // New creates the provider-aware UniversalModel facade.
@@ -28,7 +28,7 @@ func New(ctx context.Context, db DB) *UniversalModel {
 		universalModel: m, // Передаем ссылку на universalModel
 	}
 	m.openaiClient.SetKeyResolver(func(userID uint32) string {
-		if key, err := db.GetUserAPIKey(userID, commdom.ProviderOpenAI); err == nil {
+		if key, err := db.GetUserAPIKey(userID, comdom.ProviderOpenAI); err == nil {
 			return key
 		}
 		return ""
@@ -42,7 +42,7 @@ func New(ctx context.Context, db DB) *UniversalModel {
 		universalModel: m,
 	}
 	m.mistralClient.SetKeyResolver(func(userID uint32) string {
-		if key, err := db.GetUserAPIKey(userID, commdom.ProviderMistral); err == nil {
+		if key, err := db.GetUserAPIKey(userID, comdom.ProviderMistral); err == nil {
 			return key
 		}
 		return ""
@@ -56,7 +56,7 @@ func New(ctx context.Context, db DB) *UniversalModel {
 		universalModel: m,
 	}
 	m.googleClient.SetKeyResolver(func(userID uint32) string {
-		if key, err := db.GetUserAPIKey(userID, commdom.ProviderGoogle); err == nil {
+		if key, err := db.GetUserAPIKey(userID, comdom.ProviderGoogle); err == nil {
 			return key
 		}
 		return ""
@@ -66,36 +66,36 @@ func New(ctx context.Context, db DB) *UniversalModel {
 }
 
 // CreateModel creates provider resources and returns the database references.
-func (m *UniversalModel) CreateModel(userID uint32, provider commdom.ProviderType, modelData *commdom.UniversalModelData, fileIDs []commdom.Ids) (commdom.UMCR, error) {
+func (m *UniversalModel) CreateModel(userID uint32, provider comdom.ProviderType, modelData *comdom.UniversalModelData, fileIDs []comdom.Ids) (comdom.UMCR, error) {
 	if modelData == nil {
-		return commdom.UMCR{}, fmt.Errorf("modelData не может быть nil")
+		return comdom.UMCR{}, fmt.Errorf("modelData не может быть nil")
 	}
 
 	if modelData.UseModelName == nil {
-		return commdom.UMCR{}, fmt.Errorf("modelData.UseModelName не может быть пустым")
+		return comdom.UMCR{}, fmt.Errorf("modelData.UseModelName не может быть пустым")
 	}
 
 	switch provider {
-	case commdom.ProviderOpenAI:
+	case comdom.ProviderOpenAI:
 		return m.createModel(userID, modelData, fileIDs)
-	case commdom.ProviderMistral:
+	case comdom.ProviderMistral:
 		return m.createMistralModel(userID, modelData, fileIDs)
-	case commdom.ProviderGoogle:
+	case comdom.ProviderGoogle:
 		return m.createGoogleModel(userID, modelData, fileIDs)
 	default:
-		return commdom.UMCR{}, fmt.Errorf("неизвестный провайдер: %s", provider)
+		return comdom.UMCR{}, fmt.Errorf("неизвестный провайдер: %s", provider)
 	}
 }
 
 // SaveModel сохраняет модель в БД в универсальном формате
 // Работает для любого провайдера (OpenAI, Mistral..)
 // Автоматически устанавливает модель как активную если это первая модель пользователя
-func (m *UniversalModel) SaveModel(userID uint32, umcr commdom.UMCR, data *commdom.UniversalModelData) error {
+func (m *UniversalModel) SaveModel(userID uint32, umcr comdom.UMCR, data *comdom.UniversalModelData) error {
 	if data == nil {
 		return fmt.Errorf("не указана модель провайдера")
 	}
 	if data.UseModelName == nil {
-		data.UseModelName = &commdom.UseModelName{}
+		data.UseModelName = &comdom.UseModelName{}
 	}
 
 	// При частичном обновлении клиент может прислать только часть UseModelName.
@@ -147,7 +147,7 @@ func (m *UniversalModel) SaveModel(userID uint32, umcr commdom.UMCR, data *commd
 		data.Name,
 		umcr.AssistID,
 		compressed,
-		commdom.DefaultProvidersModels{
+		comdom.DefaultProvidersModels{
 			GeneralModelID:  data.UseModelName.GptType.ID,
 			RealTimeModelID: realtimeModelID,
 		},

@@ -1,4 +1,4 @@
-package commdom
+package comdom
 
 type DefaultProvidersModels struct {
 	GeneralModelID    uint

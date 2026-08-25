@@ -3,7 +3,7 @@ package openai
 import (
 	"testing"
 
-	"github.com/ikermy/air_common/pkg/model"
+	"github.com/ikermy/air-common/pkg/model"
 )
 
 func TestUnmarshalAssistResponseJSONEncodedString(t *testing.T) {

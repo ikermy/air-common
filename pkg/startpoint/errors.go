@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ikermy/air_common/pkg/com"
-	"github.com/ikermy/air_common/pkg/comerrors"
-	"github.com/ikermy/air_common/pkg/mode"
-	"github.com/ikermy/air_common/pkg/model"
-	"github.com/ikermy/air_common/pkg/model/commdom"
+	"github.com/ikermy/air-common/pkg/com"
+	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/pkg/comerrors"
+	"github.com/ikermy/air-common/pkg/mode"
+	"github.com/ikermy/air-common/pkg/model"
 )
 
 // RetryableError представляет временную ошибку, которую можно повторить
@@ -170,7 +170,7 @@ func isRetryableErrorPattern(err error) bool {
 }
 
 // AskWithRetry выполняет запрос к модели с retry-логикой
-func (s *Start) AskWithRetry(userID uint32, provider commdom.ProviderType, respId, dialogID uint64, arrAsk []string, files ...model.FileUpload) (model.AssistResponse, error) {
+func (s *Start) AskWithRetry(userID uint32, provider comdom.ProviderType, respId, dialogID uint64, arrAsk []string, files ...model.FileUpload) (model.AssistResponse, error) {
 	var lastErr error
 
 	for attempt := 0; attempt < mode.RetryMaxAttempts; attempt++ {

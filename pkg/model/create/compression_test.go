@@ -3,26 +3,26 @@ package create
 import (
 	"testing"
 
-	"github.com/ikermy/air_common/pkg/model/commdom"
+	"github.com/ikermy/air-common/pkg/comdom"
 )
 
 func TestModelDataCompressionRoundTripPreservesRealtimeAndVectorIDs(t *testing.T) {
-	data := &commdom.UniversalModelData{
+	data := &comdom.UniversalModelData{
 		Name:         "mistral-voice",
-		Provider:     commdom.ProviderMistral,
+		Provider:     comdom.ProviderMistral,
 		Realtime:     true,
-		RealtimeVAD:  &commdom.RealtimeVAD{Mistral: &commdom.MistralRealtimeVAD{}},
-		UseModelName: &commdom.UseModelName{GptType: &commdom.GptType{ID: 11}, Realtime: &commdom.Realtime{ID: 12}},
+		RealtimeVAD:  &comdom.RealtimeVAD{Mistral: &comdom.MistralRealtimeVAD{}},
+		UseModelName: &comdom.UseModelName{GptType: &comdom.GptType{ID: 11}, Realtime: &comdom.Realtime{ID: 12}},
 	}
 	compressed, err := compressModelData(data)
 	if err != nil {
 		t.Fatal(err)
 	}
-	restored, err := decompressModelData(compressed, &commdom.VecIds{FileIds: []commdom.Ids{{ID: "file-1"}}, VectorId: []string{"vec-1"}})
+	restored, err := decompressModelData(compressed, &comdom.VecIds{FileIds: []comdom.Ids{{ID: "file-1"}}, VectorId: []string{"vec-1"}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if restored.Name != data.Name || restored.Provider != commdom.ProviderMistral || len(restored.FileIds) != 1 || len(restored.VecIds.VectorId) != 1 {
+	if restored.Name != data.Name || restored.Provider != comdom.ProviderMistral || len(restored.FileIds) != 1 || len(restored.VecIds.VectorId) != 1 {
 		t.Fatalf("unexpected restored model: %+v", restored)
 	}
 	if restored.RealtimeVAD.Mistral.SpeechFormat == nil {

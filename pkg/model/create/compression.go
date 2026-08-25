@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/ikermy/air_common/pkg/model/commdom"
+	"github.com/ikermy/air-common/pkg/comdom"
 )
 
-func compressModelData(data *commdom.UniversalModelData) ([]byte, error) {
+func compressModelData(data *comdom.UniversalModelData) ([]byte, error) {
 	modelJSON, err := json.Marshal(data)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка сериализации данных модели: %w", err)
@@ -27,11 +27,11 @@ func compressModelData(data *commdom.UniversalModelData) ([]byte, error) {
 }
 
 // Использовать вместо comdb.DecompressAndExtractMetadata
-func DecompressModelData(compressedData []byte) (*commdom.UniversalModelData, error) {
+func DecompressModelData(compressedData []byte) (*comdom.UniversalModelData, error) {
 	return decompressModelData(compressedData, nil)
 }
 
-func decompressModelData(compressedData []byte, vecIds *commdom.VecIds) (*commdom.UniversalModelData, error) {
+func decompressModelData(compressedData []byte, vecIds *comdom.VecIds) (*comdom.UniversalModelData, error) {
 	reader, err := gzip.NewReader(bytes.NewReader(compressedData))
 	if err != nil {
 		return nil, fmt.Errorf("ошибка распаковки данных модели: %w", err)
@@ -41,7 +41,7 @@ func decompressModelData(compressedData []byte, vecIds *commdom.VecIds) (*commdo
 	if err != nil {
 		return nil, fmt.Errorf("ошибка чтения распакованных данных: %w", err)
 	}
-	modelData := &commdom.UniversalModelData{}
+	modelData := &comdom.UniversalModelData{}
 	if err := json.Unmarshal(decompressed, modelData); err != nil {
 		return nil, fmt.Errorf("ошибка десериализации данных модели: %w", err)
 	}
@@ -66,6 +66,6 @@ func decompressModelData(compressedData []byte, vecIds *commdom.VecIds) (*commdo
 // После десериализации:
 //   - vecIds (FileIds и VectorId) переносятся из отдельного поля БД
 //   - RealtimeVAD получает дефолтные значения для nil-полей
-func (m *UniversalModel) DecompressModelData(compressedData []byte, vecIds *commdom.VecIds) (*commdom.UniversalModelData, error) {
+func (m *UniversalModel) DecompressModelData(compressedData []byte, vecIds *comdom.VecIds) (*comdom.UniversalModelData, error) {
 	return decompressModelData(compressedData, vecIds)
 }

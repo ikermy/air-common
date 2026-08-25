@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ikermy/air_common/pkg/comerrors"
-	"github.com/ikermy/air_common/pkg/model"
-	"github.com/ikermy/air_common/pkg/model/commdom"
-	"github.com/ikermy/air_common/pkg/model/create"
+	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/pkg/comerrors"
+	"github.com/ikermy/air-common/pkg/model"
+	"github.com/ikermy/air-common/pkg/model/create"
 )
 
 // createConversationInputs создаёт структуру inputs для Mistral Conversations API StartConversation
@@ -353,7 +353,7 @@ func (m *Model) Request(userID uint32, dialogID uint64, text string, files ...mo
 	} // Конец цикла обработки функций
 
 	if functionCallCount >= create.MaxFunctionCalls {
-		//logger.Warn("Достигнут лимит вызовов функций (%d), прерываем цепочку", commdom.MaxFunctionCalls, userID)
+		//logger.Warn("Достигнут лимит вызовов функций (%d), прерываем цепочку", comdom.MaxFunctionCalls, userID)
 	}
 
 	// Добавляем ответ ассистента в контекст только если он не пустой
@@ -374,7 +374,7 @@ func (m *Model) Request(userID uint32, dialogID uint64, text string, files ...mo
 }
 
 // processResponse обрабатывает ответ от Mistral
-func (m *Model) processResponse(response Response, userID uint32, provider commdom.ProviderType) model.AssistResponse {
+func (m *Model) processResponse(response Response, userID uint32, provider comdom.ProviderType) model.AssistResponse {
 	messageText := strings.TrimSpace(response.Message)
 
 	// СНАЧАЛА парсим JSON из ответа (если есть) чтобы получить красивые имена файлов
@@ -960,7 +960,7 @@ func (m *Model) syncAgentTools(respModel *RespModel) error {
 	var tools []map[string]any
 
 	// MCP function tools — основной источник runtime-инструментов
-	if mcpTools, err := mcpProvider.FetchToolsList(m.ctx, respModel.Assist.UserID, commdom.ProviderMistral); err == nil {
+	if mcpTools, err := mcpProvider.FetchToolsList(m.ctx, respModel.Assist.UserID, comdom.ProviderMistral); err == nil {
 		for _, t := range mcpTools {
 			tools = append(tools, map[string]any{
 				"type": "function",
@@ -975,7 +975,7 @@ func (m *Model) syncAgentTools(respModel *RespModel) error {
 
 	// Нативные built-in инструменты агента (code_interpreter, image_generation, web_search, document_library)
 	if m.universalModel != nil {
-		if compressedData, _, err := m.db.ReadUserModelByProvider(respModel.Assist.UserID, commdom.ProviderMistral); err == nil && compressedData != nil {
+		if compressedData, _, err := m.db.ReadUserModelByProvider(respModel.Assist.UserID, comdom.ProviderMistral); err == nil && compressedData != nil {
 			if modelData, err := m.universalModel.DecompressModelData(compressedData, nil); err == nil {
 				if modelData.Interpreter {
 					tools = append(tools, map[string]any{"type": "code_interpreter"})
@@ -1003,7 +1003,7 @@ func (m *Model) syncAgentTools(respModel *RespModel) error {
 
 	// Обновляем агент на стороне Mistral — теперь он знает об актуальных инструментах
 	if err := m.client.PatchAgent(respModel.Assist.AssistId, tools, respModel.Assist.UserID); err != nil {
-		return comerrors.NewProviderTransportError(commdom.ProviderMistral, err)
+		return comerrors.NewProviderTransportError(comdom.ProviderMistral, err)
 	}
 
 	// Сбрасываем ConversationId: старая беседа была создана с прежней конфигурацией агента

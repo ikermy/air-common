@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ikermy/air_common/pkg/model"
-	"github.com/ikermy/air_common/pkg/model/commdom"
-	"github.com/ikermy/air_common/pkg/model/create"
+	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/pkg/model"
+	"github.com/ikermy/air-common/pkg/model/create"
 )
 
 // applyRAG выполняет все тяжёлые подготовительные операции параллельно в фоновой горутине:
@@ -324,7 +324,7 @@ func (m *Model) RequestStreaming(userID uint32, dialogID uint64, text string, on
 			var result string
 			if m.actionHandler != nil {
 				//logger.Debug("[onToolCall] Вызываю action handler для функции '%s'...", functionName, userID)
-				result = m.actionHandler.RunAction(m.ctx, functionName, arguments, commdom.ProviderOpenAI, userID)
+				result = m.actionHandler.RunAction(m.ctx, functionName, arguments, comdom.ProviderOpenAI, userID)
 				//logger.Debug("✅ [onToolCall] Получен результат от action handler для '%s': %s",
 				//	functionName, result, userID)
 			} else {

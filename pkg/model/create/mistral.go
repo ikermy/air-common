@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/ikermy/air_common/pkg/comerrors"
-	"github.com/ikermy/air_common/pkg/mode"
-	"github.com/ikermy/air_common/pkg/model/commdom"
+	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/pkg/comerrors"
+	"github.com/ikermy/air-common/pkg/mode"
 )
 
 // MistralSchemaJSON - JSON Schema для структурированных ответов Mistral Agent
@@ -114,7 +114,7 @@ func (m *MistralAgentClient) HasAPIKey(userID uint32) bool {
 }
 
 // deleteMistralModel удаляет Mistral Agent (с поддержкой WS сообщений)
-func (m *UniversalModel) deleteMistralModel(userID uint32, modelData *commdom.UserModelRecord, deleteFiles bool, progressCallback func(string)) error {
+func (m *UniversalModel) deleteMistralModel(userID uint32, modelData *comdom.UserModelRecord, deleteFiles bool, progressCallback func(string)) error {
 	if progressCallback != nil {
 		progressCallback("🔄 Удаление Mistral агента...")
 	}
@@ -140,7 +140,7 @@ func (m *UniversalModel) deleteMistralModel(userID uint32, modelData *commdom.Us
 			}
 
 			// Получаем library_id из БД
-			provider := commdom.ProviderMistral
+			provider := comdom.ProviderMistral
 			modelJSON, err := m.ReadModel(userID, &provider)
 			if err != nil {
 				//logger.Error("Ошибка получения данных модели для удаления файлов: %v", err, userID)
@@ -199,7 +199,7 @@ func (m *MistralAgentClient) deleteAgent(userID uint32, agentID string) error {
 }
 
 // updateMistralModelInPlace обновляет Mistral Agent
-func (m *UniversalModel) updateMistralModelInPlace(userID uint32, existing, updated *commdom.UniversalModelData) error {
+func (m *UniversalModel) updateMistralModelInPlace(userID uint32, existing, updated *comdom.UniversalModelData) error {
 	if m.mistralClient == nil {
 		return fmt.Errorf("Mistral клиент не инициализирован")
 	}
@@ -213,7 +213,7 @@ func (m *UniversalModel) updateMistralModelInPlace(userID uint32, existing, upda
 		return fmt.Errorf("ошибка получения моделей пользователя: %w", err)
 	}
 
-	var existingModelData *commdom.UserModelRecord
+	var existingModelData *comdom.UserModelRecord
 	for i := range allModels {
 		if allModels[i].Provider == existing.Provider {
 			existingModelData = &allModels[i]
@@ -227,7 +227,7 @@ func (m *UniversalModel) updateMistralModelInPlace(userID uint32, existing, upda
 
 	// Проверяем, изменились ли файлы (аналогично OpenAI)
 	// Если файлы не изменились - используем существующие VectorId (library_ids)
-	if !slices.EqualFunc(existing.FileIds, updated.FileIds, func(a, b commdom.Ids) bool {
+	if !slices.EqualFunc(existing.FileIds, updated.FileIds, func(a, b comdom.Ids) bool {
 		return a.ID == b.ID && a.Name == b.Name
 	}) {
 		// Файлы изменились - библиотека уже обновлена, используем новые данные
@@ -266,32 +266,32 @@ func (m *UniversalModel) updateMistralModelInPlace(userID uint32, existing, upda
 }
 
 // createMistralModel создаёт Mistral Agent (внутренний метод)
-func (m *UniversalModel) createMistralModel(userID uint32, modelData *commdom.UniversalModelData, fileIDs []commdom.Ids) (commdom.UMCR, error) {
+func (m *UniversalModel) createMistralModel(userID uint32, modelData *comdom.UniversalModelData, fileIDs []comdom.Ids) (comdom.UMCR, error) {
 	if m.mistralClient == nil {
-		return commdom.UMCR{}, fmt.Errorf("mistral клиент не инициализирован")
+		return comdom.UMCR{}, fmt.Errorf("mistral клиент не инициализирован")
 	}
 
 	if modelData == nil {
-		return commdom.UMCR{}, fmt.Errorf("modelData не может быть nil")
+		return comdom.UMCR{}, fmt.Errorf("modelData не может быть nil")
 	}
 
 	if modelData.Prompt == "" {
-		return commdom.UMCR{}, fmt.Errorf("поле 'prompt' отсутствует или пустое")
+		return comdom.UMCR{}, fmt.Errorf("поле 'prompt' отсутствует или пустое")
 	}
 
 	// Создаём агента через Mistral API с поддержкой всех возможностей
 	umcr, err := m.mistralClient.createMistralAgent(modelData, userID, fileIDs)
 	if err != nil {
-		return commdom.UMCR{}, fmt.Errorf("ошибка создания Mistral агента: %w", err)
+		return comdom.UMCR{}, fmt.Errorf("ошибка создания Mistral агента: %w", err)
 	}
 
 	return umcr, nil
 }
 
 // createMistralAgent создает нового агента с указанными параметрами
-func (m *MistralAgentClient) createMistralAgent(modelData *commdom.UniversalModelData, userID uint32, fileIDs []commdom.Ids) (commdom.UMCR, error) {
+func (m *MistralAgentClient) createMistralAgent(modelData *comdom.UniversalModelData, userID uint32, fileIDs []comdom.Ids) (comdom.UMCR, error) {
 	if modelData == nil {
-		return commdom.UMCR{}, fmt.Errorf("modelData не может быть nil")
+		return comdom.UMCR{}, fmt.Errorf("modelData не может быть nil")
 	}
 
 	baseURL := mode.MistralAgentsBaseURL
@@ -306,7 +306,7 @@ func (m *MistralAgentClient) createMistralAgent(modelData *commdom.UniversalMode
 	enhancedPrompt := modelData.Prompt + "\n\n"
 
 	if m.promptFetcher != nil {
-		if hint, fetchErr := m.promptFetcher(m.ctx, userID, commdom.ProviderMistral); fetchErr == nil && hint != "" {
+		if hint, fetchErr := m.promptFetcher(m.ctx, userID, comdom.ProviderMistral); fetchErr == nil && hint != "" {
 			enhancedPrompt += hint + "\n\n"
 		}
 	}
@@ -359,7 +359,7 @@ func (m *MistralAgentClient) createMistralAgent(modelData *commdom.UniversalMode
 	var tools []map[string]any
 
 	if m.toolsFetcher != nil {
-		if mcpFunctions, fetchErr := m.toolsFetcher(m.ctx, userID, commdom.ProviderMistral); fetchErr == nil {
+		if mcpFunctions, fetchErr := m.toolsFetcher(m.ctx, userID, comdom.ProviderMistral); fetchErr == nil {
 			for _, f := range mcpFunctions {
 				tools = append(tools, map[string]any{
 					"type": "function",
@@ -400,12 +400,12 @@ func (m *MistralAgentClient) createMistralAgent(modelData *commdom.UniversalMode
 
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return commdom.UMCR{}, fmt.Errorf("ошибка сериализации запроса: %v", err)
+		return comdom.UMCR{}, fmt.Errorf("ошибка сериализации запроса: %v", err)
 	}
 
 	req, err := http.NewRequestWithContext(m.ctx, http.MethodPost, baseURL, bytes.NewBuffer(body))
 	if err != nil {
-		return commdom.UMCR{}, fmt.Errorf("ошибка создания POST запроса: %v", err)
+		return comdom.UMCR{}, fmt.Errorf("ошибка создания POST запроса: %v", err)
 	}
 
 	req.Header.Set("Authorization", "Bearer "+m.resolveKey(userID))
@@ -413,46 +413,46 @@ func (m *MistralAgentClient) createMistralAgent(modelData *commdom.UniversalMode
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return commdom.UMCR{}, comerrors.NewProviderTransportError(commdom.ProviderMistral, err)
+		return comdom.UMCR{}, comerrors.NewProviderTransportError(comdom.ProviderMistral, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return commdom.UMCR{}, fmt.Errorf("ошибка чтения ответа: %v", err)
+		return comdom.UMCR{}, fmt.Errorf("ошибка чтения ответа: %v", err)
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return commdom.UMCR{}, comerrors.NewProviderError(commdom.ProviderMistral, resp.StatusCode, string(responseBody), nil)
+		return comdom.UMCR{}, comerrors.NewProviderError(comdom.ProviderMistral, resp.StatusCode, string(responseBody), nil)
 	}
 
 	var response map[string]any
 	if err := json.Unmarshal(responseBody, &response); err != nil {
-		return commdom.UMCR{}, fmt.Errorf("ошибка парсинга JSON: %v", err)
+		return comdom.UMCR{}, fmt.Errorf("ошибка парсинга JSON: %v", err)
 	}
 
 	agentID, ok := response["id"].(string)
 	if !ok {
-		return commdom.UMCR{}, fmt.Errorf("не удалось получить ID созданного агента")
+		return comdom.UMCR{}, fmt.Errorf("не удалось получить ID созданного агента")
 	}
 
 	var allIds []byte
 	if len(fileIDs) > 0 || len(modelData.VecIds.VectorId) > 0 {
 		type VecIds struct {
-			FileIds  []commdom.Ids `json:"FileIds"`
-			VectorId []string      `json:"VectorId"`
+			FileIds  []comdom.Ids `json:"FileIds"`
+			VectorId []string     `json:"VectorId"`
 		}
 		vecIds := VecIds{FileIds: fileIDs, VectorId: modelData.VecIds.VectorId}
 		allIds, err = json.Marshal(vecIds)
 		if err != nil {
-			return commdom.UMCR{}, fmt.Errorf("ошибка при преобразовании vecIds в JSON: %w", err)
+			return comdom.UMCR{}, fmt.Errorf("ошибка при преобразовании vecIds в JSON: %w", err)
 		}
 	}
 
-	return commdom.UMCR{
+	return comdom.UMCR{
 		AssistID: agentID,
 		AllIds:   allIds,
-		Provider: commdom.ProviderMistral,
+		Provider: comdom.ProviderMistral,
 	}, nil
 }
 
@@ -488,7 +488,7 @@ func (m *MistralAgentClient) executeMistralRequest(method, url string, body []by
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, comerrors.NewProviderTransportError(commdom.ProviderMistral, err)
+		return nil, comerrors.NewProviderTransportError(comdom.ProviderMistral, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -512,7 +512,7 @@ func (m *MistralAgentClient) executeMistralRequest(method, url string, body []by
 	}
 
 	if !isSuccess {
-		return nil, comerrors.NewProviderError(commdom.ProviderMistral, resp.StatusCode, string(responseBody), nil)
+		return nil, comerrors.NewProviderError(comdom.ProviderMistral, resp.StatusCode, string(responseBody), nil)
 	}
 
 	return responseBody, nil

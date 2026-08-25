@@ -1,8 +1,8 @@
 package openai
 
 import (
-	"github.com/ikermy/air_common/pkg/model/commdom"
-	"github.com/ikermy/air_common/pkg/model/create"
+	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/pkg/model/create"
 )
 
 // ============================================================================
@@ -16,7 +16,7 @@ import (
 // Использует модель text-embedding-3-small (512 dimensions)
 // Возвращает []float32 с эмбеддингом или ошибку
 //
-// ПРИМЕЧАНИЕ: Использует функцию commdom.GenerateOpenAIEmbedding() из пакета create
+// ПРИМЕЧАНИЕ: Использует функцию comdom.GenerateOpenAIEmbedding() из пакета create
 // для избежания дублирования кода с OpenAIAgentClient.GenerateEmbedding()
 //
 // Используется внутри UploadDocumentWithEmbedding, SearchSimilarDocuments и других публичных методов OpenAIModel
@@ -32,14 +32,14 @@ func (m *Model) deleteDocument(modelId uint64, docID string) error {
 	return m.db.DeleteEmbedding(modelId, docID)
 }
 
-func (m *Model) listModelDocuments(modelId uint64) ([]commdom.VectorDocument, error) {
-	return m.db.ListModelEmbeddings(modelId, commdom.ProviderOpenAI)
+func (m *Model) listModelDocuments(modelId uint64) ([]comdom.VectorDocument, error) {
+	return m.db.ListModelEmbeddings(modelId, comdom.ProviderOpenAI)
 }
 
-func (m *Model) searchSimilarEmbeddings(modelId uint64, queryEmbedding []float32, limit int) ([]commdom.VectorDocument, error) {
-	return m.db.SearchSimilarEmbeddings(modelId, commdom.ProviderOpenAI, queryEmbedding, limit)
+func (m *Model) searchSimilarEmbeddings(modelId uint64, queryEmbedding []float32, limit int) ([]comdom.VectorDocument, error) {
+	return m.db.SearchSimilarEmbeddings(modelId, comdom.ProviderOpenAI, queryEmbedding, limit)
 }
 
-func (m *Model) saveEmbedding(userID uint32, modelId uint64, docID, docName, content string, embedding []float32, metadata commdom.DocumentMetadata) error {
-	return m.db.SaveEmbedding(userID, modelId, commdom.ProviderOpenAI, docID, docName, content, embedding, metadata)
+func (m *Model) saveEmbedding(userID uint32, modelId uint64, docID, docName, content string, embedding []float32, metadata comdom.DocumentMetadata) error {
+	return m.db.SaveEmbedding(userID, modelId, comdom.ProviderOpenAI, docID, docName, content, embedding, metadata)
 }

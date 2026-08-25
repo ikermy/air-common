@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ikermy/air_common/pkg/comerrors"
-	"github.com/ikermy/air_common/pkg/model/commdom"
-	"github.com/ikermy/air_common/pkg/model/create"
+	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/pkg/comerrors"
+	"github.com/ikermy/air-common/pkg/model/create"
 )
 
 // DeleteTempFile ============================================================================
@@ -55,7 +55,7 @@ func (m *Model) GetFileAsReader(_ uint32, url string) (io.Reader, error) {
 	}
 	if resp.StatusCode != http.StatusOK {
 		_ = resp.Body.Close()
-		return nil, comerrors.NewProviderError(commdom.ProviderGoogle, resp.StatusCode, "ошибка HTTP", nil)
+		return nil, comerrors.NewProviderError(comdom.ProviderGoogle, resp.StatusCode, "ошибка HTTP", nil)
 	}
 	return resp.Body, nil
 }
@@ -71,13 +71,13 @@ func (m *Model) downloadFileFromGoogle(fileURI string) ([]byte, error) {
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, comerrors.NewProviderTransportError(commdom.ProviderGoogle, err)
+		return nil, comerrors.NewProviderTransportError(comdom.ProviderGoogle, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		responseBody, _ := io.ReadAll(resp.Body)
-		return nil, comerrors.NewProviderError(commdom.ProviderGoogle, resp.StatusCode, string(responseBody), nil)
+		return nil, comerrors.NewProviderError(comdom.ProviderGoogle, resp.StatusCode, string(responseBody), nil)
 	}
 	content, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -96,7 +96,7 @@ func (m *Model) downloadFileFromGoogle(fileURI string) ([]byte, error) {
 // Возвращает []float32 с эмбеддингом или ошибку
 //
 // ОПТИМИЗАЦИЯ: Использует кэш для избежания повторных API вызовов (TTL 5 минут)
-// ПРИМЕЧАНИЕ: Использует функцию commdom.GenerateGoogleEmbedding() из пакета create
+// ПРИМЕЧАНИЕ: Использует функцию comdom.GenerateGoogleEmbedding() из пакета create
 // для избежания дублирования кода с GoogleAgentClient.GenerateEmbedding()
 //
 // Используется внутри UploadDocumentWithEmbedding, SearchSimilarDocuments и других публичных методов GoogleModel
@@ -126,14 +126,14 @@ func (m *Model) deleteDocument(modelId uint64, docID string) error {
 	return m.db.DeleteEmbedding(modelId, docID)
 }
 
-func (m *Model) listModelDocuments(modelId uint64) ([]commdom.VectorDocument, error) {
-	return m.db.ListModelEmbeddings(modelId, commdom.ProviderGoogle)
+func (m *Model) listModelDocuments(modelId uint64) ([]comdom.VectorDocument, error) {
+	return m.db.ListModelEmbeddings(modelId, comdom.ProviderGoogle)
 }
 
-func (m *Model) searchSimilarEmbeddings(modelId uint64, queryEmbedding []float32, limit int) ([]commdom.VectorDocument, error) {
-	return m.db.SearchSimilarEmbeddings(modelId, commdom.ProviderGoogle, queryEmbedding, limit)
+func (m *Model) searchSimilarEmbeddings(modelId uint64, queryEmbedding []float32, limit int) ([]comdom.VectorDocument, error) {
+	return m.db.SearchSimilarEmbeddings(modelId, comdom.ProviderGoogle, queryEmbedding, limit)
 }
 
-func (m *Model) saveEmbedding(userID uint32, modelId uint64, docID, docName, content string, embedding []float32, metadata commdom.DocumentMetadata) error {
-	return m.db.SaveEmbedding(userID, modelId, commdom.ProviderGoogle, docID, docName, content, embedding, metadata)
+func (m *Model) saveEmbedding(userID uint32, modelId uint64, docID, docName, content string, embedding []float32, metadata comdom.DocumentMetadata) error {
+	return m.db.SaveEmbedding(userID, modelId, comdom.ProviderGoogle, docID, docName, content, embedding, metadata)
 }

@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ikermy/air_common/pkg/model"
-	"github.com/ikermy/air_common/pkg/model/commdom"
+	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/pkg/model"
 )
 
 // STTTransport is implemented by a concrete Voxtral streaming adapter
@@ -46,7 +46,7 @@ type MistralRealtimeSession struct {
 	dialogID        uint64
 	respID          uint64
 	RealtimeModel   string
-	Config          *commdom.MistralRealtimeVAD
+	Config          *comdom.MistralRealtimeVAD
 	Greeting        *string
 	InitialGreeting *bool
 

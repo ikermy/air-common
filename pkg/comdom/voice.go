@@ -1,4 +1,4 @@
-package commdom
+package comdom
 
 // Voice is provider-neutral metadata for a preset or custom voice.
 type Voice struct {
