@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/ikermy/air-common/pkg/com"
-	"github.com/ikermy/air-common/pkg/comdb"
+	"github.com/ikermy/air-common/pkg/comdom"
 	"github.com/ikermy/air-common/pkg/comerrors"
 	"github.com/ikermy/air-common/pkg/endpoint"
 	"github.com/ikermy/air-common/pkg/mode"
@@ -1482,7 +1482,7 @@ func (s *Start) StarterListener(start model.StartCh, errCh chan<- error) {
 // Использование единственной горутины-воркера гарантирует порядок записей:
 // вопрос пользователя всегда сохраняется раньше ответа модели.
 type saveTask struct {
-	creator comdb.CreatorType
+	creator comdom.CreatorType
 	treadId uint64
 	resp    model.AssistResponse
 }
@@ -1609,9 +1609,9 @@ func (s *Start) Listener(ctx context.Context, u *model.RespModel, usrCh *model.C
 
 		case quest := <-fullQuestCh: // Пришёл полный вопрос пользователя
 			// Отправляем в воркер — он сохранит строго по порядку поступления
-			creator := comdb.User
+			creator := comdom.User
 			if quest.VoiceQuestion {
-				creator = comdb.UserVoice
+				creator = comdom.UserVoice
 			}
 			select {
 			case saveCh <- saveTask{creator: creator, treadId: treadId, resp: quest.Answer}:
@@ -1641,9 +1641,9 @@ func (s *Start) Listener(ctx context.Context, u *model.RespModel, usrCh *model.C
 			}
 
 			// Сохраняем через воркер — строго после вопроса (fullQuestCh был отправлен раньше)
-			creator := comdb.AI
+			creator := comdom.AI
 			if resp.Operator.Operator {
-				creator = comdb.Operator
+				creator = comdom.Operator
 			}
 			select {
 			case saveCh <- saveTask{creator: creator, treadId: treadId, resp: resp.Answer}:

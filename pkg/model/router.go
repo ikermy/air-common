@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/ikermy/air-common/pkg/com"
-	"github.com/ikermy/air-common/pkg/comdb"
 	"github.com/ikermy/air-common/pkg/comdom"
 	"github.com/ikermy/air-common/pkg/mode"
 	"github.com/ikermy/air-common/pkg/model/create"
@@ -36,7 +35,7 @@ type Router struct {
 // DialogSaver принимает сообщения для пакетного сохранения диалогов.
 // endpoint.Endpoint реализует этот интерфейс без зависимости model от endpoint.
 type DialogSaver interface {
-	SaveDialog(creator comdb.CreatorType, dialogID uint64, resp *AssistResponse)
+	SaveDialog(creator comdom.CreatorType, dialogID uint64, resp *AssistResponse)
 }
 
 func (r *Router) DialogSaver() DialogSaver {

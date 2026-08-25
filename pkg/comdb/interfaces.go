@@ -8,7 +8,7 @@ import (
 )
 
 type Exterior interface {
-	GetOrSetTreadAndResponder(userID uint32, responderRealId uint64, responderName string, chatType ChatType) (uint64, error)
+	GetOrSetTreadAndResponder(userID uint32, responderRealId uint64, responderName string, chatType comdom.ChatType) (uint64, error)
 	DisableAllUserChannel(userID uint32) error
 	GetNotificationChannel(userID uint32) (json.RawMessage, error)
 	GetUserSubscriptionLimites(userID uint32) (json.RawMessage, error)
@@ -65,7 +65,7 @@ type Exterior interface {
 	UserLanguage(userID uint32) string
 
 	// UserAPIKey — персональные API-ключи провайдеров для каждого пользователя.
-	GetUserAPIKey(userID uint32, provider ProviderType) (string, error)
-	SetUserAPIKey(userId uint32, provider ProviderType, apiKey string) error
-	DeleteUserAPIKey(userID uint32, provider ProviderType) error
+	GetUserAPIKey(userID uint32, provider comdom.ProviderType) (string, error)
+	SetUserAPIKey(userId uint32, provider comdom.ProviderType, apiKey string) error
+	DeleteUserAPIKey(userID uint32, provider comdom.ProviderType) error
 }

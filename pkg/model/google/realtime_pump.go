@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/ikermy/air-common/pkg/comdb"
+	"github.com/ikermy/air-common/pkg/comdom"
 	"github.com/ikermy/air-common/pkg/model"
 	"github.com/ikermy/air-common/pkg/model/create"
 )
@@ -490,7 +490,7 @@ func (m *Model) saveGoogleRealtimeTranscript(rs *GoogleRealtimeSession, userText
 			Role:  "user",
 			Parts: []map[string]any{{"text": userText}},
 		})
-		m.queueRealtimeDialog(comdb.SpeechRealTimeUser, rs.dialogID, userText, now)
+		m.queueRealtimeDialog(comdom.SpeechRealTimeUser, rs.dialogID, userText, now)
 		//logger.Debug("saveGoogleRealtimeTranscript: user len=%d dialogID=%d", len(userText), rs.dialogID, rs.userID)
 	}
 
@@ -499,12 +499,12 @@ func (m *Model) saveGoogleRealtimeTranscript(rs *GoogleRealtimeSession, userText
 			Role:  "model",
 			Parts: []map[string]any{{"text": assistText}},
 		})
-		m.queueRealtimeDialog(comdb.SpeechRealTimeAI, rs.dialogID, assistText, now)
+		m.queueRealtimeDialog(comdom.SpeechRealTimeAI, rs.dialogID, assistText, now)
 		//logger.Debug("saveGoogleRealtimeTranscript: assistant len=%d dialogID=%d", len(assistText), rs.dialogID, rs.userID)
 	}
 }
 
-func (m *Model) queueRealtimeDialog(c comdb.CreatorType, dialogID uint64, text string, ts time.Time) {
+func (m *Model) queueRealtimeDialog(c comdom.CreatorType, dialogID uint64, text string, ts time.Time) {
 	resp := &model.AssistResponse{Message: text, Action: model.Action{SendFiles: []model.File{}}}
 	if m.dialogSaver != nil {
 		m.dialogSaver.SaveDialog(c, dialogID, resp)
@@ -514,7 +514,7 @@ func (m *Model) queueRealtimeDialog(c comdb.CreatorType, dialogID uint64, text s
 }
 
 // googleRealtimeDialogJSON формирует JSON в формате endpoint.Message для сохранения в БД.
-func googleRealtimeDialogJSON(creator comdb.CreatorType, text string, ts time.Time) []byte {
+func googleRealtimeDialogJSON(creator comdom.CreatorType, text string, ts time.Time) []byte {
 	msg := map[string]any{
 		"creator": creator,
 		"message": model.AssistResponse{

@@ -44,7 +44,7 @@ type Model struct {
 // DialogSaver принимает сообщения для пакетного сохранения в БД.
 // endpoint.Endpoint реализует этот интерфейс.
 type DialogSaver interface {
-	SaveDialog(creator comdb.CreatorType, dialogID uint64, resp *model.AssistResponse)
+	SaveDialog(creator comdom.CreatorType, dialogID uint64, resp *model.AssistResponse)
 }
 
 var _ model.RealtimeProvider = (*Model)(nil)
@@ -288,15 +288,15 @@ func (m *Model) saveRealtimeTranscript(session *MistralRealtimeSession, userText
 	now := time.Now()
 	if userText != "" {
 		m.appendRealtimeMessage(session.dialogID, Message{Type: "user", Content: userText, Timestamp: now})
-		m.queueRealtimeDialog(comdb.SpeechRealTimeUser, session.dialogID, userText, now)
+		m.queueRealtimeDialog(comdom.SpeechRealTimeUser, session.dialogID, userText, now)
 	}
 	if assistText != "" {
 		m.appendRealtimeMessage(session.dialogID, Message{Type: "assistant", Content: assistText, Timestamp: now})
-		m.queueRealtimeDialog(comdb.SpeechRealTimeAI, session.dialogID, assistText, now)
+		m.queueRealtimeDialog(comdom.SpeechRealTimeAI, session.dialogID, assistText, now)
 	}
 }
 
-func (m *Model) queueRealtimeDialog(creator comdb.CreatorType, dialogID uint64, text string, ts time.Time) {
+func (m *Model) queueRealtimeDialog(creator comdom.CreatorType, dialogID uint64, text string, ts time.Time) {
 	resp := &model.AssistResponse{Message: text, Action: model.Action{SendFiles: []model.File{}}}
 	if m.dialogSaver != nil {
 		m.dialogSaver.SaveDialog(creator, dialogID, resp)
@@ -317,7 +317,7 @@ func (m *Model) appendRealtimeMessage(dialogID uint64, message Message) {
 	})
 }
 
-func mistralRealtimeDialogJSON(creator comdb.CreatorType, text string, ts time.Time) []byte {
+func mistralRealtimeDialogJSON(creator comdom.CreatorType, text string, ts time.Time) []byte {
 	data, _ := json.Marshal(map[string]any{
 		"creator":   creator,
 		"message":   model.AssistResponse{Message: text, Action: model.Action{SendFiles: []model.File{}}},

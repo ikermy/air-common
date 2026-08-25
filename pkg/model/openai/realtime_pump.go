@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/ikermy/air-common/pkg/comdb"
+	"github.com/ikermy/air-common/pkg/comdom"
 	"github.com/ikermy/air-common/pkg/model"
 )
 
@@ -556,19 +556,19 @@ func (m *Model) saveRealtimeTranscript(rs *RealtimeSession, userText, assistText
 
 	if userText != "" {
 		m.addMessageToCache(dialogID, ChatMessage{Role: "user", Content: userText})
-		m.queueRealtimeDialog(comdb.SpeechRealTimeUser, dialogID, userText, now)
+		m.queueRealtimeDialog(comdom.SpeechRealTimeUser, dialogID, userText, now)
 		//logger.Debug("saveRealtimeTranscript: user len=%d dialogID=%d", len(userText), dialogID, userID)
 	}
 
 	if assistText != "" {
 		m.addMessageToCache(dialogID, ChatMessage{Role: "assistant", Content: assistText})
 
-		m.queueRealtimeDialog(comdb.SpeechRealTimeAI, dialogID, assistText, now)
+		m.queueRealtimeDialog(comdom.SpeechRealTimeAI, dialogID, assistText, now)
 		//logger.Debug("saveRealtimeTranscript: assistant len=%d dialogID=%d", len(assistText), dialogID, userID)
 	}
 }
 
-func (m *Model) queueRealtimeDialog(c comdb.CreatorType, dialogID uint64, text string, ts time.Time) {
+func (m *Model) queueRealtimeDialog(c comdom.CreatorType, dialogID uint64, text string, ts time.Time) {
 	resp := &model.AssistResponse{Message: text, Action: model.Action{SendFiles: []model.File{}}}
 	if m.dialogSaver != nil {
 		m.dialogSaver.SaveDialog(c, dialogID, resp)
@@ -578,7 +578,7 @@ func (m *Model) queueRealtimeDialog(c comdb.CreatorType, dialogID uint64, text s
 }
 
 // realtimeDialogJSON формирует JSON в формате endpoint.Message для сохранения в БД.
-func realtimeDialogJSON(creator comdb.CreatorType, text string, ts time.Time) []byte {
+func realtimeDialogJSON(creator comdom.CreatorType, text string, ts time.Time) []byte {
 	msg := map[string]any{
 		"creator": creator,
 		"message": model.AssistResponse{

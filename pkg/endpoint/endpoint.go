@@ -11,6 +11,7 @@ import (
 
 	"github.com/ikermy/air-common/pkg/com"
 	"github.com/ikermy/air-common/pkg/comdb"
+	"github.com/ikermy/air-common/pkg/comdom"
 	"github.com/ikermy/air-common/pkg/mode"
 	"github.com/ikermy/air-common/pkg/model"
 )
@@ -19,7 +20,7 @@ import (
 type Inter interface {
 	GetUserAsk(dialogID uint64, respId uint64) []string
 	SetUserAsk(dialogID, respId uint64, ask string, askLimit ...uint32) bool
-	SaveDialog(creator comdb.CreatorType, treadId uint64, resp *model.AssistResponse)
+	SaveDialog(creator comdom.CreatorType, treadId uint64, resp *model.AssistResponse)
 	GetDialogHistory(dialogID uint64, limit int) ([]Message, error)
 	Meta(userID uint32, dialogID uint64, meta string, respName string, assistName string, metaAction string) error
 	CallOptional(val any) error
@@ -41,7 +42,7 @@ type Inter interface {
 type DB comdb.Exterior
 
 type Message struct {
-	Creator   comdb.CreatorType    `json:"creator"`
+	Creator   comdom.CreatorType   `json:"creator"`
 	Message   model.AssistResponse `json:"message"`
 	Timestamp time.Time            `json:"timestamp"`
 }
@@ -321,7 +322,7 @@ func (e *Endpoint) GetDialogHistory(dialogID uint64, limit int) ([]Message, erro
 	return messages, nil
 }
 
-func (e *Endpoint) SaveDialog(creator comdb.CreatorType, treadId uint64, resp *model.AssistResponse) {
+func (e *Endpoint) SaveDialog(creator comdom.CreatorType, treadId uint64, resp *model.AssistResponse) {
 	message := Message{
 		Creator:   creator,
 		Message:   *resp,

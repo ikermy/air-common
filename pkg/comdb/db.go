@@ -6,44 +6,10 @@ import (
 	"fmt"
 	"os"
 	"time"
-
-	"github.com/ikermy/air-common/pkg/comdom"
 )
 
 // Тайм-аут на операции с БД фактически для тяжолых операций добавляются коэфициентч x2, x3...
 const sqlTimeToCancel = 5
-
-// ChatType определяет тип чата (используется в БД)
-type ChatType uint8
-
-const (
-	TelegramBot ChatType = 0
-	Web         ChatType = 1
-	Telegram    ChatType = 2
-	Avito       ChatType = 3
-	Widget      ChatType = 4
-	WhatsApp    ChatType = 5
-	Instagram   ChatType = 6
-)
-
-type CreatorType uint8
-
-const (
-	AI                 CreatorType = 1 // Право
-	User               CreatorType = 2 // Лево
-	UserVoice          CreatorType = 3 // Лево
-	Operator           CreatorType = 4 // Прав
-	SpeechRealTimeAI   CreatorType = 5 // Прав
-	SpeechRealTimeUser CreatorType = 6 // Лево
-)
-
-// Используем типы из пакета model/create для совместимости с интерфейсом comdom.DB
-type (
-	Ids             = comdom.Ids
-	VecIds          = comdom.VecIds
-	UserModelRecord = comdom.UserModelRecord
-	ProviderType    = comdom.ProviderType
-)
 
 // DB представляет соединение с базой данных
 type DB struct {

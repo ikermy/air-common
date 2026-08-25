@@ -64,7 +64,7 @@ func (d *DB) GetActiveProvider(userID uint32) (comdom.ProviderType, error) {
 // Numeric provider ("3") читается только для обратной совместимости.
 // Автоматически расшифровывает "$app$"; "$mk$" расшифровывает при наличии
 // MasterKeyResolver, иначе оставляет для внешней model.WithMasterKeyProvider обёртки.
-func (d *DB) GetUserAPIKey(userID uint32, provider ProviderType) (string, error) {
+func (d *DB) GetUserAPIKey(userID uint32, provider comdom.ProviderType) (string, error) {
 	ctx, cancel := context.WithTimeout(d.ctx, sqlTimeToCancel*time.Second)
 	defer cancel()
 
@@ -126,7 +126,7 @@ func (d *DB) GetUserAPIKey(userID uint32, provider ProviderType) (string, error)
 
 // SetUserAPIKey сохраняет API-ключ пользователя с автоматическим шифрованием,
 // если MasterKey пользователя загружен или application encryption key установлен.
-func (d *DB) SetUserAPIKey(userID uint32, provider ProviderType, apiKey string) error {
+func (d *DB) SetUserAPIKey(userID uint32, provider comdom.ProviderType, apiKey string) error {
 	ctx, cancel := context.WithTimeout(d.ctx, sqlTimeToCancel*time.Second)
 	defer cancel()
 
@@ -179,7 +179,7 @@ func (d *DB) SetUserAPIKey(userID uint32, provider ProviderType, apiKey string) 
 }
 
 // DeleteUserAPIKey удаляет персональный API-ключ пользователя для провайдера.
-func (d *DB) DeleteUserAPIKey(userID uint32, provider ProviderType) error {
+func (d *DB) DeleteUserAPIKey(userID uint32, provider comdom.ProviderType) error {
 	if userID == 0 {
 		return fmt.Errorf("некорректный userID")
 	}

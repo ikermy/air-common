@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ikermy/air-common/pkg/comdom"
 	"github.com/ikermy/air-common/pkg/crypto"
 	"github.com/ikermy/air-common/pkg/mode"
 )
@@ -207,7 +208,7 @@ func (d *DB) GetOrSetTreadAndResponder(
 	userID uint32,
 	responderRealId uint64,
 	responderName string,
-	chatType ChatType,
+	chatType comdom.ChatType,
 ) (uint64, error) {
 	if userID == 0 {
 		return 0, fmt.Errorf("получен пустой userID")
