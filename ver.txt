@@ -1,2 +1,2 @@
-v1.50.97
-fix: fix: UniversalModel SaveModel for Mistral
+v1.50.98
+feat: add hasMistralSpeechText prevents requests containing only punctuation, emoji
