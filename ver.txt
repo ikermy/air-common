@@ -1,2 +1,2 @@
-v1.50.96
-fix: StreamMistralRealtimeText add errors.Is(err, context.Canceled)
+v1.50.97
+fix: fix: UniversalModel SaveModel for Mistral

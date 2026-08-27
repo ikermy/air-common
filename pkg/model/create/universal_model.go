@@ -121,14 +121,16 @@ func (m *UniversalModel) SaveModel(userID uint32, umcr comdom.UMCR, data *comdom
 	if data.UseModelName.GptType == nil || data.UseModelName.GptType.ID == 0 {
 		return fmt.Errorf("не указан корректный ID модели gpt_models для провайдера %s", umcr.Provider)
 	}
-	if data.Realtime && (data.UseModelName.Realtime == nil || data.UseModelName.Realtime.ID == 0) {
-		return fmt.Errorf("не указан корректный ID realtime-модели для провайдера %s", umcr.Provider)
+	if data.Provider != comdom.ProviderMistral {
+		if data.Realtime && (data.UseModelName.Realtime == nil || data.UseModelName.Realtime.ID == 0) {
+			return fmt.Errorf("не указан корректный ID realtime-модели для провайдера %s", umcr.Provider)
+		}
+	} else {
+		// Для мистраль структура RealTime другая {
+		if data.Realtime && (data.RealtimeVAD.Mistral.STTModel == nil || data.RealtimeVAD.Mistral.TTSModel == nil) {
+			return fmt.Errorf("не указан корректный ID realtime-модели для провайдера %s", umcr.Provider)
+		}
 	}
-	//if data.RealtimeVAD != nil && data.RealtimeVAD.Mistral != nil && data.RealtimeVAD.Mistral.VoiceClone != nil {
-	//	if err := data.RealtimeVAD.Mistral.VoiceClone.Validate(); err != nil {
-	//		return fmt.Errorf("некорректная конфигурация voice cloning: %w", err)
-	//	}
-	//}
 
 	compressed, err := compressModelData(data)
 	if err != nil {
