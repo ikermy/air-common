@@ -178,6 +178,14 @@ func (m *Model) pumpFromOpenAI(rs *RealtimeSession) {
 				rs.publishEvent(RealtimeEvent{Type: "response_text_delta", Text: delta, Delta: delta})
 			}
 
+		// Text-only Responses API output. Keep this separate from the audio
+		// transcript events: both are normalized to the same internal event.
+		case "response.text.delta":
+			delta, _ := event["delta"].(string)
+			if delta != "" {
+				rs.publishEvent(RealtimeEvent{Type: "response_text_delta", Text: delta, Delta: delta})
+			}
+
 		case "conversation.item.input_audio_transcription.delta":
 			delta, _ := event["delta"].(string)
 			if delta != "" {
@@ -191,6 +199,14 @@ func (m *Model) pumpFromOpenAI(rs *RealtimeSession) {
 			if itemId != "" && transcript != "" {
 				rs.assistTranscripts.Store(itemId, transcript)
 			}
+			rs.publishEvent(RealtimeEvent{Type: "response_text_done", Text: transcript})
+
+		case "response.text.done":
+			text, _ := event["text"].(string)
+			if text == "" {
+				text, _ = event["transcript"].(string)
+			}
+			rs.publishEvent(RealtimeEvent{Type: "response_text_done", Text: text})
 
 		// ── Транскрипция ввода пользователя (финальная) ──────────────────────
 		case "conversation.item.input_audio_transcription.completed":

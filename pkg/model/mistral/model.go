@@ -262,6 +262,7 @@ func (m *Model) requestRealtimeLLM(session *MistralRealtimeSession, turnID uint6
 		text := extractor.Push(delta)
 		if text != "" {
 			transcript.WriteString(text)
+			session.PublishEvent(model.RealtimeEvent{Type: "response_text_delta", Text: text, Delta: text})
 			if err := m.StreamMistralRealtimeText(session.Context(), session.RespID(), text, false); err != nil {
 				return err
 			}
@@ -272,9 +273,12 @@ func (m *Model) requestRealtimeLLM(session *MistralRealtimeSession, turnID uint6
 		if tail := extractor.Flush(); tail != "" {
 			transcript.WriteString(tail)
 			m.saveRealtimeTranscript(session, "", transcript.String())
+			session.PublishEvent(model.RealtimeEvent{Type: "response_text_delta", Text: tail, Delta: tail})
+			session.PublishEvent(model.RealtimeEvent{Type: "response_text_done", Text: transcript.String()})
 			return m.StreamMistralRealtimeText(session.Context(), session.RespID(), tail, true)
 		}
 		m.saveRealtimeTranscript(session, "", transcript.String())
+		session.PublishEvent(model.RealtimeEvent{Type: "response_text_done", Text: transcript.String()})
 		return m.StreamMistralRealtimeText(session.Context(), session.RespID(), "", true)
 	})
 }

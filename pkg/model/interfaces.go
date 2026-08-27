@@ -95,7 +95,10 @@ type MCPConfigProvider interface {
 	FetchSystemPrompt(ctx context.Context, userID uint32, provider comdom.ProviderType) (string, error)
 }
 
-// RealtimeEvent — публичное событие голосовой realtime-сессии.
+// RealtimeEvent — внутреннее событие голосовой realtime-сессии.
+//
+// Это не wire-формат WebSocket API. Перед отправкой клиенту событие должно
+// быть преобразовано через NormalizeRealtimeEvent или MarshalRealtimeEvent.
 //
 // PCM-аудио не является RealtimeEvent: оно передаётся отдельно через
 // RealtimeProvider.GetRealtimeAudio.
