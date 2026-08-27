@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -476,7 +477,10 @@ func (m *Model) StreamMistralRealtimeText(ctx context.Context, respID uint64, de
 			ResponseFormat: "pcm",
 		})
 		if err != nil {
-			if session.Context().Err() != nil {
+			// Cancelling the current turn is the normal barge-in path. The
+			// session itself remains alive and must not expose this as a fatal
+			// realtime error.
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || turnCtx.Err() != nil || session.Context().Err() != nil {
 				return nil
 			}
 			session.Metrics().TTSErrors.Add(1)
@@ -488,7 +492,7 @@ func (m *Model) StreamMistralRealtimeText(ctx context.Context, respID uint64, de
 			streamer = StreamSpeechSSEToSession
 		}
 		if err := streamer(turnCtx, session, turnID, body); err != nil {
-			if session.Context().Err() != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || turnCtx.Err() != nil || session.Context().Err() != nil {
 				return nil
 			}
 			session.PublishEvent(model.RealtimeEvent{Type: "error", Text: "ошибка чтения Mistral TTS", Err: err})

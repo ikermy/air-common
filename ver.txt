@@ -1,2 +1,2 @@
-v1.50.95
-feat: implement normalization for realtime events and introduce WebSocket message contract
+v1.50.96
+fix: StreamMistralRealtimeText add errors.Is(err, context.Canceled)
