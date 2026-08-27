@@ -14,6 +14,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode"
 
 	"github.com/ikermy/air-common/pkg/com"
 	"github.com/ikermy/air-common/pkg/comdb"
@@ -454,7 +455,7 @@ func (m *Model) StreamMistralRealtimeText(ctx context.Context, respID uint64, de
 	}
 	for _, sentence := range session.PushText(delta, final) {
 		sentence = sanitizeMistralTTSText(sentence)
-		if sentence == "" {
+		if !hasMistralSpeechText(sentence) {
 			continue
 		}
 		session.PublishEvent(model.RealtimeEvent{Type: "audio_start", Text: sentence})
@@ -509,6 +510,18 @@ func sanitizeMistralTTSText(text string) string {
 	text = mistralTTSActionRE.ReplaceAllString(text, " ")
 	text = strings.ReplaceAll(text, "```", "")
 	return strings.TrimSpace(text)
+}
+
+// hasMistralSpeechText prevents requests containing only punctuation, emoji
+// or other non-verbal symbols. Mistral rejects those after its own
+// sanitization with HTTP 400 instead of producing an empty audio response.
+func hasMistralSpeechText(text string) bool {
+	for _, r := range text {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+			return true
+		}
+	}
+	return false
 }
 
 // TranscribeMistralRealtimeSegment transcribes one finalized audio segment.
