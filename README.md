@@ -4,7 +4,7 @@
 
 [🇷🇺 Russian version](README.ru.md)
 
-`air-common` is a foundational Go library for the AI microservices of the `marusia_ai` project, created primarily for use by the internal microservices of the `air_` family.
+> air-common is a foundational Go library that provides the core infrastructure and centralized architecture for all production AI microservices within the marusia_ai project family (including air_orchestrator, air_whatsbot, and others).
 
 ![Go version](https://img.shields.io/badge/Go-1.25.8-00ADD8?logo=go)
 ![License](https://img.shields.io/badge/license-MIT-blue)
