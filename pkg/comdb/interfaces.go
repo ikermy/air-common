@@ -8,7 +8,7 @@ import (
 )
 
 type Exterior interface {
-	GetOrSetTreadAndResponder(userID uint32, responderRealId uint64, responderName string, chatType comdom.ChatType) (uint64, error)
+	GetOrSetTreadAndResponder(userID uint32, responderRealId uint64, responderName string, chatType comdom.ChannelType) (uint64, error)
 	DisableAllUserChannel(userID uint32) error
 	GetNotificationChannel(userID uint32) (json.RawMessage, error)
 	GetUserSubscriptionLimites(userID uint32) (json.RawMessage, error)

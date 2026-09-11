@@ -292,7 +292,7 @@ func (t *MistralRealtimeSTT) runOnce(ctx context.Context, audio <-chan []byte, o
 			if err := writeJSON(message); err != nil {
 				return fmt.Errorf("отправка аудио в Mistral realtime STT: %w", err)
 			}
-			// AudioIn is a continuous microphone stream and therefore contains
+			// AudioRx is a continuous microphone stream and therefore contains
 			// zero/near-zero PCM chunks after the user stops speaking. Do not
 			// postpone utterance finalization for those chunks.
 			if pcmContainsSpeech(chunk) {

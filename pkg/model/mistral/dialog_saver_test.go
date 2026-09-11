@@ -3,12 +3,12 @@ package mistral
 import (
 	"testing"
 
-	"github.com/ikermy/air-common/pkg/comdb"
+	"github.com/ikermy/air-common/pkg/comdom"
 	"github.com/ikermy/air-common/pkg/model"
 )
 
 type savedDialog struct {
-	creator  comdb.CreatorType
+	creator  comdom.CreatorType
 	dialogID uint64
 	text     string
 }
@@ -17,7 +17,7 @@ type mockDialogSaver struct {
 	messages []savedDialog
 }
 
-func (m *mockDialogSaver) SaveDialog(creator comdb.CreatorType, dialogID uint64, resp *model.AssistResponse) {
+func (m *mockDialogSaver) SaveDialog(creator comdom.CreatorType, dialogID uint64, resp *model.AssistResponse) {
 	m.messages = append(m.messages, savedDialog{
 		creator:  creator,
 		dialogID: dialogID,
@@ -42,8 +42,8 @@ func TestSaveRealtimeTranscriptUsesDialogSaverAndUpdatesContext(t *testing.T) {
 	}
 
 	want := []savedDialog{
-		{creator: comdb.SpeechRealTimeUser, dialogID: 42, text: "привет"},
-		{creator: comdb.SpeechRealTimeAI, dialogID: 42, text: "Бонжур бля.."},
+		{creator: comdom.SpeechRealTimeUser, dialogID: 42, text: "привет"},
+		{creator: comdom.SpeechRealTimeAI, dialogID: 42, text: "Бонжур бля.."},
 	}
 	for i, message := range saver.messages {
 		if message != want[i] {

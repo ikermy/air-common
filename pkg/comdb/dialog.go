@@ -208,7 +208,7 @@ func (d *DB) GetOrSetTreadAndResponder(
 	userID uint32,
 	responderRealId uint64,
 	responderName string,
-	chatType comdom.ChatType,
+	chatType comdom.ChannelType,
 ) (uint64, error) {
 	if userID == 0 {
 		return 0, fmt.Errorf("получен пустой userID")

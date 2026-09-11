@@ -10,7 +10,7 @@ func TestRealtimeSessionDropsAudioWhenInputQueueIsFull(t *testing.T) {
 	session := NewRealtimeSession(context.Background(), 1, 2, 3)
 	defer session.Close()
 
-	for i := 0; i < mistralAudioInBuffer+10; i++ {
+	for i := 0; i < mistralAudioRxBuffer+10; i++ {
 		if err := session.SendAudio([]byte{1}); err != nil {
 			t.Fatalf("SendAudio() error: %v", err)
 		}
@@ -68,7 +68,7 @@ func TestRealtimeSessionOwnsAudioBuffers(t *testing.T) {
 		t.Fatal(err)
 	}
 	in[0] = 9
-	if got := <-session.AudioIn; got[0] != 1 {
+	if got := <-session.AudioRx; got[0] != 1 {
 		t.Fatalf("input buffer was not copied: %v", got)
 	}
 
@@ -118,7 +118,7 @@ func TestRealtimeSessionDeduplicatesFinalTranscripts(t *testing.T) {
 func TestRealtimeSessionMetricsTrackInterruptAndAudioDrop(t *testing.T) {
 	session := NewRealtimeSession(context.Background(), 1, 2, 3)
 	defer session.Close()
-	for i := 0; i < mistralAudioInBuffer+1; i++ {
+	for i := 0; i < mistralAudioRxBuffer+1; i++ {
 		_ = session.SendAudio([]byte{1})
 	}
 	session.Interrupt()

@@ -31,8 +31,8 @@ type RealtimeSession struct {
 	dialogID    uint64 // treadId из TestSession — для сохранения транскрипции в БД
 	respId      uint64
 
-	// AudioIn/AudioOut/DrainPlayback — каналы с единственным читателем, fan-out не нужен.
-	AudioIn       chan []byte   // PCM16 от клиента → pumpToOpenAI → OpenAI
+	// AudioRx/AudioOut/DrainPlayback — каналы с единственным читателем, fan-out не нужен.
+	AudioRx       chan []byte   // PCM16 от клиента → pumpToOpenAI → OpenAI
 	AudioOut      chan []byte   // PCM16 от OpenAI → хендлер → клиент
 	DrainPlayback chan struct{} // сигнал: VAD speech_started → сбросить очередь воспроизведения
 
@@ -223,7 +223,7 @@ func (m *Model) StartRealtimeSession(userID uint32, dialogID, respId uint64) err
 		userID:        userID,
 		dialogID:      dialogID,
 		respId:        respId,
-		AudioIn:       make(chan []byte, 256),
+		AudioRx:       make(chan []byte, 256),
 		AudioOut:      make(chan []byte, 256),
 		DrainPlayback: make(chan struct{}, 1),
 		eventSubs:     make(map[chan RealtimeEvent]struct{}),
@@ -373,12 +373,12 @@ func (m *Model) SendRealtimeAudio(respId uint64, pcm16 []byte) error {
 		return fmt.Errorf("SendRealtimeAudio: сессия не найдена для respId=%d", respId)
 	}
 	select {
-	case rs.AudioIn <- pcm16:
+	case rs.AudioRx <- pcm16:
 		return nil
 	case <-rs.ctx.Done():
 		return fmt.Errorf("SendRealtimeAudio: сессия завершена для respId=%d", respId)
 	default:
-		//logger.Warn("SendRealtimeAudio: буфер AudioIn переполнен respId=%d, дроп %d байт",
+		//logger.Warn("SendRealtimeAudio: буфер AudioRx переполнен respId=%d, дроп %d байт",
 		//	respId, len(pcm16), rs.userID)
 		return nil
 	}

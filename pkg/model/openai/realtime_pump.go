@@ -512,7 +512,7 @@ func (m *Model) pumpFromOpenAI(rs *RealtimeSession) {
 }
 
 // ============================================================================
-// pumpToOpenAI — читает PCM16 из AudioIn и отправляет input_audio_buffer.append.
+// pumpToOpenAI — читает PCM16 из AudioRx и отправляет input_audio_buffer.append.
 // Накапливает 100ms чанки (4800 байт @ 24kHz PCM16) перед отправкой.
 // ============================================================================
 
@@ -545,7 +545,7 @@ func (m *Model) pumpToOpenAI(rs *RealtimeSession) {
 			flush()
 			//logger.Debug("pumpToOpenAI: завершён sentChunks=%d respId=%d", sentChunks, rs.respId, rs.userID)
 			return
-		case pcm16, ok := <-rs.AudioIn:
+		case pcm16, ok := <-rs.AudioRx:
 			if !ok {
 				flush()
 				return
