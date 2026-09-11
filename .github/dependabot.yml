@@ -3,7 +3,7 @@ updates:
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
     # количество открытых PR
     open-pull-requests-limit: 5
     # включить авто‑merge для минорных/патч‑обновлений

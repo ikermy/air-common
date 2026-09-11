@@ -116,7 +116,7 @@ func (s *Start) runRealtimeSession(start *model.StartCh) <-chan error {
 
 	s.registerSession(start.RespId, &sessionEntry{
 		cancel:    cancel,
-		channel:   start.Channel,
+		channel:   start.ChName,
 		rp:        rp,
 		events:    events,
 		errEvents: errEvents,

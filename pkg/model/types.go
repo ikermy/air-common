@@ -190,9 +190,9 @@ func safeCloseMessage(ch chan Message) {
 // StartCh структура для передачи данных для запуска слушателя
 type StartCh struct {
 	Ctx      context.Context
-	Channel  comdom.ChannelType // тип канала: telegram, whatsapp, instagram, ... — для логирования
+	ChName   comdom.ChannelType // тип канала: telegram, whatsapp, instagram, ... — для логирования
 	Model    *RespModel
-	Chanel   *Ch
+	Channel  *Ch
 	ThreadId uint64
 	RespId   uint64
 

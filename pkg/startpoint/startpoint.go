@@ -1456,8 +1456,8 @@ func (s *Start) runTextSession(start *model.StartCh) <-chan error {
 	}
 
 	// Сохраняем канал для этого respId в карту для использования в CallOptional
-	if start.Channel.IsValid() {
-		s.responderProviders.Store(start.RespId, start.Channel.String())
+	if start.ChName.IsValid() {
+		s.responderProviders.Store(start.RespId, start.ChName.String())
 	}
 
 	if !start.Model.Services.Listener.Load() {
@@ -1488,7 +1488,7 @@ func (s *Start) runTextSession(start *model.StartCh) <-chan error {
 			default:
 			}
 
-			if err := s.Listener(listenerCtx, start.Model, start.Chanel, start.RespId, start.ThreadId); err != nil {
+			if err := s.Listener(listenerCtx, start.Model, start.Channel, start.RespId, start.ThreadId); err != nil {
 				s.sendError(errCh, err)
 			}
 		}()

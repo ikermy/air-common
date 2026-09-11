@@ -83,7 +83,7 @@ func TestRunRealtimeSession_SuccessWiresChannelsAndCloses(t *testing.T) {
 	start := &model.StartCh{
 		RespId:   42,
 		ThreadId: 7,
-		Channel:  comdom.Telegram,
+		ChName:   comdom.Telegram,
 		Model:    &model.RespModel{Assist: model.Assistant{UserID: 5}},
 		Realtime: &model.RealtimeChannels{},
 	}
