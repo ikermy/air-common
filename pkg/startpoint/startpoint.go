@@ -231,18 +231,22 @@ type Start struct {
 
 	Mod  Model
 	End  Endpoint
+	RT   model.RealtimeRouter // = mod.(model.RealtimeRouter); nil, если mod его не реализует
 	Oper Operator
 	Bot  BotInterface
 
 	respondentWG sync.Map // map[uint64]*sync.WaitGroup - для синхронизации завершения Respondent
 
-	// Карта для хранения провайдера каждого респондента (ключ: respID, значение: provider)
-	// Используется для передачи информации о провайдере при вызове CallOptional
-	responderProviders sync.Map // key: uint64 (respId), value: string (provider)
+	// Карта для хранения провайдера каждого респондента (ключ: respID, значение: channel)
+	// Используется для передачи информации о канале при вызове CallOptional
+	responderProviders sync.Map // key: uint64 (respId), value: string (channel)
 
 	// Накопители потоковых дельт по респондентам.
 	// key: uint64 (respId), value: *streamAccumulator
 	streamAccumulators sync.Map
+
+	// Реестр активных realtime-сессий (key: respId → *sessionEntry)
+	sessions sync.Map
 }
 
 // streamAccumulator накапливает сырые дельты и извлекает текст из поля "message".
@@ -660,7 +664,7 @@ func skipJSONValue(s string, i int) (next int, ok bool) {
 // New создаёт новый экземпляр Start
 func New(parent context.Context, mod Model, end Endpoint, bot BotInterface, operator Operator) *Start {
 	ctx, cancel := context.WithCancel(parent)
-	return &Start{
+	s := &Start{
 		ctx:    ctx,
 		cancel: cancel,
 
@@ -669,6 +673,12 @@ func New(parent context.Context, mod Model, end Endpoint, bot BotInterface, oper
 		Bot:  bot,
 		Oper: operator,
 	}
+	// В приложении mod — это *model.Router (реализует model.Inter и RealtimeRouter).
+	// Извлекаем доступ к realtime через узкий интерфейс, не меняя сигнатуру New.
+	if rt, ok := mod.(model.RealtimeRouter); ok {
+		s.RT = rt
+	}
+	return s
 }
 
 // Shutdown останавливает внутренний контекст Start и даёт возможность корректно завершить фоновые операции
@@ -1422,17 +1432,32 @@ func (s *Start) StarterRespondent(
 	}
 }
 
-// StarterListener запускает Listener для пользователя, если он ещё не запущен
-func (s *Start) StarterListener(start model.StartCh, errCh chan<- error) {
+// StartSession — единственная точка входа для запуска сессии.
+// Возвращает канал ошибок сессии: создаётся внутри, закрывается по её завершению.
+//
+//	start.Realtime != nil → realtime/hybrid (runRealtimeSession)
+//	start.Realtime == nil → text (runTextSession)
+func (s *Start) StartSession(start *model.StartCh) <-chan error {
+	if start.Realtime != nil {
+		return s.runRealtimeSession(start)
+	}
+	return s.runTextSession(start)
+}
+
+// runTextSession запускает Listener для пользователя, если он ещё не запущен.
+// Владеет errCh: закрывает его по завершении Listener.
+func (s *Start) runTextSession(start *model.StartCh) <-chan error {
+	errCh := make(chan error, 1)
 	// Проверка на nil перед доступом к полям
 	if start.Model == nil {
-		errCh <- fmt.Errorf("start.Model is nil for respId %d", start.RespId)
-		return
+		s.sendError(errCh, fmt.Errorf("start.Model is nil for respId %d", start.RespId))
+		close(errCh)
+		return errCh
 	}
 
-	// Сохраняем provider для этого respId в карту для использования в CallOptional
-	if start.Provider != "" {
-		s.responderProviders.Store(start.RespId, start.Provider)
+	// Сохраняем канал для этого respId в карту для использования в CallOptional
+	if start.Channel.IsValid() {
+		s.responderProviders.Store(start.RespId, start.Channel.String())
 	}
 
 	if !start.Model.Services.Listener.Load() {
@@ -1440,7 +1465,7 @@ func (s *Start) StarterListener(start model.StartCh, errCh chan<- error) {
 		go func() {
 			defer func() {
 				start.Model.Services.Listener.Store(false)
-				//logger.Debug("[%s] StarterListener: Listener завершен для respId=%d", start.Provider, start.RespId, start.Model.Assist.UserID)
+				close(errCh) // Закрываем канал ошибок после завершения Listener
 			}()
 			// - родительского s.ctx (общий контекст Start)
 			// - или контекста бота start.Ctx
@@ -1459,23 +1484,19 @@ func (s *Start) StarterListener(start model.StartCh, errCh chan<- error) {
 			// Если контекст бота уже отменён — не запускаем Listener
 			select {
 			case <-start.Ctx.Done():
-				//logger.Debug("[%s] StarterListener отменён по контексту бота %s", start.Provider, start.Model.RespName, start.Model.Assist.UserID)
 				return
 			default:
 			}
 
-			if err := s.Listener(listenerCtx, start.Model, start.Chanel, start.RespId, start.TreadId); err != nil {
-				//logger.Error("[%s] StarterListener: ошибка в Listener для respId=%d: %v", start.Provider, start.RespId, err, start.Model.Assist.UserID)
-				select {
-				case errCh <- err: // Отправляем ошибку в App
-				default:
-					//logger.Warn("[%s] Не удалось отправить ошибку в errCh: %v", start.Provider, err, start.Model.Assist.UserID)
-				}
+			if err := s.Listener(listenerCtx, start.Model, start.Chanel, start.RespId, start.ThreadId); err != nil {
+				s.sendError(errCh, err)
 			}
 		}()
 	} else {
-		//logger.Debug("[%s] StarterListener: Listener уже запущен для respId=%d", start.Provider, start.RespId, start.Model.Assist.UserID)
+		// Listener уже запущен
+		close(errCh)
 	}
+	return errCh
 }
 
 // saveTask — задание для воркера сохранения диалога.

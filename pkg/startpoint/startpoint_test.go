@@ -135,3 +135,36 @@ func TestStart_ProcessStreamDelta_FunctionCallArgumentsDelta(t *testing.T) {
 		t.Fatalf("unexpected delta arguments: %q", result.Arguments)
 	}
 }
+
+func TestStartSession_TextNilModelReturnsErrorAndCloses(t *testing.T) {
+	s := &Start{}
+	errs := drainErrCh(s.StartSession(&model.StartCh{RespId: 1}))
+	if len(errs) != 1 {
+		t.Fatalf("expected 1 error for nil model, got %d", len(errs))
+	}
+}
+
+func TestStartSession_RealtimeWithoutRouterReturnsErrorAndCloses(t *testing.T) {
+	s := &Start{}
+	start := &model.StartCh{RespId: 1, Realtime: &model.RealtimeChannels{}}
+	errs := drainErrCh(s.StartSession(start))
+	if len(errs) != 1 {
+		t.Fatalf("expected 1 error (RT=nil), got %d", len(errs))
+	}
+}
+
+func TestCloseSession_UnknownRespIdIsNoop(t *testing.T) {
+	s := &Start{}
+	s.CloseSession(999) // не должно паниковать
+}
+
+// drainErrCh вычитывает канал ошибок до закрытия и возвращает непустые ошибки.
+func drainErrCh(ch <-chan error) []error {
+	var errs []error
+	for err := range ch {
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errs
+}

@@ -29,8 +29,8 @@ type GoogleRealtimeSession struct {
 	dialogID    uint64
 	respId      uint64
 
-	// AudioIn/AudioOut/DrainPlayback — каналы с единственным читателем.
-	AudioIn       chan []byte   // PCM16 @ 16kHz от клиента → pumpToGoogle
+	// AudioRx/AudioOut/DrainPlayback — каналы с единственным читателем.
+	AudioRx       chan []byte   // PCM16 @ 16kHz от клиента → pumpToGoogle
 	AudioOut      chan []byte   // PCM16 @ 24kHz от Google → хендлер → клиент
 	DrainPlayback chan struct{} // сигнал: interrupted → сбросить очередь воспроизведения
 
@@ -201,7 +201,7 @@ func (m *Model) StartRealtimeSession(userID uint32, dialogID, respId uint64) err
 		userID:          userID,
 		dialogID:        dialogID,
 		respId:          respId,
-		AudioIn:         make(chan []byte, 256),
+		AudioRx:         make(chan []byte, 256),
 		AudioOut:        make(chan []byte, 256),
 		DrainPlayback:   make(chan struct{}, 1),
 		setupCompleteCh: make(chan struct{}),
@@ -267,12 +267,12 @@ func (m *Model) SendRealtimeAudio(respId uint64, pcm16 []byte) error {
 		return fmt.Errorf("SendRealtimeAudio: сессия не найдена для respId=%d", respId)
 	}
 	select {
-	case rs.AudioIn <- pcm16:
+	case rs.AudioRx <- pcm16:
 		return nil
 	case <-rs.ctx.Done():
 		return fmt.Errorf("SendRealtimeAudio: сессия завершена для respId=%d", respId)
 	default:
-		//logger.Warn("SendRealtimeAudio: буфер AudioIn переполнен respId=%d, дроп %d байт", respId, len(pcm16), rs.userID)
+		//logger.Warn("SendRealtimeAudio: буфер AudioRx переполнен respId=%d, дроп %d байт", respId, len(pcm16), rs.userID)
 		return nil
 	}
 }

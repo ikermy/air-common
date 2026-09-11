@@ -190,11 +190,22 @@ func safeCloseMessage(ch chan Message) {
 // StartCh структура для передачи данных для запуска слушателя
 type StartCh struct {
 	Ctx      context.Context
-	Provider string // "telegram", "whatsapp", "instagram" — для логирования
+	Channel  comdom.ChannelType // тип канала: telegram, whatsapp, instagram, ... — для логирования
 	Model    *RespModel
 	Chanel   *Ch
-	TreadId  uint64
+	ThreadId uint64
 	RespId   uint64
+
+	// Realtime != nil — запрос realtime/hybrid-режима. StartSession заполняет
+	// поля каналами (AudioTx/Drain/Events) до возврата. nil = text-режим.
+	Realtime *RealtimeChannels
+}
+
+// RealtimeChannels — канальный контракт realtime-сессии (аналог Ch).
+type RealtimeChannels struct {
+	AudioTx <-chan []byte        // провайдер → транспорт: PCM16 ответа
+	Drain   <-chan struct{}      // провайдер → транспорт: сбросить playback
+	Events  <-chan RealtimeEvent // провайдер → транспорт: события и ошибки
 }
 
 // Operator информация об операторе

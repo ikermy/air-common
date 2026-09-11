@@ -403,7 +403,7 @@ func (m *Model) execGoogleTool(rs *GoogleRealtimeSession, name, argsJSON, callID
 }
 
 // ============================================================================
-// pumpToGoogle — читает PCM16 из AudioIn и отправляет realtimeInput.mediaChunks.
+// pumpToGoogle — читает PCM16 из AudioRx и отправляет realtimeInput.mediaChunks.
 // Накапливает 100ms чанки (3200 байт @ 16kHz PCM16 mono) перед отправкой.
 // ============================================================================
 
@@ -450,7 +450,7 @@ func (m *Model) pumpToGoogle(rs *GoogleRealtimeSession) {
 		case <-rs.ctx.Done():
 			flush()
 			return
-		case pcm16, ok := <-rs.AudioIn:
+		case pcm16, ok := <-rs.AudioRx:
 			if !ok {
 				flush()
 				return

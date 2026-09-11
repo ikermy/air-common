@@ -31,7 +31,7 @@ type MistralRealtimeMetrics struct {
 }
 
 const (
-	mistralAudioInBuffer  = 100
+	mistralAudioRxBuffer  = 100
 	mistralAudioOutBuffer = 100
 )
 
@@ -50,7 +50,7 @@ type MistralRealtimeSession struct {
 	Greeting        *string
 	InitialGreeting *bool
 
-	AudioIn       chan []byte
+	AudioRx       chan []byte
 	AudioOut      chan []byte
 	DrainPlayback chan struct{}
 	Errors        chan error
@@ -157,7 +157,7 @@ func (s *MistralRealtimeSession) StartSTT(transport STTTransport, onTranscript f
 	s.sttStarted = true
 	s.sttMu.Unlock()
 	go func() {
-		err := transport.Run(s.ctx, s.AudioIn, func(text string, final bool) error {
+		err := transport.Run(s.ctx, s.AudioRx, func(text string, final bool) error {
 			if !final || text == "" {
 				return nil
 			}
@@ -220,7 +220,7 @@ func NewRealtimeSession(parent context.Context, userID uint32, dialogID, respID 
 		userID:        userID,
 		dialogID:      dialogID,
 		respID:        respID,
-		AudioIn:       make(chan []byte, mistralAudioInBuffer),
+		AudioRx:       make(chan []byte, mistralAudioRxBuffer),
 		AudioOut:      make(chan []byte, mistralAudioOutBuffer),
 		DrainPlayback: make(chan struct{}, 1),
 		Errors:        make(chan error, 4),
@@ -343,7 +343,7 @@ func (s *MistralRealtimeSession) SendAudio(pcm []byte) error {
 	// returns. Keep an owned copy in the bounded queue.
 	pcmCopy := append([]byte(nil), pcm...)
 	select {
-	case s.AudioIn <- pcmCopy:
+	case s.AudioRx <- pcmCopy:
 		return nil
 	case <-s.ctx.Done():
 		return s.ctx.Err()

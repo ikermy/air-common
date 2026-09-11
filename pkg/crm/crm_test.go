@@ -5,13 +5,7 @@ import (
 	"fmt"
 	"testing"
 	"time"
-
-	"github.com/ikermy/air-common/pkg/mode"
 )
-
-func setCRMPort(port string) {
-	mode.CRMPort = port
-}
 
 // testGetCacheStats возвращает статистику использования кэша
 func (u *User) testGetCacheStats() (contactCount, altContactCount, leadCount int) {
@@ -52,7 +46,6 @@ func (u *User) testClearCache() {
 }
 
 func TestCRM(t *testing.T) {
-	setCRMPort("8092")
 	ctx := context.Background()
 	crm := New(ctx)
 
@@ -81,7 +74,6 @@ func TestCRM(t *testing.T) {
 }
 
 func TestCRM_Init(t *testing.T) {
-	setCRMPort("8092")
 	ctx := context.Background()
 	crm := New(ctx)
 
@@ -100,7 +92,6 @@ func TestCRM_Init(t *testing.T) {
 func TestCRM_Cache(t *testing.T) {
 	t.Skip("Manual urls - requires running server")
 
-	setCRMPort("8092")
 	ctx := context.Background()
 	crm := New(ctx)
 
@@ -172,7 +163,6 @@ func TestCRM_Cache(t *testing.T) {
 
 // TestUninitializedUser проверяет безопасность работы с неинициализированным User
 func TestUninitializedUser(t *testing.T) {
-	setCRMPort("8092")
 	ctx := context.Background()
 	crm := New(ctx)
 
@@ -206,7 +196,6 @@ func TestUninitializedUser(t *testing.T) {
 func TestCRM_Options(t *testing.T) {
 	t.Skip("Example urls - demonstrates usage of optional parameters")
 
-	setCRMPort("8092")
 	ctx := context.Background()
 
 	// Пример 1: Все опции вместе
@@ -232,7 +221,6 @@ func TestCRM_Options(t *testing.T) {
 
 // TestCRM_CreateContact тестирует создание контакта
 func TestCRM_CreateContact(t *testing.T) {
-	setCRMPort("8092")
 	ctx := context.Background()
 	crm := New(ctx)
 
@@ -272,7 +260,6 @@ func TestCRM_CreateContact(t *testing.T) {
 
 // TestCRM_AltContact тестирует работу с альтернативными контактами
 func TestCRM_AltContact(t *testing.T) {
-	setCRMPort("8092")
 	ctx := context.Background()
 	crm := New(ctx, WithAltContactChannel(ChannelTelegram))
 
@@ -326,7 +313,6 @@ func TestCRM_AltContact(t *testing.T) {
 func TestCRM_PriorityPhoneOverAlt(t *testing.T) {
 	t.Skip("Manual urls - requires running server")
 
-	setCRMPort("8092")
 	ctx := context.Background()
 	crm := New(ctx, WithAltContactChannel(ChannelTelegram))
 
@@ -363,7 +349,6 @@ func TestCRM_PriorityPhoneOverAlt(t *testing.T) {
 func TestCRM_AvitoChannel(t *testing.T) {
 	t.Skip("Manual urls - requires running server")
 
-	setCRMPort("8092")
 	ctx := context.Background()
 	crm := New(ctx, WithAltContactChannel(ChannelAvito))
 

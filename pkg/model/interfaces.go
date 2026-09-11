@@ -143,6 +143,13 @@ type RealtimeProvider interface {
 	SetRealtimeDisconnectCallback(respId uint64, callback func(respId uint64)) error
 }
 
+// RealtimeRouter — узкий интерфейс доступа к realtime-провайдеру,
+// необходимый startpoint.Start. Реализуется *Router.
+type RealtimeRouter interface {
+	GetRealtimeProvider(userID uint32) (RealtimeProvider, bool)
+	DisconnectRealtimeSession(respId uint64)
+}
+
 // DeltaProcessor интерфейс унифицированной обработки стриминговых дельт.
 // Реализуется Startpoint для клиентских каналов (Telegram/WhatsApp/Instagram и т.д.).
 type StreamDeltaKind string
