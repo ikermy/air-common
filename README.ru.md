@@ -57,6 +57,82 @@
 - Шифрование на уровне приложения для API-ключей, OAuth-учётных данных, документов и защищённых пользовательских данных.
 - RPC/gRPC-контракты для межсервисной конфигурации и получения пользовательского Master Key.
 
+### 🏗️ Архитектура системы
+
+```mermaid
+graph TB
+    %% --- 1. КАНАЛЫ И ВХОДНЫЕ ИСТОЧНИКИ (ОБНОВЛЕННАЯ ИЕРАРХИЯ) ---
+    subgraph L1_Channels ["1. Каналы и Входные источники"]
+        direction TB
+        
+        %% ВЕРХНИЙ УРОВЕНЬ: Системные сервисы
+        subgraph Group_Tools ["Системные Сервисы"]
+            ORCH["air_orchestrator<br/>• Тесты ИИ моделей<br/>• Исходящие ИИ звонки"]
+            LH["air_lead-hunter<br/>• Мульти-бот аутрич"]
+        end
+
+        %% НИЖНИЙ УРОВЕНЬ: Боты (включая текстовые каналы)
+        subgraph Group_AllBots ["Боты"]
+            direction LR
+            
+            subgraph Group_Userbots ["&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Юзерботы<br/>Текст / Файлы / Голос"]
+                TU["air_tguserbot"]
+                WAB["air_whatsbot"]
+            end
+
+            subgraph Group_Bot ["Официальные Боты"]
+                TGB["air_tgbot<br/>• Текст / STT / Файлы"]
+            end
+
+            subgraph Group_Text ["Только Текст"]
+                WD["air_widget"]
+                AV["air_avito"]
+            end
+        end
+
+        Group_Tools --> Group_AllBots
+    end
+
+    %% --- 2. ЯДРО СИСТЕМЫ (AIR-COMMON) ---
+    subgraph L2_Core ["2. Ядро системы"]
+        direction LR
+        AC["air-common<br/>Оркестрация и Маршрутизация"]
+        OP_LOGIC{"Шлюз перехвата<br/>Кто отвечает?"}
+        
+        AC <--> |&nbsp;|OP_LOGIC
+    end
+
+    %% --- 3. ИСПОЛНИТЕЛИ: ОПЕРАТОР И ИИ-ПРОВАЙДЕРЫ ---
+    subgraph L3_Executors ["3. Исполнители и Модели"]
+        direction LR
+        
+        subgraph L3_Human ["Операторский контур"]
+            OP_HUMAN["air_operator<br/>(Ручной ввод оператора)"]
+        end
+
+        subgraph L4_Providers ["ИИ-Провайдеры"]
+            direction TB
+            LLM["OpenAI / Mistral / Google<br/>Text & Stream API"]
+            RT["OpenAI / Google<br/>Realtime API (WebSockets)"]
+            TTS["Mistral<br/>STT / TTS / Voice Clone"]
+        end
+    end
+
+    %% --- ПОТОКИ ДАННЫХ И МАРШРУТИЗАЦИЯ ---
+    Group_Text <--> AC
+    Group_Bot <--> AC
+    Group_Userbots <--> AC
+    ORCH <==> AC
+    LH <==> AC
+
+    OP_LOGIC -.->|Перехвачено<br/>оператором| OP_HUMAN
+    OP_HUMAN -.->|Ответ<br/>опертора| AC
+
+    OP_LOGIC <-->|Режим ИИ - Текст| LLM
+    OP_LOGIC <-->|Режим ИИ -
+
+```text
+
 ## Установка
 
 Добавьте библиотеку в Go-модуль сервиса:

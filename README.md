@@ -51,6 +51,86 @@
 - Application-level encryption for API keys, OAuth credentials, documents, and protected user data.
 - RPC/gRPC contracts for inter-service configuration and user Master Key retrieval.
 
+### 🏗️ System Architecture
+
+```mermaid
+graph TB
+    %% --- 1. CHANNELS AND INPUT SOURCES (UPDATED HIERARCHY) ---
+    subgraph L1_Channels ["1. Channels and Input Sources"]
+        direction TB
+        
+        %% TOP LEVEL: System Services
+        subgraph Group_Tools ["System Services"]
+            ORCH["air_orchestrator<br/>• AI Model Tests<br/>• Outbound AI Calls"]
+            LH["air_lead-hunter<br/>• Multi-bot Outreach"]
+        end
+
+        %% BOTTOM LEVEL: Bots (including text channels)
+        subgraph Group_AllBots ["Bots"]
+            direction LR
+            
+            subgraph Group_Userbots ["&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Userbots<br/>Text / Files / Voice"]
+                TU["air_tguserbot"]
+                WAB["air_whatsbot"]
+            end
+
+            subgraph Group_Bot ["Official Bots"]
+                TGB["air_tgbot<br/>• Text / STT / Files"]
+            end
+
+            subgraph Group_Text ["Text Only"]
+                WD["air_widget"]
+                AV["air_avito"]
+            end
+        end
+
+        Group_Tools --> Group_AllBots
+    end
+
+    %% --- 2. SYSTEM CORE ---
+    subgraph L2_Core ["2. System Core"]
+        direction LR
+        AC["air-common<br/>Orchestration & Routing"]
+        OP_LOGIC{"Interception Gateway<br/>Who responds?"}
+        
+        AC <--> |&nbsp;|OP_LOGIC
+    end
+
+    %% --- 3. EXECUTORS: OPERATOR & AI PROVIDERS ---
+    subgraph L3_Executors ["3. Executors and Models"]
+        direction LR
+        
+        subgraph L3_Human ["Operator Circuit"]
+            OP_HUMAN["air_operator<br/>(Manual Operator Input)"]
+        end
+
+        subgraph L4_Providers ["AI Providers"]
+            direction TB
+            LLM["OpenAI / Mistral / Google<br/>Text & Stream API"]
+            RT["OpenAI / Google<br/>Realtime API (WebSockets)"]
+            TTS["Mistral<br/>STT / TTS / Voice Clone"]
+        end
+    end
+
+    %% --- DATA FLOWS AND ROUTING ---
+    Group_Text <--> AC
+    Group_Bot <--> AC
+    Group_Userbots <--> AC
+    ORCH <==> AC
+    LH <==> AC
+
+    OP_LOGIC -.->|Intercepted by<br/>operator| OP_HUMAN
+    OP_HUMAN -.->|Operator<br/>response| AC
+
+    OP_LOGIC <-->|AI Mode - Text| LLM
+    OP_LOGIC <-->|AI Mode - Realtime| RT
+    OP_LOGIC <-->|AI Mode - Voice| TTS
+
+    %% Outbound call and message triggers mapped to specific nodes
+    LH -.->|" Launch <br/>N search<br/>bots "| TU
+    ORCH -.-> |" Outbound<br/>calls "| WAB
+```
+
 ## Installation
 
 Add the library to the service's Go module:
