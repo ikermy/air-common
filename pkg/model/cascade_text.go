@@ -31,31 +31,36 @@ func (e *cascadeTextExtractor) Push(delta string) string {
 	if e == nil || delta == "" || e.mode == cascadeTextDone {
 		return ""
 	}
-	trimmed := strings.TrimSpace(delta)
 
-	switch e.mode {
-	case cascadeTextUndecided:
-		if strings.HasPrefix(trimmed, "{") {
-			e.mode = cascadeTextJSONMessage
-			e.raw.WriteString(delta)
-			return e.drainJSONMessage(false)
-		}
-		e.mode = cascadeTextPlain
-		return delta
-
-	case cascadeTextPlain:
-		// Управляющие JSON-кадры (token_usage, function_call) не озвучиваем.
-		if strings.HasPrefix(trimmed, "{") {
+	// Обычный текст (провайдер отдаёт чистые дельты): управляющие JSON-кадры
+	// (token_usage, function_call) не озвучиваем.
+	if e.mode == cascadeTextPlain {
+		if strings.HasPrefix(strings.TrimSpace(delta), "{") {
 			return ""
 		}
 		return delta
-
-	case cascadeTextJSONMessage:
-		e.raw.WriteString(delta)
-		return e.drainJSONMessage(false)
 	}
 
-	return ""
+	e.raw.WriteString(delta)
+	if e.mode == cascadeTextJSONMessage {
+		return e.drainJSONMessage(false)
+	}
+	buf := e.raw.String()
+
+	// Детекция не привязана к первому символу: Mistral Conversations может
+	// отдавать конверт с SSE-обвязкой/несколькими JSON-объектами, поэтому как и
+	// нативный extractor ищем ключ "message" в любом месте буфера.
+	if !strings.Contains(buf, `"message"`) {
+		if e.mode == cascadeTextUndecided && !strings.Contains(buf, "{") {
+			e.mode = cascadeTextPlain
+			e.raw.Reset()
+			return buf
+		}
+		return ""
+	}
+
+	e.mode = cascadeTextJSONMessage
+	return e.drainJSONMessage(false)
 }
 
 // Flush возвращает остаток текста, если JSON-конверт не был закрыт к концу стрима.

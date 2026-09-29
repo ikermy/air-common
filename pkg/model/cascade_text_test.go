@@ -65,3 +65,37 @@ func TestCascadeTextExtractor_NonStringMessage(t *testing.T) {
 		t.Fatalf("non-string message must be ignored, got %q", got)
 	}
 }
+
+func TestCascadeTextExtractor_IgnoresActionEnvelope(t *testing.T) {
+	var e cascadeTextExtractor
+	payload := `{"message": "Привет-привет! У Василич всё муррр-мяу! \nДаже шерсть шевелится?","action":{"type":"send","text":"code"}}`
+	want := "Привет-привет! У Василич всё муррр-мяу! \nДаже шерсть шевелится?"
+	if got := e.Push(payload); got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+	if got := e.Flush(); got != "" {
+		t.Fatalf("flush must be empty after closed message, got %q", got)
+	}
+}
+
+func TestCascadeTextExtractor_SplitAcrossChunksActionEnvelope(t *testing.T) {
+	var e cascadeTextExtractor
+	var got string
+	for _, chunk := range []string{`{"message":"Привет`, `-привет! Всё `, `муррр","action":{}}`} {
+		got += e.Push(chunk)
+	}
+	if got != "Привет-привет! Всё муррр" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestCascadeTextExtractor_EnvelopeWithoutLeadingBrace(t *testing.T) {
+	var e cascadeTextExtractor
+	var got string
+	for _, chunk := range []string{`data: {"mess`, `age":"Привет"}`, `{"type":"token_usage"}`} {
+		got += e.Push(chunk)
+	}
+	if got != "Привет" {
+		t.Fatalf("got %q", got)
+	}
+}
