@@ -44,6 +44,29 @@ func (v *VoiceConfig) STTModelName() string {
 	return DefaultVoiceModel(VoiceKindSTT)
 }
 
+// RealtimeSTTModelName возвращает модель для realtime-каскада Scribe.
+//
+// Поле STT.Model хранит batch-модель (scribe_v2/scribe_v1) и не подходит для
+// streaming-эндпоинта speech-to-text/realtime. Приоритет:
+//  1. STT.RealtimeModel, если задан явно;
+//  2. STT.Model, если он уже realtime-модель (содержит "realtime");
+//  3. дефолт scribe_v2_realtime.
+func (v *VoiceConfig) RealtimeSTTModelName() string {
+	if v != nil && v.STT != nil {
+		if v.STT.RealtimeModel != nil {
+			if trimmed := strings.TrimSpace(*v.STT.RealtimeModel); trimmed != "" {
+				return trimmed
+			}
+		}
+		if v.STT.Model != nil {
+			if trimmed := strings.TrimSpace(*v.STT.Model); strings.Contains(trimmed, "realtime") {
+				return trimmed
+			}
+		}
+	}
+	return DefaultVoiceModel(VoiceKindSTT)
+}
+
 // MusicModelName возвращает выбранную модель генерации музыки или дефолт.
 func (v *VoiceConfig) MusicModelName() string {
 	if v != nil && v.Music != nil && v.Music.Model != nil {

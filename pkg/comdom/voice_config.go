@@ -36,9 +36,10 @@ type TTSConfig struct {
 
 // STTConfig — параметры распознавания речи.
 type STTConfig struct {
-	Model    *string  `json:"model,omitempty"` // scribe_v2_realtime | scribe_v2 | scribe_v1
-	Language *string  `json:"language,omitempty"`
-	Keyterms []string `json:"keyterms,omitempty"`
+	Model         *string  `json:"model,omitempty"`          // batch: scribe_v2 | scribe_v1
+	RealtimeModel *string  `json:"realtime_model,omitempty"` // realtime-каскад: scribe_v2_realtime
+	Language      *string  `json:"language,omitempty"`
+	Keyterms      []string `json:"keyterms,omitempty"`
 }
 
 // STSConfig — speech-to-speech / voice conversion (eleven_*_sts_v2).

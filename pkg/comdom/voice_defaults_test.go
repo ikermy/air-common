@@ -49,3 +49,30 @@ func TestMusicModelName(t *testing.T) {
 		t.Fatalf("MusicModelName=%q", cfg.MusicModelName())
 	}
 }
+
+func TestRealtimeSTTModelName(t *testing.T) {
+	if (*VoiceConfig)(nil).RealtimeSTTModelName() != "scribe_v2_realtime" {
+		t.Fatalf("nil STT must return realtime default")
+	}
+
+	batch := "scribe_v2"
+	cfg := &VoiceConfig{STT: &STTConfig{Model: &batch}}
+	if cfg.RealtimeSTTModelName() != "scribe_v2_realtime" {
+		t.Fatalf("batch model must not leak into realtime, got %q", cfg.RealtimeSTTModelName())
+	}
+	if cfg.STTModelName() != "scribe_v2" {
+		t.Fatalf("batch STTModelName changed: %q", cfg.STTModelName())
+	}
+
+	rt := "scribe_v2_realtime"
+	cfg = &VoiceConfig{STT: &STTConfig{Model: &rt}}
+	if cfg.RealtimeSTTModelName() != "scribe_v2_realtime" {
+		t.Fatalf("explicit realtime model must be kept, got %q", cfg.RealtimeSTTModelName())
+	}
+
+	explicit := "scribe_custom_realtime"
+	cfg = &VoiceConfig{STT: &STTConfig{Model: &batch, RealtimeModel: &explicit}}
+	if cfg.RealtimeSTTModelName() != explicit {
+		t.Fatalf("explicit realtime_model must win, got %q", cfg.RealtimeSTTModelName())
+	}
+}

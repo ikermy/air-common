@@ -192,7 +192,7 @@ func (p *cascadeProvider) StartRealtimeSession(userID uint32, dialogID, respID u
 		dialogID:  dialogID,
 		respID:    respID,
 		apiKey:    apiKey,
-		stt:       p.sttFactory(apiKey, voiceCfg.STTModelName(), language),
+		stt:       p.sttFactory(apiKey, voiceCfg.RealtimeSTTModelName(), language),
 		tts:       p.ttsFactory(apiKey),
 		ttsModel:  voiceCfg.TTSModelName(),
 		ttsVoice:  voiceID,
