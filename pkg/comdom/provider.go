@@ -1,6 +1,10 @@
 package comdom
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+)
 
 type ProviderType uint8
 
@@ -48,6 +52,38 @@ func FromString(s string) (ProviderType, error) {
 	}
 }
 func (p ProviderType) FromUint8(value uint8) ProviderType { return ProviderType(value) }
+
+// UnmarshalJSON принимает как числовой ID провайдера (1..4), так и строковое имя
+// ("openai", "mistral", "google", "elevenlabs"). Нужно, чтобы конфигурация
+// Voice (tts_backend/stt_backend/realtime_backend/music_backend) читалась из БД
+// и из API в обоих форматах: документация использует строки, а старые записи —
+// числа. Без этого весь JSON модели не разбирался (json: cannot unmarshal
+// string into ... ProviderType), Voice терялся и голос падал на провайдера по
+// умолчанию (Mistral).
+func (p *ProviderType) UnmarshalJSON(data []byte) error {
+	trimmed := strings.TrimSpace(string(data))
+	if trimmed == "" || trimmed == "null" {
+		return nil
+	}
+	if trimmed[0] == '"' {
+		var name string
+		if err := json.Unmarshal(data, &name); err != nil {
+			return err
+		}
+		parsed, err := FromString(strings.TrimSpace(name))
+		if err != nil {
+			return err
+		}
+		*p = parsed
+		return nil
+	}
+	var numeric uint8
+	if err := json.Unmarshal(data, &numeric); err != nil {
+		return err
+	}
+	*p = ProviderType(numeric)
+	return nil
+}
 func (p ProviderType) IsValid() bool {
 	for _, known := range AllProviders {
 		if p == known {
