@@ -424,8 +424,10 @@ func (r *Router) activeVoiceConfig(userID uint32) *comdom.VoiceConfig {
 	}
 	data, err := r.modelsManager.GetActiveUserModel(userID)
 	if err != nil || data == nil {
+		voiceDebugf("user=%d активная модель недоступна (data=%v): %v", userID, data == nil, err)
 		return nil
 	}
+	voiceDebugf("user=%d active voice: %s", userID, describeVoice(data.Voice))
 	return data.Voice
 }
 
@@ -905,6 +907,7 @@ func (r *Router) GetActiveUserManager(userID uint32) (Inter, error) {
 func (r *Router) TranscribeAudio(userID uint32, audioData []byte, fileName string) (string, error) {
 	if voiceCfg := r.activeVoiceConfig(userID); voiceCfg != nil &&
 		voiceCfg.STTBackend != nil && *voiceCfg.STTBackend == comdom.ProviderElevenLabs {
+		voiceDebugf("user=%d STT backend: elevenlabs", userID)
 		req := elevenlabs.TranscribeRequest{FileName: fileName, Audio: audioData}
 		if voiceCfg.STT != nil {
 			if voiceCfg.STT.Model != nil {
@@ -925,6 +928,7 @@ func (r *Router) TranscribeAudio(userID uint32, audioData []byte, fileName strin
 	if err != nil {
 		return "", fmt.Errorf("ошибка получения активного менеджера для UserID %d: %w", userID, err)
 	}
+	voiceDebugf("user=%d STT backend: активный провайдер (не elevenlabs)", userID)
 	return manager.TranscribeAudio(userID, audioData, fileName)
 }
 
@@ -933,13 +937,16 @@ func (r *Router) TranscribeAudio(userID uint32, audioData []byte, fileName strin
 // возвращается cascade-провайдер; иначе — нативный realtime активного провайдера.
 func (r *Router) GetRealtimeProvider(userID uint32) (RealtimeProvider, bool) {
 	if _, _, ok := r.cascadeVoiceConfig(userID); ok {
+		voiceDebugf("user=%d realtime: cascade (elevenlabs)", userID)
 		return r.cascade(), true
 	}
 	activeManager, err := r.GetActiveUserManager(userID)
 	if err != nil {
+		voiceDebugf("user=%d realtime: активный менеджер недоступен: %v", userID, err)
 		return nil, false
 	}
 	rp, ok := activeManager.(RealtimeProvider)
+	voiceDebugf("user=%d realtime: нативный провайдер активной модели (ok=%v)", userID, ok)
 	return rp, ok
 }
 

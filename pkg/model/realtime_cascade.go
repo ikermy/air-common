@@ -129,11 +129,14 @@ func (r *Router) cascadeVoiceConfig(userID uint32) (*comdom.UniversalModelData, 
 	}
 	data, err := r.modelsManager.GetActiveUserModel(userID)
 	if err != nil || data == nil || data.Voice == nil {
+		voiceDebugf("cascade: user=%d активная модель/voice недоступна (data=%v): %v", userID, data == nil, err)
 		return nil, nil, false
 	}
 	if !data.Voice.UsesElevenLabsRealtime() {
+		voiceDebugf("cascade: user=%d realtime backend=%s (нужен elevenlabs)", userID, backendName(data.Voice.RealtimeBackend))
 		return nil, nil, false
 	}
+	voiceDebugf("cascade: user=%d включён elevenlabs-каскад (%s)", userID, describeVoice(data.Voice))
 	return data, data.Voice, true
 }
 
