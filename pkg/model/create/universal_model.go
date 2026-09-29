@@ -121,13 +121,18 @@ func (m *UniversalModel) SaveModel(userID uint32, umcr comdom.UMCR, data *comdom
 	if data.UseModelName.GptType == nil || data.UseModelName.GptType.ID == 0 {
 		return fmt.Errorf("не указан корректный ID модели gpt_models для провайдера %s", umcr.Provider)
 	}
+	// При realtime_backend=elevenlabs голос обслуживает каскад STT→LLM→TTS,
+	// поэтому нативная realtime-модель провайдера не требуется.
+	usesElevenLabsRealtime := data.Voice != nil && data.Voice.UsesElevenLabsRealtime()
+
 	if data.Provider != comdom.ProviderMistral {
-		if data.Realtime && (data.UseModelName.Realtime == nil || data.UseModelName.Realtime.ID == 0) {
+		if data.Realtime && !usesElevenLabsRealtime && (data.UseModelName.Realtime == nil || data.UseModelName.Realtime.ID == 0) {
 			return fmt.Errorf("не указан корректный ID realtime-модели для провайдера %s", umcr.Provider)
 		}
 	} else {
 		// Для мистраль структура RealTime другая {
-		if data.Realtime && (data.RealtimeVAD.Mistral.STTModel == nil || data.RealtimeVAD.Mistral.TTSModel == nil) {
+		if data.Realtime && !usesElevenLabsRealtime && (data.RealtimeVAD == nil || data.RealtimeVAD.Mistral == nil ||
+			data.RealtimeVAD.Mistral.STTModel == nil || data.RealtimeVAD.Mistral.TTSModel == nil) {
 			return fmt.Errorf("не указан корректный ID realtime-модели для провайдера %s", umcr.Provider)
 		}
 	}
