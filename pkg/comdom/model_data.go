@@ -17,10 +17,12 @@ type UniversalModelData struct {
 	Realtime     bool          `json:"realtime"`
 	RealtimeVAD  *RealtimeVAD  `json:"realtime_vad,omitempty"`
 	Video        bool          `json:"video"`
+	CreateMusic  bool          `json:"create_music"`
 	GOAuth       GOAuth        `json:"g_oauth"`
 	Espero       EsperoConfig  `json:"espero"`
 	UseModelName *UseModelName `json:"use_model_name"`
 	Provider     ProviderType  `json:"provider"`
+	Voice        *VoiceConfig  `json:"voice,omitempty"`
 }
 
 type GptType struct {

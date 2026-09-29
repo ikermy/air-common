@@ -19,4 +19,9 @@ const (
 	GoogleAgentsURL = "https://generativelanguage.googleapis.com/v1beta"
 	// OpenAI API settings
 	OpenAIAgentsURL = "https://api.openai.com/v1"
+	// ElevenLabs API settings
+	ElevenLabsBaseURL        = "https://api.elevenlabs.io/v1"
+	ElevenLabsRealtimeSTTURL = "wss://api.elevenlabs.io/v1/speech-to-text/realtime"
+	ElevenLabsRealtimeTTSURL = "wss://api.elevenlabs.io/v1/text-to-speech"
+	ElevenLabsSyncModelsTTL  = 24 // часов
 )

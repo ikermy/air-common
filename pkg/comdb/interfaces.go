@@ -25,6 +25,10 @@ type Exterior interface {
 	SetChannelEnabled(userID uint32, chName string, status bool) error
 	SaveUserModel(userID uint32, provider comdom.ProviderType, name, assistantId string, data []byte, def comdom.DefaultProvidersModels, ids json.RawMessage, operator bool) error
 	SyncProviderModels(union comdom.Union, modelNames []string) (comdom.ProviderModelsSyncResult, error)
+	SyncVoiceModels(provider comdom.ProviderType, kind comdom.VoiceKind, modelNames []string) (comdom.ProviderModelsSyncResult, error)
+	GetVoiceModels(provider comdom.ProviderType) ([]comdom.ProviderModel, error)
+	GetProviderModels(provider comdom.ProviderType, modelType comdom.ModelType) ([]comdom.ProviderModel, error)
+	GetAnyUserAPIKey(provider comdom.ProviderType) (string, error)
 	GetOrSetUserStorageLimit(userID uint32, setStorage int64) (remaining uint64, totalLimit uint64, err error)
 	ReadUserModel(userID uint32) ([]byte, *comdom.VecIds, error)
 	SetUserSubscriptionNotified(user uint32) error

@@ -2,16 +2,19 @@ package model
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/ikermy/air-common/pkg/com"
 	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/pkg/elevenlabs"
 	"github.com/ikermy/air-common/pkg/mode"
 	"github.com/ikermy/air-common/pkg/model/create"
 	"github.com/ikermy/air-common/pkg/model/provider_catalog"
@@ -30,6 +33,70 @@ type Router struct {
 	ctx           context.Context
 	db            DB
 	dialogSaver   DialogSaver
+	catalog       catalogThrottle
+
+	cascadeOnce     sync.Once
+	cascadeProvider *cascadeProvider
+}
+
+// catalogTTL — период, в течение которого каталог моделей считается свежим и
+// повторный запрос к провайдеру не выполняется (in-memory, per-instance).
+const catalogTTL = 24 * time.Hour
+
+// catalogThrottle — простой in-memory throttle без внешних зависимостей.
+type catalogThrottle struct {
+	mu   sync.Mutex
+	last map[string]time.Time
+	busy map[string]bool
+}
+
+// claim возвращает true, если вызывающий должен выполнить обновление
+// (каталог устарел и никто другой его сейчас не обновляет).
+func (t *catalogThrottle) claim(key string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if ts, ok := t.last[key]; ok && time.Since(ts) < catalogTTL {
+		return false
+	}
+	if t.busy[key] {
+		return false
+	}
+	if t.busy == nil {
+		t.busy = map[string]bool{}
+	}
+	t.busy[key] = true
+	return true
+}
+
+// release снимает флаг обновления; success=true фиксирует свежесть каталога.
+func (t *catalogThrottle) release(key string, success bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	delete(t.busy, key)
+	if success {
+		if t.last == nil {
+			t.last = map[string]time.Time{}
+		}
+		t.last[key] = time.Now()
+	}
+}
+
+// fresh сообщает, что каталог по ключу обновлялся менее catalogTTL назад.
+func (t *catalogThrottle) fresh(key string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	ts, ok := t.last[key]
+	return ok && time.Since(ts) < catalogTTL
+}
+
+// mark фиксирует успешное обновление каталога по ключу.
+func (t *catalogThrottle) mark(key string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.last == nil {
+		t.last = map[string]time.Time{}
+	}
+	t.last[key] = time.Now()
 }
 
 // DialogSaver принимает сообщения для пакетного сохранения диалогов.
@@ -100,6 +167,243 @@ func (r *Router) GetMistralVoiceSample(userID uint32, voiceID string) (io.ReadCl
 		return nil, "", err
 	}
 	return m.GetVoiceSample(userID, voiceID)
+}
+
+// ─── Generic voice CRUD (провайдер-агностичный) ─────────────────────────────
+// Mistral обслуживается своим менеджером, ElevenLabs — leaf-клиентом.
+
+func (r *Router) elevenLabsVoiceClient(userID uint32) (*elevenlabs.Client, error) {
+	if r.db == nil {
+		return nil, fmt.Errorf("БД не инициализирована")
+	}
+	apiKey, err := r.db.GetUserAPIKey(userID, comdom.ProviderElevenLabs)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(apiKey) == "" {
+		return nil, fmt.Errorf("API-ключ ElevenLabs не настроен")
+	}
+	return elevenlabs.NewClient(apiKey), nil
+}
+
+// ListVoices возвращает голоса выбранного voice-backend.
+func (r *Router) ListVoices(userID uint32, backend comdom.ProviderType, limit, offset int, voiceType string) (comdom.VoiceList, error) {
+	switch backend {
+	case comdom.ProviderMistral:
+		return r.ListMistralVoices(userID, limit, offset, voiceType)
+	case comdom.ProviderElevenLabs:
+		client, err := r.elevenLabsVoiceClient(userID)
+		if err != nil {
+			return comdom.VoiceList{}, err
+		}
+		voices, err := client.ListVoices(r.ctx, limit, offset)
+		if err != nil {
+			return comdom.VoiceList{}, err
+		}
+		items := make([]comdom.Voice, 0, len(voices))
+		for _, v := range voices {
+			items = append(items, mapElevenLabsVoice(v))
+		}
+		page := 1
+		if limit > 0 {
+			page = offset/limit + 1
+		}
+		return comdom.VoiceList{Items: items, Page: page, PageSize: limit, Total: len(items), TotalPages: 1}, nil
+	default:
+		return comdom.VoiceList{}, fmt.Errorf("провайдер %s не поддерживает голоса", backend)
+	}
+}
+
+// GetVoice возвращает голос по ID.
+func (r *Router) GetVoice(userID uint32, backend comdom.ProviderType, voiceID string) (comdom.Voice, error) {
+	switch backend {
+	case comdom.ProviderMistral:
+		return r.GetMistralVoice(userID, voiceID)
+	case comdom.ProviderElevenLabs:
+		client, err := r.elevenLabsVoiceClient(userID)
+		if err != nil {
+			return comdom.Voice{}, err
+		}
+		voice, err := client.GetVoice(r.ctx, voiceID)
+		if err != nil {
+			return comdom.Voice{}, err
+		}
+		return mapElevenLabsVoice(voice), nil
+	default:
+		return comdom.Voice{}, fmt.Errorf("провайдер %s не поддерживает голоса", backend)
+	}
+}
+
+// CreateVoice создаёт голос (IVC).
+func (r *Router) CreateVoice(userID uint32, backend comdom.ProviderType, request comdom.CreateVoiceRequest) (comdom.Voice, error) {
+	switch backend {
+	case comdom.ProviderMistral:
+		return r.CreateMistralVoice(userID, request)
+	case comdom.ProviderElevenLabs:
+		client, err := r.elevenLabsVoiceClient(userID)
+		if err != nil {
+			return comdom.Voice{}, err
+		}
+		audio, err := base64.StdEncoding.DecodeString(request.SampleAudio)
+		if err != nil || len(audio) == 0 {
+			return comdom.Voice{}, fmt.Errorf("некорректный аудио-образец голоса")
+		}
+		fileName := "sample.wav"
+		if request.SampleFilename != nil && strings.TrimSpace(*request.SampleFilename) != "" {
+			fileName = *request.SampleFilename
+		}
+		description := ""
+		if request.Description != nil {
+			description = *request.Description
+		}
+		voiceID, err := client.CreateVoice(r.ctx, request.Name, description, []elevenlabs.VoiceSample{{FileName: fileName, Data: audio}})
+		if err != nil {
+			return comdom.Voice{}, err
+		}
+		return comdom.Voice{ID: voiceID, Name: request.Name}, nil
+	default:
+		return comdom.Voice{}, fmt.Errorf("провайдер %s не поддерживает клонирование голоса", backend)
+	}
+}
+
+// UpdateVoice обновляет голос.
+func (r *Router) UpdateVoice(userID uint32, backend comdom.ProviderType, voiceID string, request comdom.UpdateVoiceRequest) (comdom.Voice, error) {
+	switch backend {
+	case comdom.ProviderMistral:
+		return r.UpdateMistralVoice(userID, voiceID, request)
+	case comdom.ProviderElevenLabs:
+		client, err := r.elevenLabsVoiceClient(userID)
+		if err != nil {
+			return comdom.Voice{}, err
+		}
+		var name, description string
+		if request.Name != nil {
+			name = *request.Name
+		}
+		if request.Description != nil {
+			description = *request.Description
+		}
+		if err := client.EditVoice(r.ctx, voiceID, name, description); err != nil {
+			return comdom.Voice{}, err
+		}
+		return r.GetVoice(userID, backend, voiceID)
+	default:
+		return comdom.Voice{}, fmt.Errorf("провайдер %s не поддерживает голоса", backend)
+	}
+}
+
+// DeleteVoice удаляет голос.
+func (r *Router) DeleteVoice(userID uint32, backend comdom.ProviderType, voiceID string) (comdom.Voice, error) {
+	switch backend {
+	case comdom.ProviderMistral:
+		return r.DeleteMistralVoice(userID, voiceID)
+	case comdom.ProviderElevenLabs:
+		client, err := r.elevenLabsVoiceClient(userID)
+		if err != nil {
+			return comdom.Voice{}, err
+		}
+		voice, getErr := client.GetVoice(r.ctx, voiceID)
+		if err := client.DeleteVoice(r.ctx, voiceID); err != nil {
+			return comdom.Voice{}, err
+		}
+		if getErr != nil {
+			return comdom.Voice{ID: voiceID}, nil
+		}
+		return mapElevenLabsVoice(voice), nil
+	default:
+		return comdom.Voice{}, fmt.Errorf("провайдер %s не поддерживает голоса", backend)
+	}
+}
+
+// GetVoiceSample возвращает аудио-превью голоса.
+func (r *Router) GetVoiceSample(userID uint32, backend comdom.ProviderType, voiceID string) (io.ReadCloser, string, error) {
+	switch backend {
+	case comdom.ProviderMistral:
+		return r.GetMistralVoiceSample(userID, voiceID)
+	case comdom.ProviderElevenLabs:
+		client, err := r.elevenLabsVoiceClient(userID)
+		if err != nil {
+			return nil, "", err
+		}
+		return client.GetVoiceSample(r.ctx, voiceID)
+	default:
+		return nil, "", fmt.Errorf("провайдер %s не поддерживает голоса", backend)
+	}
+}
+
+func mapElevenLabsVoice(v elevenlabs.Voice) comdom.Voice {
+	out := comdom.Voice{ID: v.VoiceID, Name: v.Name}
+	if v.Description != "" {
+		desc := v.Description
+		out.Description = &desc
+	}
+	if v.Category != "" {
+		out.Tags = []string{v.Category}
+	}
+	if lang, ok := v.Labels["language"]; ok && lang != "" {
+		out.Languages = strings.Split(lang, ",")
+	}
+	return out
+}
+
+// ─── Voice gateway: TTS/STT поверх выбранного backend'а ──────────────────────
+
+// activeVoiceConfig возвращает Voice-конфигурацию активной модели пользователя.
+func (r *Router) activeVoiceConfig(userID uint32) *comdom.VoiceConfig {
+	if r.modelsManager == nil {
+		return nil
+	}
+	data, err := r.modelsManager.GetActiveUserModel(userID)
+	if err != nil || data == nil {
+		return nil
+	}
+	return data.Voice
+}
+
+// SynthesizeSpeech синтезирует речь выбранным backend'ом (batch).
+func (r *Router) SynthesizeSpeech(userID uint32, backend comdom.ProviderType, req elevenlabs.SynthesizeRequest) (io.ReadCloser, string, error) {
+	switch backend {
+	case comdom.ProviderElevenLabs:
+		client, err := r.elevenLabsVoiceClient(userID)
+		if err != nil {
+			return nil, "", err
+		}
+		return client.Synthesize(r.ctx, req)
+	default:
+		return nil, "", fmt.Errorf("backend %s не поддерживает TTS", backend)
+	}
+}
+
+// SynthesizeSpeechStream синтезирует речь выбранным backend'ом (streaming).
+func (r *Router) SynthesizeSpeechStream(userID uint32, backend comdom.ProviderType, req elevenlabs.SynthesizeRequest) (<-chan []byte, error) {
+	switch backend {
+	case comdom.ProviderElevenLabs:
+		client, err := r.elevenLabsVoiceClient(userID)
+		if err != nil {
+			return nil, err
+		}
+		return client.SynthesizeStream(r.ctx, req)
+	default:
+		return nil, fmt.Errorf("backend %s не поддерживает TTS", backend)
+	}
+}
+
+// TranscribeAudioWithBackend распознаёт аудио выбранным backend'ом.
+func (r *Router) TranscribeAudioWithBackend(userID uint32, backend comdom.ProviderType, req elevenlabs.TranscribeRequest) (string, error) {
+	switch backend {
+	case comdom.ProviderElevenLabs:
+		client, err := r.elevenLabsVoiceClient(userID)
+		if err != nil {
+			return "", err
+		}
+		return client.Transcribe(r.ctx, req)
+	default:
+		manager, err := r.GetActiveUserManager(userID)
+		if err != nil {
+			return "", err
+		}
+		return manager.TranscribeAudio(userID, req.Audio, req.FileName)
+	}
 }
 
 // NewModelRouter создаёт новый маршрутизатор с опциями.
@@ -476,8 +780,27 @@ func (r *Router) GetActiveUserManager(userID uint32) (Inter, error) {
 	}
 }
 
-// TranscribeAudio транскрибирует аудио через активный провайдер пользователя
+// TranscribeAudio транскрибирует аудио. Если в конфигурации активной модели
+// выбран ElevenLabs STT — используется он, иначе активный провайдер.
 func (r *Router) TranscribeAudio(userID uint32, audioData []byte, fileName string) (string, error) {
+	if voiceCfg := r.activeVoiceConfig(userID); voiceCfg != nil &&
+		voiceCfg.STTBackend != nil && *voiceCfg.STTBackend == comdom.ProviderElevenLabs {
+		req := elevenlabs.TranscribeRequest{FileName: fileName, Audio: audioData}
+		if voiceCfg.STT != nil {
+			if voiceCfg.STT.Model != nil {
+				req.Model = *voiceCfg.STT.Model
+			}
+			if voiceCfg.STT.Language != nil {
+				req.Language = *voiceCfg.STT.Language
+			}
+			req.Keyterms = voiceCfg.STT.Keyterms
+		}
+		if text, err := r.TranscribeAudioWithBackend(userID, comdom.ProviderElevenLabs, req); err == nil {
+			return text, nil
+		}
+		// при ошибке ElevenLabs — fallback на активного провайдера
+	}
+
 	manager, err := r.GetActiveUserManager(userID)
 	if err != nil {
 		return "", fmt.Errorf("ошибка получения активного менеджера для UserID %d: %w", userID, err)
@@ -485,9 +808,13 @@ func (r *Router) TranscribeAudio(userID uint32, audioData []byte, fileName strin
 	return manager.TranscribeAudio(userID, audioData, fileName)
 }
 
-// GetRealtimeProvider возвращает RealtimeProvider если активная модель пользователя поддерживает Realtime API.
-// Работает для OpenAI и Google провайдеров.
+// GetRealtimeProvider возвращает RealtimeProvider для активной модели пользователя.
+// Если для модели включён ElevenLabs realtime-каскад (Voice.RealtimeBackend),
+// возвращается cascade-провайдер; иначе — нативный realtime активного провайдера.
 func (r *Router) GetRealtimeProvider(userID uint32) (RealtimeProvider, bool) {
+	if _, _, ok := r.cascadeVoiceConfig(userID); ok {
+		return r.cascade(), true
+	}
 	activeManager, err := r.GetActiveUserManager(userID)
 	if err != nil {
 		return nil, false
@@ -498,6 +825,9 @@ func (r *Router) GetRealtimeProvider(userID uint32) (RealtimeProvider, bool) {
 
 // getRealtimeProviderByRespId возвращает первый RealtimeProvider, у которого есть сессия с данным respId.
 func (r *Router) getRealtimeProviderByRespId(respId uint64) (RealtimeProvider, bool) {
+	if r.cascadeProvider != nil && r.cascadeProvider.hasCascadeSession(respId) {
+		return r.cascadeProvider, true
+	}
 	for _, p := range []Inter{r.openai, r.mistral, r.google} {
 		if p == nil {
 			continue
@@ -543,6 +873,9 @@ func (r *Router) SetRealtimeDisconnectCallback(respId uint64, callback func(resp
 
 // Shutdown завершает работу всех провайдеров
 func (r *Router) Shutdown(shutCh chan<- com.LogMsg) {
+	if r.cascadeProvider != nil {
+		r.cascadeProvider.closeAll()
+	}
 	r.forEachProvider(func(p Inter) { p.Shutdown(shutCh) })
 }
 
@@ -593,6 +926,24 @@ func (r *Router) syncProviderModelsCatalog(userID uint32, union comdom.Union) {
 	if r.db == nil || !union.Provider.IsValid() {
 		return
 	}
+	if !union.ModelType.IsGeneral() && !union.ModelType.IsRealtime() {
+		return
+	}
+
+	// Voice-only провайдер: обновляем только голосовой каталог.
+	if union.Provider.IsVoiceOnly() {
+		apiKey, _ := r.db.GetUserAPIKey(userID, union.Provider)
+		r.ensureVoiceCatalogFresh(r.ctx, union.Provider, apiKey)
+		return
+	}
+
+	// Глобальный in-memory throttle: не чаще одного обращения к провайдеру в 24 ч.
+	key := fmt.Sprintf("llm:%d:%d", union.Provider, union.ModelType)
+	if !r.catalog.claim(key) {
+		return
+	}
+	success := false
+	defer func() { r.catalog.release(key, success) }()
 
 	apiKey, err := r.db.GetUserAPIKey(userID, union.Provider)
 	if err != nil {
@@ -612,14 +963,14 @@ func (r *Router) syncProviderModelsCatalog(userID uint32, union comdom.Union) {
 		return
 	}
 
-	var result comdom.ProviderModelsSyncResult
-	if !union.ModelType.IsGeneral() && !union.ModelType.IsRealtime() {
-		return
-	}
-	result, err = r.db.SyncProviderModels(union, modelNames)
+	result, err := r.db.SyncProviderModels(union, modelNames)
 	if err != nil {
 		return
 	}
+	success = true
+
+	// Голосовые модели провайдера (Mistral STT/TTS) — в voice_models.
+	r.ensureVoiceCatalogFresh(r.ctx, union.Provider, apiKey)
 
 	if len(result.AffectedUsers) == 0 {
 		return
@@ -642,11 +993,114 @@ func (r *Router) syncProviderModelsCatalog(userID uint32, union comdom.Union) {
 }
 
 func (r *Router) UpdateModelsListByProvider(ctx context.Context, union comdom.Union, apiKey string) ([]comdom.ProviderModel, error) {
+	// Voice-only провайдер (ElevenLabs): ModelType игнорируется, возвращаем все
+	// голосовые модели. Каталог обновляется под in-memory throttle.
+	if union.Provider.IsVoiceOnly() {
+		r.ensureVoiceCatalogFresh(ctx, union.Provider, apiKey)
+		return r.db.GetVoiceModels(union.Provider)
+	}
+
 	m, err := r.getModel(union.Provider)
 	if err != nil {
 		return nil, err
 	}
-	return m.UpdateModelsListByProvider(ctx, union, apiKey)
+
+	llmKey := fmt.Sprintf("llm:%d:%d", union.Provider, union.ModelType)
+	var models []comdom.ProviderModel
+	if r.catalog.fresh(llmKey) {
+		if cached, cacheErr := r.db.GetProviderModels(union.Provider, union.ModelType); cacheErr == nil && len(cached) > 0 {
+			models = cached
+		}
+	}
+	if models == nil {
+		models, err = m.UpdateModelsListByProvider(ctx, union, apiKey)
+		if err != nil {
+			return models, err
+		}
+		r.catalog.mark(llmKey)
+	}
+
+	// Дополняем голосовыми моделями провайдера (например Mistral STT/TTS).
+	r.ensureVoiceCatalogFresh(ctx, union.Provider, apiKey)
+	if voice, vErr := r.db.GetVoiceModels(union.Provider); vErr == nil && len(voice) > 0 {
+		models = append(models, voice...)
+	}
+	return models, nil
+}
+
+// ensureVoiceCatalogFresh под in-memory throttle обновляет voice_models
+// провайдера, если каталог устарел; повторный запрос к провайдеру в течение
+// 24 часов не выполняется.
+func (r *Router) ensureVoiceCatalogFresh(ctx context.Context, provider comdom.ProviderType, apiKey string) {
+	if r.db == nil {
+		return
+	}
+	key := fmt.Sprintf("voice:%d", provider)
+	if !r.catalog.claim(key) {
+		return
+	}
+
+	if strings.TrimSpace(apiKey) == "" {
+		apiKey, _ = r.db.GetAnyUserAPIKey(provider)
+	}
+	if strings.TrimSpace(apiKey) == "" {
+		r.catalog.release(key, false)
+		return
+	}
+
+	syncCtx := ctx
+	if syncCtx == nil {
+		syncCtx = r.ctx
+	}
+	if syncCtx == nil {
+		syncCtx = context.Background()
+	}
+	syncCtx, cancel := context.WithTimeout(syncCtx, 10*time.Second)
+	defer cancel()
+
+	err := r.syncVoiceModels(syncCtx, provider, apiKey)
+	r.catalog.release(key, err == nil)
+}
+
+// syncVoiceModels получает актуальный голосовой каталог провайдера и пишет его
+// в voice_models.
+func (r *Router) syncVoiceModels(ctx context.Context, provider comdom.ProviderType, apiKey string) error {
+	client := provider_catalog.NewClient()
+	switch provider {
+	case comdom.ProviderMistral:
+		stt, tts, err := client.FetchMistralVoiceModels(ctx, apiKey)
+		if err != nil {
+			return err
+		}
+		if _, err := r.db.SyncVoiceModels(provider, comdom.VoiceKindSTT, stt); err != nil {
+			return err
+		}
+		if _, err := r.db.SyncVoiceModels(provider, comdom.VoiceKindTTS, tts); err != nil {
+			return err
+		}
+		return nil
+	case comdom.ProviderElevenLabs:
+		kinds := []comdom.VoiceKind{
+			comdom.VoiceKindTTS,
+			comdom.VoiceKindSTT,
+			comdom.VoiceKindMusic,
+			comdom.VoiceKindSTS,
+		}
+		var lastErr error
+		for _, kind := range kinds {
+			names, err := client.FetchElevenLabsModels(ctx, apiKey, kind)
+			if err != nil {
+				lastErr = err
+				continue
+			}
+			if _, err := r.db.SyncVoiceModels(provider, kind, names); err != nil {
+				lastErr = err
+			}
+		}
+		return lastErr
+	default:
+		return nil
+	}
 }
 
 // UploadFileToProvider загружает файл в указанный провайдер (только Mistral)
@@ -949,6 +1403,21 @@ func (r *Router) ProvidersWithApiKeys(userID uint32) comdom.ProvidersAvailabilit
 	return r.modelsManager.ProvidersWithApiKeys(userID)
 }
 
+// GetProviderCapabilities возвращает карту возможностей провайдеров для фронтенда:
+// {"elevenlabs":["tts","stt","voice_clone","music","speech_to_speech"], ...}.
+func (r *Router) GetProviderCapabilities() map[string][]string {
+	result := make(map[string][]string, len(comdom.AllProviders))
+	for _, p := range comdom.AllProviders {
+		caps := p.Capabilities()
+		list := make([]string, 0, len(caps))
+		for _, c := range caps {
+			list = append(list, c.String())
+		}
+		result[p.String()] = list
+	}
+	return result
+}
+
 // InvalidateUserAgentConfigCache инвалидирует кэш конфигурации модели для пользователя
 func (r *Router) InvalidateUserAgentConfigCache(userID uint32) {
 	r.forEachProvider(func(p Inter) { p.InvalidateUserAgentConfigCache(userID) })
@@ -959,6 +1428,9 @@ func (r *Router) InvalidateUserAgentConfigCache(userID uint32) {
 // Используется при глобальном отключении пользователя (например, блокировка аккаунта).
 // Для отключения конкретного провайдера используйте RevokeUserAPIKey.
 func (r *Router) DisconnectUser(userID uint32) {
+	if r.cascadeProvider != nil {
+		r.cascadeProvider.closeUser(userID)
+	}
 	r.forEachProvider(func(p Inter) { p.DisconnectUser(userID) })
 }
 
@@ -969,6 +1441,13 @@ func (r *Router) RevokeUserAPIKey(userID uint32, provider comdom.ProviderType) e
 	// Завершаем сессии только у указанного провайдера
 	if p, err := r.getModel(provider); err == nil {
 		p.DisconnectUser(userID)
+	} else if provider.IsVoiceOnly() {
+		// У voice-only провайдера нет LLM-сессий: закрываем каскадные сессии и
+		// инвалидируем кэш, чтобы новые сессии перестали использовать его голос.
+		if r.cascadeProvider != nil {
+			r.cascadeProvider.closeUser(userID)
+		}
+		r.InvalidateUserAgentConfigCache(userID)
 	}
 
 	if r.modelsManager == nil {

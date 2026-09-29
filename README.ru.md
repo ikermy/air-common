@@ -245,6 +245,7 @@ air_-сервис
 - [air_payment](https://github.com/ikermy/air_payment) — сервис приёма криптовалютных платежей от пользователей через Bybit
 - [marusia_crm](https://github.com/ikermy/marusia_crm) — сервис интеграции с внешними CRM-системами
 - [air-logger](https://github.com/ikermy/air-logger) — вспомогательный сервис журналирования событий с поддержкой многопользовательского режима и сборщика логов Loki
+- [air_front](https://github.com/ikermy/air_front) — Frontend react next.js панель управления моделями, каналами взаимодействия, сервисами...
 
 ## Лицензия
 

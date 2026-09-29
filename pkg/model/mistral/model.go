@@ -1299,34 +1299,15 @@ func (m *Model) UpdateModelsListByProvider(ctx context.Context, union comdom.Uni
 	if union.Provider != comdom.ProviderMistral {
 		return nil, fmt.Errorf("неверный провайдер для Mistral модели: %s", union.Provider.String())
 	}
-	// STT/TTS каталоги являются capability-каталогами: legacy-таблицы
-	// realtime_models и gpt_models для них не подходят. Возвращаем их
-	// непосредственно фронтенду, без записи в БД.
+	// Возвращаем только realtime/LLM-модели. Голосовые STT/TTS Mistral
+	// синхронизируются в voice_models на уровне Router и добавляются к ответу
+	// как отдельные записи с Kind.
 	res, err := provider_catalog.SyncProviderModels(ctx, m.db, union, apiKey)
-	if err != nil || !union.ModelType.IsRealtime() {
+	if err != nil {
 		return res.Models, err
 	}
-	if len(res.Models) == 0 {
+	if union.ModelType.IsRealtime() && len(res.Models) == 0 {
 		return nil, fmt.Errorf("для Mistral не получены realtime модели")
-	}
-
-	// The legacy realtime_models table stores only the realtime LLM model.
-	// STT and TTS are capabilities of the same Mistral voice configuration and
-	// must be returned to the caller, but must not be inserted into that table.
-	sttNames, ttsNames, voiceErr := provider_catalog.NewClient().FetchMistralVoiceModels(ctx, apiKey)
-	if voiceErr != nil {
-		return nil, fmt.Errorf("не удалось получить STT/TTS модели Mistral: %w", voiceErr)
-	}
-	if len(sttNames) == 0 || len(ttsNames) == 0 {
-		return nil, fmt.Errorf("для Mistral не получены STT или TTS модели")
-	}
-	// The frontend receives one combined configuration object per realtime
-	// model: realtime ID/name plus the available STT/TTS model names.
-	sttModel := sttNames[0]
-	ttsModel := ttsNames[0]
-	for i := range res.Models {
-		res.Models[i].STT = sttModel
-		res.Models[i].TTS = ttsModel
 	}
 	return res.Models, nil
 }

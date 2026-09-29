@@ -12,13 +12,15 @@ type ProviderModelUserChange struct {
 	ModelName string `json:"model_name,omitempty"`
 }
 type ProviderModel struct {
-	ID   uint64 `json:"Id"`
-	Name string `json:"Name"`
-	// STT and TTS contain the corresponding Mistral voice-pipeline model
-	// names. They are populated together with realtime models and are kept
-	// outside the legacy realtime_models table.
-	STT string `json:"stt,omitempty"`
-	TTS string `json:"tts,omitempty"`
+	ID   uint64    `json:"Id"`
+	Name string    `json:"Name"`
+	Kind VoiceKind `json:"kind,omitempty"` // пусто — LLM-модель; иначе tts|stt|music|sts
+
+	IsDefault            bool     `json:"is_default,omitempty"`
+	DisplayName          string   `json:"display_name,omitempty"`
+	Languages            []string `json:"languages,omitempty"`
+	SupportsStyle        *bool    `json:"supports_style,omitempty"`
+	SupportsSpeakerBoost *bool    `json:"supports_speaker_boost,omitempty"`
 }
 
 type ProviderModelsSyncResult struct {

@@ -18,6 +18,8 @@ import (
 // It is intentionally kept outside pkg/comdb so that the DB layer remains database-only.
 type Client struct {
 	HTTPClient *http.Client
+	// ElevenLabsBaseURL переопределяет базовый URL ElevenLabs (для тестов).
+	ElevenLabsBaseURL string
 }
 
 // DefaultMistralSTTModel is the production default Voxtral realtime

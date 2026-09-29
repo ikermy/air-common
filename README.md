@@ -244,6 +244,7 @@ Environment variable names and configuration format are defined by the specific 
 - [air_payment](https://github.com/ikermy/air_payment) — service for receiving cryptocurrency payments from users through Bybit
 - [marusia_crm](https://github.com/ikermy/marusia_crm) — service for integrating with external CRM systems
 - [air-logger](https://github.com/ikermy/air-logger) — auxiliary event-logging service with multi-user support and Loki log collector support
+- [air_front](https://github.com/ikermy/air_front) — Frontend react next.js dashboard for managing models, interaction channels, services...
 
 ## License
 
