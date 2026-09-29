@@ -8,10 +8,12 @@ type VoiceConfig struct {
 	TTSBackend      *ProviderType `json:"tts_backend,omitempty"`      // elevenlabs | mistral | openai | google
 	STTBackend      *ProviderType `json:"stt_backend,omitempty"`      // elevenlabs | mistral | openai | google
 	RealtimeBackend *ProviderType `json:"realtime_backend,omitempty"` // native (nil) | elevenlabs (cascade)
+	MusicBackend    *ProviderType `json:"music_backend,omitempty"`    // elevenlabs
 
-	TTS *TTSConfig `json:"tts,omitempty"`
-	STT *STTConfig `json:"stt,omitempty"`
-	STS *STSConfig `json:"sts,omitempty"`
+	TTS   *TTSConfig   `json:"tts,omitempty"`
+	STT   *STTConfig   `json:"stt,omitempty"`
+	STS   *STSConfig   `json:"sts,omitempty"`
+	Music *MusicConfig `json:"music,omitempty"`
 
 	// Общая привязка к голосовому профилю.
 	VoiceID   *string `json:"voice_id,omitempty"`
@@ -43,6 +45,14 @@ type STTConfig struct {
 type STSConfig struct {
 	Model   *string `json:"model,omitempty"`
 	VoiceID *string `json:"voice_id,omitempty"`
+}
+
+// MusicConfig — параметры генерации музыки (tool generate_music).
+type MusicConfig struct {
+	Model             *string `json:"model,omitempty"`              // eleven_music
+	Format            *string `json:"format,omitempty"`             // mp3_44100_128 | pcm_44100
+	LengthMs          *int    `json:"length_ms,omitempty"`          // длительность трека
+	ForceInstrumental *bool   `json:"force_instrumental,omitempty"` // без вокала
 }
 
 // ElevenLabsVoiceConfig — специфичные для ElevenLabs настройки голоса.

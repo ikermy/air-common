@@ -12,6 +12,13 @@ import (
 	"strings"
 )
 
+// VoiceFineTuning — статус обучения PVC-голоса.
+type VoiceFineTuning struct {
+	State    string `json:"state"`
+	Progress *int   `json:"progress,omitempty"`
+	Message  string `json:"message,omitempty"`
+}
+
 // Voice — профиль голоса ElevenLabs.
 type Voice struct {
 	VoiceID     string            `json:"voice_id"`
@@ -20,6 +27,7 @@ type Voice struct {
 	Description string            `json:"description"`
 	PreviewURL  string            `json:"preview_url"`
 	Labels      map[string]string `json:"labels"`
+	FineTuning  *VoiceFineTuning  `json:"fine_tuning,omitempty"`
 }
 
 type voiceListResponse struct {
@@ -154,6 +162,91 @@ func (c *Client) CreateVoice(ctx context.Context, name, description string, samp
 		return "", fmt.Errorf("ошибка разбора ответа создания голоса: %w", err)
 	}
 	return out.VoiceID, nil
+}
+
+// CreatePVCVoice создаёт PVC-голос по метаданным (POST /v1/voices/pvc).
+// language обязателен. Возвращает voice_id; образцы и обучение — отдельными вызовами.
+func (c *Client) CreatePVCVoice(ctx context.Context, name, language, description string) (string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if strings.TrimSpace(name) == "" {
+		return "", fmt.Errorf("name обязателен")
+	}
+	if strings.TrimSpace(language) == "" {
+		return "", fmt.Errorf("language обязателен для PVC")
+	}
+	payload := map[string]any{"name": name, "language": language}
+	if description != "" {
+		payload["description"] = description
+	}
+	var out struct {
+		VoiceID string `json:"voice_id"`
+	}
+	if err := c.doJSON(ctx, http.MethodPost, c.baseURL()+"/voices/pvc", payload, &out); err != nil {
+		return "", err
+	}
+	return out.VoiceID, nil
+}
+
+// AddPVCSamples добавляет образцы к PVC-голосу (POST /v1/voices/pvc/{voice_id}/samples).
+func (c *Client) AddPVCSamples(ctx context.Context, voiceID string, samples []VoiceSample) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if strings.TrimSpace(voiceID) == "" {
+		return fmt.Errorf("voice_id обязателен")
+	}
+	if len(samples) == 0 {
+		return fmt.Errorf("нужен хотя бы один аудио-образец")
+	}
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	for i, sample := range samples {
+		fileName := sample.FileName
+		if fileName == "" {
+			fileName = fmt.Sprintf("sample_%d.wav", i)
+		}
+		part, err := writer.CreateFormFile("files", fileName)
+		if err != nil {
+			return err
+		}
+		if _, err := part.Write(sample.Data); err != nil {
+			return err
+		}
+	}
+	if err := writer.Close(); err != nil {
+		return err
+	}
+
+	httpReq, err := c.newRequest(ctx, http.MethodPost, c.baseURL()+"/voices/pvc/"+url.PathEscape(voiceID)+"/samples", &buf)
+	if err != nil {
+		return err
+	}
+	httpReq.Header.Set("Content-Type", writer.FormDataContentType())
+	resp, err := c.do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	return nil
+}
+
+// TrainPVCVoice запускает обучение PVC-голоса (POST /v1/voices/pvc/{voice_id}/train).
+func (c *Client) TrainPVCVoice(ctx context.Context, voiceID, modelID string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if strings.TrimSpace(voiceID) == "" {
+		return fmt.Errorf("voice_id обязателен")
+	}
+	payload := map[string]any{}
+	if strings.TrimSpace(modelID) != "" {
+		payload["model_id"] = modelID
+	}
+	return c.doJSON(ctx, http.MethodPost, c.baseURL()+"/voices/pvc/"+url.PathEscape(voiceID)+"/train", payload, nil)
 }
 
 // EditVoice обновляет имя и описание голоса (POST /v1/voices/{voice_id}/edit).

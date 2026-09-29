@@ -234,7 +234,8 @@ func (r *Router) GetVoice(userID uint32, backend comdom.ProviderType, voiceID st
 	}
 }
 
-// CreateVoice создаёт голос (IVC).
+// CreateVoice создаёт клон голоса. Поддерживает два режима ElevenLabs:
+// instant (IVC, голос готов сразу) и professional (PVC, асинхронное обучение).
 func (r *Router) CreateVoice(userID uint32, backend comdom.ProviderType, request comdom.CreateVoiceRequest) (comdom.Voice, error) {
 	switch backend {
 	case comdom.ProviderMistral:
@@ -244,26 +245,87 @@ func (r *Router) CreateVoice(userID uint32, backend comdom.ProviderType, request
 		if err != nil {
 			return comdom.Voice{}, err
 		}
-		audio, err := base64.StdEncoding.DecodeString(request.SampleAudio)
-		if err != nil || len(audio) == 0 {
-			return comdom.Voice{}, fmt.Errorf("некорректный аудио-образец голоса")
-		}
-		fileName := "sample.wav"
-		if request.SampleFilename != nil && strings.TrimSpace(*request.SampleFilename) != "" {
-			fileName = *request.SampleFilename
+		samples, err := decodeVoiceSamples(request)
+		if err != nil {
+			return comdom.Voice{}, err
 		}
 		description := ""
 		if request.Description != nil {
 			description = *request.Description
 		}
-		voiceID, err := client.CreateVoice(r.ctx, request.Name, description, []elevenlabs.VoiceSample{{FileName: fileName, Data: audio}})
+
+		mode := comdom.CloneMode(strings.TrimSpace(request.CloneMode))
+		if mode == "" {
+			mode = comdom.CloneModeInstant
+		}
+		if !mode.IsValid() {
+			return comdom.Voice{}, fmt.Errorf("неизвестный режим клонирования: %s", mode)
+		}
+
+		if mode == comdom.CloneModeProfessional {
+			language := strings.TrimSpace(request.Language)
+			if language == "" {
+				return comdom.Voice{}, fmt.Errorf("language обязателен для профессионального клонирования (PVC)")
+			}
+			voiceID, err := client.CreatePVCVoice(r.ctx, request.Name, language, description)
+			if err != nil {
+				return comdom.Voice{}, err
+			}
+			if err := client.AddPVCSamples(r.ctx, voiceID, samples); err != nil {
+				// голос-контейнер уже создан; возвращаем ошибку, чтобы клиент повторил обучение
+				return comdom.Voice{}, fmt.Errorf("PVC voice %s создан, но образцы не загружены: %w", voiceID, err)
+			}
+			if err := client.TrainPVCVoice(r.ctx, voiceID, request.ModelID); err != nil {
+				return comdom.Voice{}, fmt.Errorf("PVC voice %s создан, но обучение не запущено: %w", voiceID, err)
+			}
+			return comdom.Voice{
+				ID:              voiceID,
+				Name:            request.Name,
+				CloneMode:       string(comdom.CloneModeProfessional),
+				FineTuningState: "queued",
+			}, nil
+		}
+
+		// instant (IVC)
+		voiceID, err := client.CreateVoice(r.ctx, request.Name, description, samples)
 		if err != nil {
 			return comdom.Voice{}, err
 		}
-		return comdom.Voice{ID: voiceID, Name: request.Name}, nil
+		return comdom.Voice{ID: voiceID, Name: request.Name, CloneMode: string(comdom.CloneModeInstant)}, nil
 	default:
 		return comdom.Voice{}, fmt.Errorf("провайдер %s не поддерживает клонирование голоса", backend)
 	}
+}
+
+// decodeVoiceSamples принимает образцы из Samples (несколько base64) или
+// из устаревшего SampleAudio (один base64).
+func decodeVoiceSamples(request comdom.CreateVoiceRequest) ([]elevenlabs.VoiceSample, error) {
+	fileName := "sample.wav"
+	if request.SampleFilename != nil && strings.TrimSpace(*request.SampleFilename) != "" {
+		fileName = *request.SampleFilename
+	}
+
+	raw := request.Samples
+	if len(raw) == 0 && strings.TrimSpace(request.SampleAudio) != "" {
+		raw = []string{request.SampleAudio}
+	}
+	if len(raw) == 0 {
+		return nil, fmt.Errorf("нужен хотя бы один аудио-образец")
+	}
+
+	samples := make([]elevenlabs.VoiceSample, 0, len(raw))
+	for i, encoded := range raw {
+		audio, err := base64.StdEncoding.DecodeString(encoded)
+		if err != nil || len(audio) == 0 {
+			return nil, fmt.Errorf("некорректный аудио-образец голоса #%d", i+1)
+		}
+		name := fileName
+		if len(raw) > 1 {
+			name = fmt.Sprintf("sample_%d.wav", i+1)
+		}
+		samples = append(samples, elevenlabs.VoiceSample{FileName: name, Data: audio})
+	}
+	return samples, nil
 }
 
 // UpdateVoice обновляет голос.
@@ -343,6 +405,13 @@ func mapElevenLabsVoice(v elevenlabs.Voice) comdom.Voice {
 	if lang, ok := v.Labels["language"]; ok && lang != "" {
 		out.Languages = strings.Split(lang, ",")
 	}
+	if v.FineTuning != nil {
+		out.FineTuningState = v.FineTuning.State
+		out.FineTuningProgress = v.FineTuning.Progress
+		if v.FineTuning.State != "" && v.FineTuning.State != "fine_tuned" {
+			out.CloneMode = string(comdom.CloneModeProfessional)
+		}
+	}
 	return out
 }
 
@@ -404,6 +473,35 @@ func (r *Router) TranscribeAudioWithBackend(userID uint32, backend comdom.Provid
 		}
 		return manager.TranscribeAudio(userID, req.Audio, req.FileName)
 	}
+}
+
+// GenerateMusic генерирует музыку. Параметры, не заданные в req, берутся из
+// Voice.Music активной модели пользователя (model по умолчанию eleven_music).
+func (r *Router) GenerateMusic(userID uint32, req elevenlabs.MusicRequest) (elevenlabs.MusicResult, error) {
+	client, err := r.elevenLabsVoiceClient(userID)
+	if err != nil {
+		return elevenlabs.MusicResult{}, err
+	}
+	voiceCfg := r.activeVoiceConfig(userID)
+	if strings.TrimSpace(req.Model) == "" {
+		if voiceCfg != nil {
+			req.Model = voiceCfg.MusicModelName()
+		} else {
+			req.Model = comdom.DefaultVoiceModel(comdom.VoiceKindMusic)
+		}
+	}
+	if voiceCfg != nil && voiceCfg.Music != nil {
+		if req.LengthMs == nil {
+			req.LengthMs = voiceCfg.Music.LengthMs
+		}
+		if req.Format == "" && voiceCfg.Music.Format != nil {
+			req.Format = *voiceCfg.Music.Format
+		}
+		if req.ForceInstrumental == nil {
+			req.ForceInstrumental = voiceCfg.Music.ForceInstrumental
+		}
+	}
+	return client.GenerateMusic(r.ctx, req)
 }
 
 // NewModelRouter создаёт новый маршрутизатор с опциями.

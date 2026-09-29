@@ -38,3 +38,14 @@ func TestVoiceConfigHelpers(t *testing.T) {
 		t.Fatalf("nil TTS must return default")
 	}
 }
+
+func TestMusicModelName(t *testing.T) {
+	if (*VoiceConfig)(nil).MusicModelName() != "eleven_music" {
+		t.Fatalf("nil Music must return default eleven_music")
+	}
+	model := "eleven_music_v2"
+	cfg := &VoiceConfig{Music: &MusicConfig{Model: &model}}
+	if cfg.MusicModelName() != "eleven_music_v2" {
+		t.Fatalf("MusicModelName=%q", cfg.MusicModelName())
+	}
+}

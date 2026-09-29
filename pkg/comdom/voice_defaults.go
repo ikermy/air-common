@@ -44,6 +44,14 @@ func (v *VoiceConfig) STTModelName() string {
 	return DefaultVoiceModel(VoiceKindSTT)
 }
 
+// MusicModelName возвращает выбранную модель генерации музыки или дефолт.
+func (v *VoiceConfig) MusicModelName() string {
+	if v != nil && v.Music != nil && v.Music.Model != nil {
+		return ResolveVoiceModel(VoiceKindMusic, *v.Music.Model)
+	}
+	return DefaultVoiceModel(VoiceKindMusic)
+}
+
 // UsesElevenLabsVoice сообщает, что хотя бы одна голосовая стадия использует
 // ElevenLabs (используется для выбора cascade/hybrid-пути).
 func (v *VoiceConfig) UsesElevenLabsVoice() bool {
