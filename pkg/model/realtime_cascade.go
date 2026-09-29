@@ -52,6 +52,8 @@ func defaultCascadeSTTFactory(apiKey, model, language string) cascadeSTT {
 	stt := elevenlabs.NewRealtimeSTT(apiKey)
 	stt.Model = model
 	stt.Language = language
+	// Клиенты голосового каскада шлют PCM16 24 kHz (см. audio-capture/player).
+	stt.SampleRate = elevenlabs.RealtimeSTTSampleRate
 	return stt
 }
 
@@ -165,7 +167,8 @@ func (p *cascadeProvider) StartRealtimeSession(userID uint32, dialogID, respID u
 		return fmt.Errorf("не задан голос ElevenLabs (Voice.VoiceID)")
 	}
 
-	format := "pcm_16000"
+	// Клиент воспроизводит ответ как PCM16 24 kHz.
+	format := "pcm_24000"
 	language := ""
 	if voiceCfg.TTS != nil {
 		if voiceCfg.TTS.Format != nil && strings.TrimSpace(*voiceCfg.TTS.Format) != "" {

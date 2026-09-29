@@ -3,8 +3,10 @@ package elevenlabs
 import (
 	"context"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"strings"
@@ -14,9 +16,14 @@ import (
 	"github.com/ikermy/air-common/pkg/mode"
 )
 
+// RealtimeSTTSampleRate — частота PCM16-потока по умолчанию (совпадает с
+// клиентами голосового каскада: mic/playback 24 kHz).
+const RealtimeSTTSampleRate = 24000
+
 // RealtimeSTT — серверный streaming-распознаватель Scribe v2 Realtime.
 //
-// Аудио: PCM 16 kHz mono s16le LE. Протокол:
+// Аудио: PCM mono s16le LE; частота задаётся SampleRate (по умолчанию 16 kHz,
+// голосовой каскад использует 24 kHz). Протокол:
 //
 //	отправка  {"message_type":"input_audio_chunk","audio_base_64":"...","commit":false,"sample_rate":16000}
 //	финал     {"message_type":"input_audio_chunk","audio_base_64":"","commit":true,"sample_rate":16000}
@@ -27,13 +34,40 @@ type RealtimeSTT struct {
 	APIKey   string
 	BaseURL  string
 
+	// SampleRate — частота PCM16-потока, который подаётся в Run. 0 → 16000.
+	SampleRate int
+
 	// Dialer позволяет переопределить websocket-соединение в тестах.
 	Dialer *websocket.Dialer
 }
 
 // NewRealtimeSTT создаёт серверный realtime STT клиент.
+// Частота по умолчанию — 16 kHz; для голосового каскада (24 kHz PCM)
+// переопределяется через SampleRate.
 func NewRealtimeSTT(apiKey string) *RealtimeSTT {
-	return &RealtimeSTT{APIKey: strings.TrimSpace(apiKey)}
+	return &RealtimeSTT{APIKey: strings.TrimSpace(apiKey), SampleRate: 16000}
+}
+
+// sampleRate возвращает частоту аудиопотока.
+func (s *RealtimeSTT) sampleRate() int {
+	if s.SampleRate > 0 {
+		return s.SampleRate
+	}
+	return 16000
+}
+
+// pcm16RMS считает RMS для PCM16 LE mono; используется для детектора тишины.
+func pcm16RMS(pcm []byte) float64 {
+	n := len(pcm) / 2
+	if n == 0 {
+		return 0
+	}
+	var sum float64
+	for i := 0; i < n; i++ {
+		v := float64(int16(binary.LittleEndian.Uint16(pcm[2*i:])))
+		sum += v * v
+	}
+	return math.Sqrt(sum / float64(n))
 }
 
 func (s *RealtimeSTT) url() string {
@@ -148,12 +182,13 @@ func (s *RealtimeSTT) readLoop(ctx context.Context, conn *websocket.Conn, onTran
 }
 
 func (s *RealtimeSTT) writeLoop(ctx context.Context, conn *websocket.Conn, audio <-chan []byte) error {
+	sampleRate := s.sampleRate()
 	write := func(payload []byte, commit bool) error {
 		frame := map[string]any{
 			"message_type":  "input_audio_chunk",
 			"audio_base_64": base64.StdEncoding.EncodeToString(payload),
 			"commit":        commit,
-			"sample_rate":   16000,
+			"sample_rate":   sampleRate,
 		}
 		raw, err := json.Marshal(frame)
 		if err != nil {
@@ -161,6 +196,18 @@ func (s *RealtimeSTT) writeLoop(ctx context.Context, conn *websocket.Conn, audio
 		}
 		return conn.WriteMessage(websocket.TextMessage, raw)
 	}
+
+	// Клиент (голосовой каскад) шлёт непрерывный поток без commit, поэтому
+	// завершаем реплику по тишине после речи, иначе ElevenLabs присылает только
+	// partial_transcript и каскад не запускает LLM/TTS.
+	const (
+		silenceRMS       = 350.0
+		commitSilenceFor = 800 * time.Millisecond
+	)
+	var (
+		speaking     bool
+		silenceSince time.Time
+	)
 
 	for {
 		select {
@@ -183,6 +230,26 @@ func (s *RealtimeSTT) writeLoop(ctx context.Context, conn *websocket.Conn, audio
 			}
 			if err := write(chunk, false); err != nil {
 				return err
+			}
+
+			if pcm16RMS(chunk) >= silenceRMS {
+				speaking = true
+				silenceSince = time.Time{}
+				continue
+			}
+			if !speaking {
+				continue
+			}
+			if silenceSince.IsZero() {
+				silenceSince = time.Now()
+				continue
+			}
+			if time.Since(silenceSince) >= commitSilenceFor {
+				if err := write(nil, true); err != nil {
+					return err
+				}
+				speaking = false
+				silenceSince = time.Time{}
 			}
 		}
 	}
