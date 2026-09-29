@@ -167,16 +167,13 @@ func (p *cascadeProvider) StartRealtimeSession(userID uint32, dialogID, respID u
 		return fmt.Errorf("не задан голос ElevenLabs (Voice.VoiceID)")
 	}
 
-	// Клиент воспроизводит ответ как PCM16 24 kHz.
-	format := "pcm_24000"
+	// Realtime-транспорт всегда сырой PCM16 24 kHz (совпадает с плеером клиента).
+	// Voice.TTS.Format относится к batch-озвучке и в каскаде игнорируется: mp3/иная
+	// частота в PCM-плеере дают резкие искажения.
+	const format = "pcm_24000"
 	language := ""
-	if voiceCfg.TTS != nil {
-		if voiceCfg.TTS.Format != nil && strings.TrimSpace(*voiceCfg.TTS.Format) != "" {
-			format = *voiceCfg.TTS.Format
-		}
-		if voiceCfg.TTS.Language != nil {
-			language = *voiceCfg.TTS.Language
-		}
+	if voiceCfg.TTS != nil && voiceCfg.TTS.Language != nil {
+		language = *voiceCfg.TTS.Language
 	}
 	if voiceCfg.STT != nil && voiceCfg.STT.Language != nil && language == "" {
 		language = *voiceCfg.STT.Language
