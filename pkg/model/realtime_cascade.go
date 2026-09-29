@@ -260,6 +260,7 @@ func (p *cascadeProvider) runTurn(s *cascadeSession, text string) {
 	go func() {
 		defer s.generating.Store(false)
 		chunker := &cascadeChunker{}
+		extractor := &cascadeTextExtractor{}
 		var full strings.Builder
 		finalized := false
 
@@ -267,10 +268,14 @@ func (p *cascadeProvider) runTurn(s *cascadeSession, text string) {
 			if !s.isCurrentTurn(turnID) {
 				return nil
 			}
-			if delta != "" {
-				full.WriteString(delta)
-				p.publishEvent(s, RealtimeEvent{Type: "response_text_delta", Text: delta, Delta: delta})
-				for _, sentence := range chunker.Push(delta, done) {
+			text := extractor.Push(delta)
+			if done {
+				text += extractor.Flush()
+			}
+			if text != "" {
+				full.WriteString(text)
+				p.publishEvent(s, RealtimeEvent{Type: "response_text_delta", Text: text, Delta: text})
+				for _, sentence := range chunker.Push(text, done) {
 					if err := p.speak(s, turnID, sentence); err != nil {
 						return err
 					}
