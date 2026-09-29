@@ -35,6 +35,20 @@ func TestVoiceFineTuning_UnmarshalJSON_ObjectState(t *testing.T) {
 	}
 }
 
+func TestVoiceFineTuning_UnmarshalJSON_ObjectProgress(t *testing.T) {
+	payload := `{"state":"fine_tuning","progress":{"percent":73}}`
+	var ft VoiceFineTuning
+	if err := json.Unmarshal([]byte(payload), &ft); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ft.State != "fine_tuning" {
+		t.Fatalf("state=%q", ft.State)
+	}
+	if ft.Progress == nil || *ft.Progress != 73 {
+		t.Fatalf("progress=%v", ft.Progress)
+	}
+}
+
 func TestVoiceFineTuning_UnmarshalJSON_NullState(t *testing.T) {
 	var ft VoiceFineTuning
 	if err := json.Unmarshal([]byte(`{"state":null}`), &ft); err != nil {

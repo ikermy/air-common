@@ -20,21 +20,94 @@ type VoiceFineTuning struct {
 	Message  string `json:"message,omitempty"`
 }
 
-// UnmarshalJSON терпимо разбирает fine_tuning.state: ElevenLabs может вернуть
-// как строку ("fine_tuned"), так и объект ({"status":"fine_tuned","progress":42}).
+// UnmarshalJSON терпимо разбирает fine_tuning: ElevenLabs может вернуть поля
+// state/progress как строку/число, так и объектом (например
+// {"state":{"status":"fine_tuned"},"progress":{"percent":42}}).
 func (f *VoiceFineTuning) UnmarshalJSON(data []byte) error {
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		// null/строка/массив — считаем, что данных об обучении нет.
+		return nil
+	}
 	raw := struct {
 		State    json.RawMessage `json:"state"`
-		Progress *int            `json:"progress"`
-		Message  string          `json:"message"`
+		Progress json.RawMessage `json:"progress"`
+		Message  json.RawMessage `json:"message"`
 	}{}
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
+	if err := json.Unmarshal(trimmed, &raw); err != nil {
+		return nil
 	}
-	f.Progress = raw.Progress
-	f.Message = raw.Message
+	f.Progress = decodeFineTuningProgress(raw.Progress)
+	f.Message = decodeStringValue(raw.Message)
 	f.State = decodeFineTuningState(raw.State, &f.Progress)
 	return nil
+}
+
+// decodeStringValue извлекает строку из строки или объекта.
+func decodeStringValue(raw json.RawMessage) string {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || string(trimmed) == "null" {
+		return ""
+	}
+	if trimmed[0] == '"' {
+		var value string
+		if json.Unmarshal(trimmed, &value) == nil {
+			return value
+		}
+		return ""
+	}
+	var obj map[string]any
+	if json.Unmarshal(trimmed, &obj) != nil {
+		return ""
+	}
+	for _, key := range []string{"message", "text", "value", "status", "state"} {
+		if value, ok := obj[key].(string); ok && value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+// decodeFineTuningProgress извлекает число из числа, строки или объекта.
+func decodeFineTuningProgress(raw json.RawMessage) *int {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || string(trimmed) == "null" {
+		return nil
+	}
+	switch trimmed[0] {
+	case '"':
+		var str string
+		if json.Unmarshal(trimmed, &str) == nil {
+			if value, err := strconv.Atoi(strings.TrimSpace(str)); err == nil {
+				return &value
+			}
+		}
+		return nil
+	case '{':
+		var obj map[string]any
+		if json.Unmarshal(trimmed, &obj) != nil {
+			return nil
+		}
+		for _, key := range []string{"progress", "percent", "percentage", "value"} {
+			switch value := obj[key].(type) {
+			case float64:
+				out := int(value)
+				return &out
+			case string:
+				if parsed, err := strconv.Atoi(strings.TrimSpace(value)); err == nil {
+					return &parsed
+				}
+			}
+		}
+		return nil
+	default:
+		var value float64
+		if json.Unmarshal(trimmed, &value) == nil {
+			out := int(value)
+			return &out
+		}
+		return nil
+	}
 }
 
 // decodeFineTuningState извлекает строковый статус из строки или объекта.
