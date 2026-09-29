@@ -12,7 +12,7 @@ func DefaultVoiceModel(kind VoiceKind) string {
 	case VoiceKindSTT:
 		return "scribe_v2_realtime"
 	case VoiceKindMusic:
-		return "eleven_music"
+		return "music_v1"
 	case VoiceKindSTS:
 		return "eleven_multilingual_sts_v2"
 	default:

@@ -3,6 +3,7 @@ package elevenlabs
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -17,6 +18,54 @@ type VoiceFineTuning struct {
 	State    string `json:"state"`
 	Progress *int   `json:"progress,omitempty"`
 	Message  string `json:"message,omitempty"`
+}
+
+// UnmarshalJSON терпимо разбирает fine_tuning.state: ElevenLabs может вернуть
+// как строку ("fine_tuned"), так и объект ({"status":"fine_tuned","progress":42}).
+func (f *VoiceFineTuning) UnmarshalJSON(data []byte) error {
+	raw := struct {
+		State    json.RawMessage `json:"state"`
+		Progress *int            `json:"progress"`
+		Message  string          `json:"message"`
+	}{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	f.Progress = raw.Progress
+	f.Message = raw.Message
+	f.State = decodeFineTuningState(raw.State, &f.Progress)
+	return nil
+}
+
+// decodeFineTuningState извлекает строковый статус из строки или объекта.
+func decodeFineTuningState(raw json.RawMessage, progress **int) string {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || string(trimmed) == "null" {
+		return ""
+	}
+	if trimmed[0] == '"' {
+		var value string
+		if json.Unmarshal(trimmed, &value) == nil {
+			return value
+		}
+		return ""
+	}
+	var obj map[string]any
+	if json.Unmarshal(trimmed, &obj) != nil {
+		return ""
+	}
+	if *progress == nil {
+		if p, ok := obj["progress"].(float64); ok {
+			value := int(p)
+			*progress = &value
+		}
+	}
+	for _, key := range []string{"status", "state", "value", "name", "result"} {
+		if value, ok := obj[key].(string); ok && value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 // Voice — профиль голоса ElevenLabs.

@@ -476,7 +476,7 @@ func (r *Router) TranscribeAudioWithBackend(userID uint32, backend comdom.Provid
 }
 
 // GenerateMusic генерирует музыку. Параметры, не заданные в req, берутся из
-// Voice.Music активной модели пользователя (model по умолчанию eleven_music).
+// Voice.Music активной модели пользователя (model по умолчанию music_v1).
 func (r *Router) GenerateMusic(userID uint32, req elevenlabs.MusicRequest) (elevenlabs.MusicResult, error) {
 	client, err := r.elevenLabsVoiceClient(userID)
 	if err != nil {
@@ -500,8 +500,30 @@ func (r *Router) GenerateMusic(userID uint32, req elevenlabs.MusicRequest) (elev
 		if req.ForceInstrumental == nil {
 			req.ForceInstrumental = voiceCfg.Music.ForceInstrumental
 		}
+		if req.Seed == nil {
+			req.Seed = voiceCfg.Music.Seed
+		}
+		if req.CompositionPlan == nil {
+			req.CompositionPlan = mapMusicCompositionPlan(voiceCfg.Music.CompositionPlan)
+		}
 	}
 	return client.GenerateMusic(r.ctx, req)
+}
+
+func mapMusicCompositionPlan(plan *comdom.MusicCompositionPlan) *elevenlabs.MusicCompositionPlan {
+	if plan == nil || len(plan.Chunks) == 0 {
+		return nil
+	}
+	chunks := make([]elevenlabs.MusicChunk, 0, len(plan.Chunks))
+	for _, chunk := range plan.Chunks {
+		chunks = append(chunks, elevenlabs.MusicChunk{
+			Text:           chunk.Text,
+			DurationMs:     chunk.DurationMs,
+			PositiveStyles: chunk.PositiveStyles,
+			NegativeStyles: chunk.NegativeStyles,
+		})
+	}
+	return &elevenlabs.MusicCompositionPlan{Chunks: chunks}
 }
 
 // NewModelRouter создаёт новый маршрутизатор с опциями.

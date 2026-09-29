@@ -17,7 +17,7 @@ import (
 // GET /v1/models (STT и Music). Актуализировать при выходе новых версий.
 var (
 	elevenLabsSTTModels   = []string{"scribe_v2_realtime", "scribe_v2", "scribe_v2_medical", "scribe_v1"}
-	elevenLabsMusicModels = []string{"eleven_music"}
+	elevenLabsMusicModels = []string{"music_v2_5", "music_v2", "music_v1"}
 )
 
 type elevenLabsModel struct {

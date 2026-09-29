@@ -61,8 +61,8 @@ func TestFetchElevenLabsModels(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Music fetch error: %v", err)
 	}
-	if len(music) != 1 || music[0] != "eleven_music" {
-		t.Fatalf("Music models=%v, want [eleven_music]", music)
+	if len(music) == 0 || music[0] != "music_v2_5" {
+		t.Fatalf("Music models=%v, want static list starting with music_v2_5", music)
 	}
 }
 

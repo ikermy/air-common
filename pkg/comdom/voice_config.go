@@ -48,11 +48,29 @@ type STSConfig struct {
 }
 
 // MusicConfig — параметры генерации музыки (tool generate_music).
+//
+// Соответствует POST /v1/music: prompt и composition_plan взаимоисключающие.
 type MusicConfig struct {
-	Model             *string `json:"model,omitempty"`              // eleven_music
-	Format            *string `json:"format,omitempty"`             // mp3_44100_128 | pcm_44100
-	LengthMs          *int    `json:"length_ms,omitempty"`          // длительность трека
-	ForceInstrumental *bool   `json:"force_instrumental,omitempty"` // без вокала
+	Model             *string               `json:"model,omitempty"`              // music_v1 | music_v2 | music_v2_5
+	Format            *string               `json:"format,omitempty"`             // output_format (query), напр. mp3_44100_128
+	LengthMs          *int                  `json:"length_ms,omitempty"`          // 3000..600000, только с prompt
+	ForceInstrumental *bool                 `json:"force_instrumental,omitempty"` // только с prompt
+	Seed              *int                  `json:"seed,omitempty"`               // 0..2147483647, только с composition_plan
+	CompositionPlan   *MusicCompositionPlan `json:"composition_plan,omitempty"`
+}
+
+// MusicCompositionPlan — детализированный план композиции (chunks).
+// Использовать вместо prompt; длина считается как сумма секций.
+type MusicCompositionPlan struct {
+	Chunks []MusicChunk `json:"chunks"` // 1..30
+}
+
+// MusicChunk — секция композиции.
+type MusicChunk struct {
+	Text           string   `json:"text"`        // текст/секция, до 30 строк по 200 символов
+	DurationMs     int      `json:"duration_ms"` // 3000..120000
+	PositiveStyles []string `json:"positive_styles,omitempty"`
+	NegativeStyles []string `json:"negative_styles,omitempty"`
 }
 
 // ElevenLabsVoiceConfig — специфичные для ElevenLabs настройки голоса.
