@@ -137,14 +137,41 @@ func (c *Client) SynthesizeStream(ctx context.Context, req SynthesizeRequest) (<
 		defer close(out)
 		defer func() { _ = resp.Body.Close() }()
 		buf := make([]byte, 8192)
+		// PCM16-поток режем по границе 16-битного сэмпла: клиенты конвертируют
+		// каждый чанк в Int16Array независимо, нечётная длина ломает выравнивание
+		// и даёт щелчки/искажения.
+		var carry byte
+		hasCarry := false
+		emit := func(data []byte) bool {
+			if len(data) == 0 {
+				return true
+			}
+			chunk := make([]byte, len(data))
+			copy(chunk, data)
+			select {
+			case out <- chunk:
+				return true
+			case <-ctx.Done():
+				return false
+			}
+		}
 		for {
 			n, readErr := resp.Body.Read(buf)
 			if n > 0 {
-				chunk := make([]byte, n)
-				copy(chunk, buf[:n])
-				select {
-				case out <- chunk:
-				case <-ctx.Done():
+				data := buf[:n]
+				if hasCarry {
+					aligned := make([]byte, 0, len(data)+1)
+					aligned = append(aligned, carry)
+					aligned = append(aligned, data...)
+					data = aligned
+					hasCarry = false
+				}
+				if len(data)%2 != 0 {
+					carry = data[len(data)-1]
+					hasCarry = true
+					data = data[:len(data)-1]
+				}
+				if !emit(data) {
 					return
 				}
 			}
