@@ -78,6 +78,10 @@ type cascadeSession struct {
 	ttsFormat string
 	language  string
 
+	// greeting — стартовое приветствие из конфига модели (если задано фронтендом
+	// и не отключено флагом initial_greeting).
+	greeting string
+
 	audioRx  chan []byte
 	audioOut chan []byte
 	drain    chan struct{}
@@ -143,7 +147,7 @@ func (p *cascadeProvider) StartRealtimeSession(userID uint32, dialogID, respID u
 	if p == nil || p.router == nil {
 		return fmt.Errorf("realtime cascade не инициализирован")
 	}
-	_, voiceCfg, ok := p.router.cascadeVoiceConfig(userID)
+	data, voiceCfg, ok := p.router.cascadeVoiceConfig(userID)
 	if !ok {
 		return fmt.Errorf("ElevenLabs realtime не включён для userID=%d", userID)
 	}
@@ -198,6 +202,7 @@ func (p *cascadeProvider) StartRealtimeSession(userID uint32, dialogID, respID u
 		ttsVoice:  voiceID,
 		ttsFormat: format,
 		language:  language,
+		greeting:  cascadeGreetingFromModel(data),
 		audioRx:   make(chan []byte, cascadeAudioBuffer),
 		audioOut:  make(chan []byte, cascadeAudioBuffer),
 		drain:     make(chan struct{}, 1),
@@ -215,8 +220,61 @@ func (p *cascadeProvider) StartRealtimeSession(userID uint32, dialogID, respID u
 
 	go p.runSTT(session)
 	p.publishEvent(session, RealtimeEvent{Type: "session_started", ResponseID: fmt.Sprint(respID)})
+	if session.greeting != "" {
+		go p.startGreeting(session)
+	}
 
 	return nil
+}
+
+// cascadeGreetingFromModel возвращает стартовое приветствие из конфига активной
+// модели. Как и у остальных провайдеров, приветствие берётся из RealtimeVAD:
+// флаг initial_greeting (дефолт — включено) и явная фраза greeting.
+// Автогенерация не выполняется: произносим только фразу, заданную фронтендом.
+func cascadeGreetingFromModel(data *comdom.UniversalModelData) string {
+	if data == nil || data.RealtimeVAD == nil {
+		return ""
+	}
+	vad := data.RealtimeVAD
+	if vad.InitialGreeting != nil && !*vad.InitialGreeting {
+		return ""
+	}
+	if vad.Greeting == nil {
+		return ""
+	}
+	return strings.TrimSpace(*vad.Greeting)
+}
+
+// startGreeting озвучивает стартовое приветствие через ElevenLabs TTS, не
+// дожидаясь речи пользователя: публикует события ответа и сохраняет реплику в
+// историю как обычный turn ассистента. Если пользователь уже начал говорить,
+// приветствие не запускается (его речь имеет приоритет).
+func (p *cascadeProvider) startGreeting(s *cascadeSession) {
+	if s == nil || s.closed.Load() || strings.TrimSpace(s.greeting) == "" {
+		return
+	}
+	if s.currentTurn() != 0 {
+		return
+	}
+
+	turnID := s.beginTurn()
+	s.generating.Store(true)
+	defer s.generating.Store(false)
+
+	text := s.greeting
+	p.publishEvent(s, RealtimeEvent{Type: "response_text_delta", Text: text, Delta: text})
+	p.publishEvent(s, RealtimeEvent{Type: "response_text_done", Text: text})
+	p.saveTranscript(s, comdom.SpeechRealTimeAI, text)
+
+	chunker := &cascadeChunker{}
+	for _, sentence := range chunker.Push(text, true) {
+		if err := p.speak(s, turnID, sentence); err != nil {
+			if s.ctx.Err() == nil && s.isCurrentTurn(turnID) {
+				p.publishEvent(s, RealtimeEvent{Type: "error", Text: "ошибка ElevenLabs greeting", Err: err})
+			}
+			return
+		}
+	}
 }
 
 func (p *cascadeProvider) runSTT(s *cascadeSession) {
