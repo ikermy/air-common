@@ -141,6 +141,14 @@ func decodeFineTuningState(raw json.RawMessage, progress **int) string {
 	return ""
 }
 
+// VoiceSampleInfo — метаданные привязанного к голосу сэмпла.
+type VoiceSampleInfo struct {
+	SampleID  string `json:"sample_id"`
+	FileName  string `json:"file_name,omitempty"`
+	MimeType  string `json:"mime_type,omitempty"`
+	SizeBytes int64  `json:"size_bytes,omitempty"`
+}
+
 // Voice — профиль голоса ElevenLabs.
 type Voice struct {
 	VoiceID     string            `json:"voice_id"`
@@ -150,6 +158,7 @@ type Voice struct {
 	PreviewURL  string            `json:"preview_url"`
 	Labels      map[string]string `json:"labels"`
 	FineTuning  *VoiceFineTuning  `json:"fine_tuning,omitempty"`
+	Samples     []VoiceSampleInfo `json:"samples,omitempty"`
 }
 
 type voiceListResponse struct {
@@ -409,22 +418,57 @@ func (c *Client) EditVoice(ctx context.Context, voiceID, name, description strin
 }
 
 // GetVoiceSample возвращает превью-аудио голоса.
+//
+// Для клонированных голосов используется исходный сэмпл:
+// GET /v1/voices/{voice_id}/samples/{sample_id}/audio.
+// Если сэмплов нет (пресеты) — скачивается preview_url.
 func (c *Client) GetVoiceSample(ctx context.Context, voiceID string) (io.ReadCloser, string, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	req, err := c.newRequest(ctx, http.MethodGet, c.baseURL()+"/voices/"+url.PathEscape(voiceID)+"/sample", nil)
-	if err != nil {
-		return nil, "", err
+	if strings.TrimSpace(voiceID) == "" {
+		return nil, "", fmt.Errorf("voice_id обязателен")
 	}
-	req.Header.Set("Accept", "audio/mpeg")
-	resp, err := c.do(req)
-	if err != nil {
-		return nil, "", err
+
+	voice, getErr := c.GetVoice(ctx, voiceID)
+	if getErr == nil && len(voice.Samples) > 0 {
+		sampleID := strings.TrimSpace(voice.Samples[0].SampleID)
+		if sampleID != "" {
+			endpoint := c.baseURL() + "/voices/" + url.PathEscape(voiceID) + "/samples/" + url.PathEscape(sampleID) + "/audio"
+			req, err := c.newRequest(ctx, http.MethodGet, endpoint, nil)
+			if err == nil {
+				req.Header.Set("Accept", "audio/*")
+				if resp, doErr := c.do(req); doErr == nil {
+					fallback := strings.TrimSpace(voice.Samples[0].MimeType)
+					if fallback == "" {
+						fallback = "audio/mpeg"
+					}
+					return resp.Body, contentTypeOr(resp, fallback), nil
+				}
+			}
+		}
 	}
-	contentType := resp.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = "audio/mpeg"
+
+	if getErr == nil && strings.TrimSpace(voice.PreviewURL) != "" {
+		previewReq, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, voice.PreviewURL, nil)
+		if reqErr != nil {
+			return nil, "", reqErr
+		}
+		previewReq.Header.Set("Accept", "audio/mpeg")
+		resp, doErr := c.httpClient().Do(previewReq)
+		if doErr != nil {
+			return nil, "", doErr
+		}
+		if resp.StatusCode >= 400 {
+			defer func() { _ = resp.Body.Close() }()
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+			return nil, "", fmt.Errorf("не удалось скачать превью голоса: статус %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		}
+		return resp.Body, contentTypeOr(resp, "audio/mpeg"), nil
 	}
-	return resp.Body, contentType, nil
+
+	if getErr != nil {
+		return nil, "", getErr
+	}
+	return nil, "", fmt.Errorf("у голоса %s нет доступного аудио", voiceID)
 }
