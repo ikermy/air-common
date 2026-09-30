@@ -1,2 +1,2 @@
-v1.51.0
-refactor: rename Channel to ChName for consistency and update dependabot schedule to weekly
+v1.60.1
+feat: add elevenlabs voice gateway support
