@@ -11,7 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/ikermy/air-common/pkg/comdom"
-	"github.com/ikermy/air-common/pkg/elevenlabs"
+	"github.com/ikermy/air-common/pkg/model/elevenlabs"
 )
 
 // cascadeProvider реализует RealtimeProvider.

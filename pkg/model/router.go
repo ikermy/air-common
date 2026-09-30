@@ -14,9 +14,9 @@ import (
 
 	"github.com/ikermy/air-common/pkg/com"
 	"github.com/ikermy/air-common/pkg/comdom"
-	"github.com/ikermy/air-common/pkg/elevenlabs"
 	"github.com/ikermy/air-common/pkg/mode"
 	"github.com/ikermy/air-common/pkg/model/create"
+	"github.com/ikermy/air-common/pkg/model/elevenlabs"
 	"github.com/ikermy/air-common/pkg/model/provider_catalog"
 )
 

@@ -87,7 +87,7 @@ If a stage backend is not `elevenlabs`, the active LLM provider is used (previou
 
 - the voice model catalog is stored in the `voice_models` table (`kind`: `tts|stt|music|sts`) and synced from the ElevenLabs `/v1/models` with an in-memory throttle;
 - the ElevenLabs API key is stored per-user in `user_api_keys` (`provider = 'elevenlabs'`);
-- the low-level client is the leaf package `pkg/elevenlabs` (TTS/STT/realtime STT/voices/music) with no dependency on `pkg/model`.
+- the low-level client is the leaf package `pkg/model/elevenlabs` (TTS/STT/realtime STT/voices/music), which does not depend on its parent `pkg/model`.
 
 ### 🧑‍💼 Human Operator Handoff
 
@@ -223,7 +223,7 @@ func main() {
 
 Specific AI providers are connected through router options and the corresponding `pkg/model/openai`, `pkg/model/mistral`, and `pkg/model/google` packages.
 
-ElevenLabs is a voice-only provider: it has no dedicated router option and no `pkg/model/*` package, and is enabled through the model's voice configuration (`UniversalModelData.Voice`) on top of any active LLM provider. The client is kept in the leaf package `pkg/elevenlabs`.
+ElevenLabs is a voice-only provider: it is not an LLM provider and has no `Inter`/router option; it is enabled through the model's voice configuration (`UniversalModelData.Voice`) on top of any active LLM provider. The client is kept in `pkg/model/elevenlabs`, a leaf package that does not depend on its parent `pkg/model`.
 
 Examples of practical usage:
 
@@ -265,7 +265,7 @@ air_ service
 | `pkg/model/openai` | OpenAI integration |
 | `pkg/model/mistral` | Mistral integration and voice workflows |
 | `pkg/model/google` | Google AI integration |
-| `pkg/elevenlabs` | ElevenLabs voice client: TTS, STT, realtime STT, voices/cloning, music |
+| `pkg/model/elevenlabs` | ElevenLabs voice client: TTS, STT, realtime STT, voices/cloning, music |
 | `pkg/model/provider_catalog` | Provider model catalog synchronization |
 | `pkg/startpoint` | Session startup and lifecycle management |
 | `pkg/endpoint` | Dialogs, notifications, and external endpoints |

@@ -87,7 +87,7 @@ ElevenLabs подключается как **voice-only голосовой шл�
 
 - каталог голосовых моделей хранится в таблице `voice_models` (`kind`: `tts|stt|music|sts`) и синхронизируется из `/v1/models` ElevenLabs с in-memory throttle;
 - API-ключ ElevenLabs хранится per-user в `user_api_keys` (`provider = 'elevenlabs'`);
-- низкоуровневый клиент — leaf-пакет `pkg/elevenlabs` (TTS/STT/realtime STT/voices/music) без зависимости от `pkg/model`.
+- низкоуровневый клиент — leaf-пакет `pkg/model/elevenlabs` (TTS/STT/realtime STT/voices/music), не зависящий от родительского `pkg/model`.
 
 ### 🧑‍💼 Передача диалога оператору
 
@@ -216,7 +216,7 @@ func main() {
 
 Конкретные AI-провайдеры подключаются через опции маршрутизатора и соответствующие пакеты `pkg/model/openai`, `pkg/model/mistral` и `pkg/model/google`.
 
-ElevenLabs — voice-only-провайдер: отдельной router-опции и пакета `pkg/model/*` он не имеет, а включается через голосовую конфигурацию модели (`UniversalModelData.Voice`) поверх любого активного LLM-провайдера. Клиент вынесен в leaf-пакет `pkg/elevenlabs`.
+ElevenLabs — voice-only-провайдер: он не является LLM-провайдером и не реализует контракт `Inter`/router-опцию, а включается через голосовую конфигурацию модели (`UniversalModelData.Voice`) поверх любого активного LLM-провайдера. Клиент вынесен в `pkg/model/elevenlabs` — leaf-пакет, не зависящий от родительского `pkg/model`.
 
 Примеры практического использования:
 
@@ -258,7 +258,7 @@ air_-сервис
 | `pkg/model/openai` | Интеграция с OpenAI |
 | `pkg/model/mistral` | Интеграция с Mistral и голосовые сценарии |
 | `pkg/model/google` | Интеграция с Google AI |
-| `pkg/elevenlabs` | Голосовой клиент ElevenLabs: TTS, STT, realtime STT, голоса/клонирование, музыка |
+| `pkg/model/elevenlabs` | Голосовой клиент ElevenLabs: TTS, STT, realtime STT, голоса/клонирование, музыка |
 | `pkg/model/provider_catalog` | Синхронизация каталогов моделей провайдеров |
 | `pkg/startpoint` | Запуск сессий и управление их жизненным циклом |
 | `pkg/endpoint` | Диалоги, уведомления и внешние endpoints |
