@@ -57,6 +57,10 @@ type RealtimeSession struct {
 	IsGenerating atomic.Bool
 	// greetingSent: true — приветствие при старте сессии уже отправлено
 	greetingSent atomic.Bool
+	// transcriptionOnly: сессия работает только на распознавание речи —
+	// сервер не генерирует ответ (turn_detection.create_response=false),
+	// приветствие и ответы на function_call не отправляются.
+	transcriptionOnly bool
 
 	// OnDisconnect — опциональный callback вызывается при закрытии сессии.
 	// Используется для завершения звонка при критическом таймауте watchdog.
@@ -168,6 +172,18 @@ func (m *Model) GetRealtimeGenerating(respId uint64) *atomic.Bool {
 // StartRealtimeSession создаёт WSS-соединение к OpenAI Realtime API и запускает pump-горутины.
 // Вызывается после GetOrSetRespGPT — RespModel уже должен существовать в m.responders.
 func (m *Model) StartRealtimeSession(userID uint32, dialogID, respId uint64) error {
+	return m.startRealtime(userID, dialogID, respId, false)
+}
+
+// StartRealtimeTranscriptionSession поднимает realtime-сессию в режиме «только
+// распознавание речи»: сервер не генерирует ответ (create_response=false), но
+// отдаёт события input_transcript_delta/done. Реализует
+// model.RealtimeTranscriptionProvider.
+func (m *Model) StartRealtimeTranscriptionSession(userID uint32, dialogID, respId uint64) error {
+	return m.startRealtime(userID, dialogID, respId, true)
+}
+
+func (m *Model) startRealtime(userID uint32, dialogID, respId uint64, transcriptionOnly bool) error {
 	if existing := m.GetRealtimeSession(respId); existing != nil {
 		//logger.Debug("StartRealtimeSession: сессия уже существует для respId=%d", respId, userID)
 		return nil
@@ -216,17 +232,18 @@ func (m *Model) StartRealtimeSession(userID uint32, dialogID, respId uint64) err
 	ctx, cancel := context.WithCancel(m.ctx)
 
 	rs := &RealtimeSession{
-		openaiConn:    conn,
-		ctx:           ctx,
-		cancel:        cancel,
-		agentConfig:   rm.AgentConfig,
-		userID:        userID,
-		dialogID:      dialogID,
-		respId:        respId,
-		AudioRx:       make(chan []byte, 256),
-		AudioOut:      make(chan []byte, 256),
-		DrainPlayback: make(chan struct{}, 1),
-		eventSubs:     make(map[chan RealtimeEvent]struct{}),
+		openaiConn:        conn,
+		ctx:               ctx,
+		cancel:            cancel,
+		agentConfig:       rm.AgentConfig,
+		userID:            userID,
+		dialogID:          dialogID,
+		respId:            respId,
+		AudioRx:           make(chan []byte, 256),
+		AudioOut:          make(chan []byte, 256),
+		DrainPlayback:     make(chan struct{}, 1),
+		eventSubs:         make(map[chan RealtimeEvent]struct{}),
+		transcriptionOnly: transcriptionOnly,
 	}
 
 	if err := m.sendSessionUpdate(rs); err != nil {
@@ -237,9 +254,12 @@ func (m *Model) StartRealtimeSession(userID uint32, dialogID, respId uint64) err
 	//logger.Debug("[OpenAI StartRealtimeSession] respId=%d sendSessionUpdate OK, injectHistory...", respId)
 
 	// Инжектируем историю диалога — realtime-агент знает контекст предыдущих разговоров.
-	if err := m.injectDialogHistory(rs, dialogID); err != nil {
-		//logger.Warn("StartRealtimeSession: не удалось инжектировать историю диалога: %v respId=%d", err, respId, userID)
-		// Не критично — продолжаем без истории
+	// В режиме только-транскрипции история не нужна и не должна засорять сессию.
+	if !transcriptionOnly {
+		if err := m.injectDialogHistory(rs, dialogID); err != nil {
+			//logger.Warn("StartRealtimeSession: не удалось инжектировать историю диалога: %v respId=%d", err, respId, userID)
+			// Не критично — продолжаем без истории
+		}
 	}
 	//logger.Debug("[OpenAI StartRealtimeSession] respId=%d injectHistory OK, запуск горутин...", respId)
 
@@ -423,7 +443,28 @@ func (m *Model) sendSessionUpdate(rs *RealtimeSession) error {
 	turnDetection := map[string]any{
 		"type": "semantic_vad",
 	}
+	// Режим только-транскрипции: сервер не генерирует ответ (create_response=false)
+	// и не прерывает его (interrupt_response=false) — нужны только input-транскрипты.
+	if rs.transcriptionOnly {
+		turnDetection["create_response"] = false
+		turnDetection["interrupt_response"] = false
+	}
 	_ = silenceDurationMs // резервируем для будущих версий API
+
+	audioInput := map[string]any{
+		"format": map[string]any{
+			"type": "audio/pcm",
+			"rate": 24000,
+		},
+		"turn_detection": turnDetection,
+	}
+	// Включаем входную транскрипцию, иначе события
+	// conversation.item.input_audio_transcription.* не придут.
+	if rs.transcriptionOnly {
+		audioInput["transcription"] = map[string]any{
+			"model": "gpt-4o-transcribe",
+		}
+	}
 
 	// GA API: структура session полностью изменилась по сравнению с Beta
 	sessionMap := map[string]any{
@@ -431,13 +472,7 @@ func (m *Model) sendSessionUpdate(rs *RealtimeSession) error {
 		"instructions":      instructions,
 		"output_modalities": []string{"audio"},
 		"audio": map[string]any{
-			"input": map[string]any{
-				"format": map[string]any{
-					"type": "audio/pcm",
-					"rate": 24000,
-				},
-				"turn_detection": turnDetection,
-			},
+			"input": audioInput,
 			"output": map[string]any{
 				"format": map[string]any{
 					"type": "audio/pcm",
@@ -607,6 +642,9 @@ func copyMapDeep(m map[string]any) map[string]any {
 // sendInitialGreeting отправляет response.create сразу после session.updated —
 // модель произносит приветственную фразу не дожидаясь голоса пользователя.
 func (m *Model) sendInitialGreeting(rs *RealtimeSession) {
+	if rs.transcriptionOnly {
+		return // режим только-транскрипции: ответы не генерируем
+	}
 	if !rs.greetingSent.CompareAndSwap(false, true) {
 		return // уже отправлено
 	}

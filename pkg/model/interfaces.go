@@ -152,6 +152,15 @@ type RealtimeRouter interface {
 	DisconnectRealtimeSession(respId uint64)
 }
 
+// RealtimeTranscriptionProvider — опциональный интерфейс realtime-провайдера,
+// умеющего работать в режиме «только распознавание речи» (без генерации ответа).
+// Реализуется OpenAI-провайдером (turn_detection.create_response=false).
+// Провайдеры без такого режима (например Google Live) этот интерфейс не реализуют.
+type RealtimeTranscriptionProvider interface {
+	RealtimeProvider
+	StartRealtimeTranscriptionSession(userID uint32, dialogID, respId uint64) error
+}
+
 // DeltaProcessor интерфейс унифицированной обработки стриминговых дельт.
 // Реализуется Startpoint для клиентских каналов (Telegram/WhatsApp/Instagram и т.д.).
 type StreamDeltaKind string
