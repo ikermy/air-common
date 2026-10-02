@@ -196,6 +196,49 @@ func (s *MistralRealtimeSession) StartSTT(transport STTTransport, onTranscript f
 	return nil
 }
 
+// StartSTTStream attaches a transport pump that forwards BOTH partial and final
+// transcripts to onTranscript. Unlike StartSTT it does not create turns, does
+// not publish LLM-facing events and never invokes the LLM/TTS pipeline — it is
+// intended for transcription-only sessions (RealtimeTranscriptionProvider).
+func (s *MistralRealtimeSession) StartSTTStream(transport STTTransport, onTranscript func(text string, final bool) error) error {
+	if s == nil || transport == nil {
+		return fmt.Errorf("не задан STT transport")
+	}
+	if onTranscript == nil {
+		return fmt.Errorf("не задан transcript callback")
+	}
+	s.sttMu.Lock()
+	if s.sttStarted {
+		s.sttMu.Unlock()
+		return fmt.Errorf("STT transport уже запущен")
+	}
+	s.sttStarted = true
+	s.sttMu.Unlock()
+	go func() {
+		err := transport.Run(s.ctx, s.AudioRx, func(text string, final bool) error {
+			if strings.TrimSpace(text) == "" {
+				return nil
+			}
+			return onTranscript(text, final)
+		})
+		if err != nil && s.ctx.Err() == nil {
+			s.metrics.STTErrors.Add(1)
+			s.PublishEvent(model.RealtimeEvent{Type: "error", Text: "Mistral STT transport завершился с ошибкой", Err: err})
+			select {
+			case s.Errors <- err:
+			default:
+			}
+			s.callbackMu.RLock()
+			callback := s.disconnect
+			s.callbackMu.RUnlock()
+			if callback != nil {
+				callback(s.respID)
+			}
+		}
+	}()
+	return nil
+}
+
 func (s *MistralRealtimeSession) acceptFinalTranscript(text string) bool {
 	s.transcriptMu.Lock()
 	defer s.transcriptMu.Unlock()

@@ -248,6 +248,113 @@ func (m *Model) attachMistralRealtimeSTT(session *MistralRealtimeSession) error 
 	})
 }
 
+// StartRealtimeTranscriptionSession запускает Mistral realtime-сессию в режиме
+// «только распознавание»: поднимает сессию и подключает Voxtral realtime STT,
+// публикуя input_transcript_delta/done. LLM и TTS не задействуются. Реализует
+// model.RealtimeTranscriptionProvider.
+func (m *Model) StartRealtimeTranscriptionSession(userID uint32, dialogID, respID uint64) error {
+	if m == nil || m.realtime == nil {
+		return fmt.Errorf("Mistral realtime manager is not initialized")
+	}
+	if existing, ok := m.realtime.Get(respID); ok && existing != nil {
+		return nil // сессия уже поднята
+	}
+
+	sttModel := provider_catalog.DefaultMistralSTTModel
+	var mistralCfg *comdom.MistralRealtimeVAD
+	if m.universalModel != nil {
+		compressedData, vecIDs, readErr := m.db.ReadUserModelByProvider(userID, comdom.ProviderMistral)
+		if readErr != nil {
+			return fmt.Errorf("ошибка чтения конфигурации Mistral realtime: %w", readErr)
+		}
+		if compressedData != nil {
+			config, decodeErr := m.universalModel.DecompressModelData(compressedData, vecIDs)
+			if decodeErr != nil {
+				return fmt.Errorf("ошибка распаковки конфигурации Mistral realtime: %w", decodeErr)
+			}
+			if !config.Realtime {
+				return fmt.Errorf("Mistral realtime не включён для userID=%d", userID)
+			}
+			if config.RealtimeVAD != nil && config.RealtimeVAD.Mistral != nil {
+				mistralCfg = config.RealtimeVAD.Mistral
+				if mistralCfg.STTModel != nil && *mistralCfg.STTModel != "" {
+					sttModel = *mistralCfg.STTModel
+				}
+			}
+		}
+	}
+
+	session, err := m.realtime.Start(userID, dialogID, respID)
+	if err != nil {
+		return err
+	}
+	session.RealtimeModel = sttModel
+	session.Config = mistralCfg
+	if err := m.attachMistralRealtimeTranscription(session); err != nil {
+		m.realtime.Close(respID)
+		return err
+	}
+	return nil
+}
+
+// attachMistralRealtimeTranscription подключает STT-транспорт voxtral и
+// публикует только транскрипты (interim/final), без вызова LLM/TTS.
+func (m *Model) attachMistralRealtimeTranscription(session *MistralRealtimeSession) error {
+	if session == nil {
+		return fmt.Errorf("Mistral realtime session is nil")
+	}
+	modelName := session.RealtimeModel
+	if session.Config != nil && session.Config.STTModel != nil && *session.Config.STTModel != "" {
+		modelName = *session.Config.STTModel
+	}
+	// phantom и подобные клиенты отдают PCM16 16 кГц; при необходимости
+	// источник можно переопределить через Mistral.SourceSampleRate.
+	sourceSampleRate := 16000
+	if session.Config != nil && session.Config.SourceSampleRate != nil && *session.Config.SourceSampleRate > 0 {
+		sourceSampleRate = *session.Config.SourceSampleRate
+	}
+	apiKey := m.client.resolveKey(session.UserID())
+	transport, err := NewMistralRealtimeSTT(RealtimeSTTConfig{
+		Model:             modelName,
+		APIKey:            apiKey,
+		SourceSampleRate:  sourceSampleRate,
+		ReconnectAttempts: 5,                      // переживаем серверный idle-timeout
+		ReconnectDelay:    500 * time.Millisecond, // пауза перед переподключением
+	})
+	if err != nil {
+		return fmt.Errorf("настройка Mistral realtime STT: %w", err)
+	}
+	var lastPartial, lastFinal string
+	return session.StartSTTStream(transport, func(text string, final bool) error {
+		if strings.TrimSpace(text) == "" {
+			return nil
+		}
+		if final {
+			t := strings.TrimSpace(text)
+			if t == lastFinal {
+				return nil // дедупликация повторов финального транскрипта
+			}
+			lastFinal = t
+			lastPartial = ""
+			session.PublishEvent(model.RealtimeEvent{Type: "input_transcript_done", Text: t})
+			return nil
+		}
+		// Партиалы НЕ обрезаем: токены могут содержать значимые пробелы
+		// (иначе склеиваются в "Такнадо"). Если текст кумулятивный — публикуем
+		// приращение, иначе сам токен.
+		delta := text
+		if lastPartial != "" && strings.HasPrefix(text, lastPartial) {
+			delta = text[len(lastPartial):]
+		}
+		lastPartial = text
+		if strings.TrimSpace(delta) == "" {
+			return nil
+		}
+		session.PublishEvent(model.RealtimeEvent{Type: "input_transcript_delta", Text: text, Delta: delta})
+		return nil
+	})
+}
+
 // requestRealtimeLLM buffers the Conversations streaming protocol and sends
 // only the assistant message to TTS. The provider stream may contain JSON
 // envelopes, Markdown fences, action metadata and token usage; none of that

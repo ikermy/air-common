@@ -11,6 +11,10 @@ type MistralRealtimeVAD struct {
 	VoiceClone       *MistralVoiceCloneConfig `json:"voice_clone,omitempty"`
 	SpeechFormat     *string                  `json:"speech_format,omitempty"`
 	STTLanguage      *string                  `json:"stt_language,omitempty"`
+	// SourceSampleRate — частота входного PCM16 (Гц). Для транспорта Mistral
+	// задаёт, из какой частоты ресемплить в 16000. По умолчанию (nil) для
+	// полноценного realtime используется 24000, для режима только-транскрипции — 16000.
+	SourceSampleRate *int `json:"source_sample_rate,omitempty"`
 }
 type MistralVoiceCloneConfig struct {
 	Enabled             bool   `json:"enabled"`
