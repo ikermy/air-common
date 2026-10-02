@@ -471,7 +471,17 @@ func (m *Model) createUserMessageWithFiles(text string, files []model.FileUpload
 				},
 			})
 			//logger.Debug("Добавлено изображение по URL: %s", file.URL, userID)
-		} else if file.Content != nil {
+		} else if file.IsImageMimeType() {
+			// Локальные изображения (Content/Path) → inline base64 data URL
+			if dataURL, ok := file.InlineDataURL(); ok {
+				contentParts = append(contentParts, map[string]any{
+					"type": "image_url",
+					"image_url": map[string]any{
+						"url": dataURL,
+					},
+				})
+			}
+		} else if file.Content != nil || file.Path != "" {
 			// Для code_interpreter - загружаем файл
 			// TODO: Загрузка файлов для code_interpreter
 			//logger.Warn("Файл %s требует загрузки для code_interpreter (не реализовано)", file.Name, userID)

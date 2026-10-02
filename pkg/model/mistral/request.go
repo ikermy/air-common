@@ -30,28 +30,36 @@ func createConversationInputs(content any) []map[string]any {
 // Возвращает либо простой текст, либо структурированный контент с изображениями
 // Консолидирует дублирующееся преобразование text+files в userContent
 func prepareUserContent(text string, files []model.FileUpload) any {
-	// Проверяем наличие изображений с URL
-	var hasImageURLs bool
+	// Проверяем наличие изображений (URL или локальные Content/Path)
+	var hasImages bool
 	for _, file := range files {
-		if file.HasURL() && file.IsImageMimeType() {
-			hasImageURLs = true
+		if file.IsImageMimeType() && (file.HasURL() || file.HasInline()) {
+			hasImages = true
 			break
 		}
 	}
 
 	// Если есть изображения - формируем content с parts, иначе только текст
-	if hasImageURLs {
+	if hasImages {
 		// Формируем content как массив parts (text + image_url)
 		contentParts := []map[string]any{
 			{"type": "text", "text": text},
 		}
 		for _, file := range files {
-			if file.HasURL() && file.IsImageMimeType() {
+			if !file.IsImageMimeType() {
+				continue
+			}
+			if file.HasURL() {
 				contentParts = append(contentParts, map[string]any{
 					"type":      "image_url",
 					"image_url": file.URL,
 				})
 				//logger.Debug("Добавлено изображение по URL: %s", file.URL, userID)
+			} else if dataURL, ok := file.InlineDataURL(); ok {
+				contentParts = append(contentParts, map[string]any{
+					"type":      "image_url",
+					"image_url": dataURL,
+				})
 			}
 		}
 		return contentParts

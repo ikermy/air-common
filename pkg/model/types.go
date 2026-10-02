@@ -2,8 +2,10 @@ package model
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -227,10 +229,13 @@ type Message struct {
 
 // FileUpload представляет файл для отправки (code interpreter, изображения и т.д.)
 type FileUpload struct {
-	Name     string    `json:"name"`
-	Content  io.Reader `json:"-"`
-	MimeType string    `json:"mime_type"`
-	URL      string    `json:"url,omitempty"`
+	Name    string    `json:"name"`
+	Content io.Reader `json:"-"`
+	// Path — абсолютный путь к локальному файлу; читается лениво (для inline/base64
+	// без дублирования данных в памяти). Альтернатива Content.
+	Path     string `json:"-"`
+	MimeType string `json:"mime_type"`
+	URL      string `json:"url,omitempty"`
 }
 
 // IsImageMimeType проверяет, является ли MIME-тип изображением
@@ -246,6 +251,50 @@ func (f *FileUpload) IsImageMimeType() bool {
 // HasURL проверяет, содержит ли FileUpload валидный HTTP(S) URL
 func (f *FileUpload) HasURL() bool {
 	return f.URL != "" && (strings.HasPrefix(f.URL, "http://") || strings.HasPrefix(f.URL, "https://"))
+}
+
+// HasInline проверяет, задан ли локальный источник (Content или Path).
+func (f *FileUpload) HasInline() bool {
+	return f.Content != nil || f.Path != ""
+}
+
+// OpenContent возвращает reader локального содержимого: Content либо открытый Path.
+// Вызывающий должен закрыть reader, если ok == true.
+func (f *FileUpload) OpenContent() (io.ReadCloser, bool) {
+	if f.Content != nil {
+		if rc, okc := f.Content.(io.ReadCloser); okc {
+			return rc, true
+		}
+		return io.NopCloser(f.Content), true
+	}
+	if f.Path != "" {
+		fh, err := os.Open(f.Path)
+		if err != nil {
+			return nil, false
+		}
+		return fh, true
+	}
+	return nil, false
+}
+
+// InlineDataURL читает локальное содержимое и возвращает data:...;base64,... URL.
+// Возвращает ("", false), если файл недоступен.
+func (f *FileUpload) InlineDataURL() (string, bool) {
+	rc, ok := f.OpenContent()
+	if !ok {
+		return "", false
+	}
+	defer rc.Close()
+
+	data, err := io.ReadAll(rc)
+	if err != nil {
+		return "", false
+	}
+	mime := f.MimeType
+	if mime == "" {
+		mime = "application/octet-stream"
+	}
+	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data), true
 }
 
 // ============================================================================

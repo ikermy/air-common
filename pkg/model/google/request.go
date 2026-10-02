@@ -132,9 +132,10 @@ func (m *Model) createUserMessage(text string, files []model.FileUpload) GoogleC
 					"fileUri":  file.URL,
 				},
 			})
-		} else if file.Content != nil {
-			// Для файлов без URL - читаем байты и используем inline_data
-			data, err := io.ReadAll(file.Content)
+		} else if rc, ok := file.OpenContent(); ok {
+			// Для файлов без URL (Content/Path) - читаем байты и используем inline_data
+			data, err := io.ReadAll(rc)
+			rc.Close()
 			if err != nil {
 				//logger.Warn("Не удалось прочитать содержимое файла %s: %v, пропускаем", file.Name, err)
 				continue
