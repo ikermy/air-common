@@ -354,10 +354,16 @@ func (m *Model) loadAgentConfig(userID uint32, _ *RespModel) (*AgentConfig, bool
 		}
 		modelName = defData.GeneralModelName
 	}
+	// Realtime может быть не сконфигурирован (found.Realtime == nil) —
+	// тогда realtime-модель пустая, а режим включается отдельно через modelData.Realtime.
+	realtimeModel := ""
+	if found.Realtime != nil {
+		realtimeModel = found.Realtime.Name
+	}
 	agentConfig := &AgentConfig{
 		ModelId:       found.ModelId,
 		ModelName:     modelName,
-		RealtimeModel: found.Realtime.Name,
+		RealtimeModel: realtimeModel,
 	}
 
 	var haunter bool
@@ -403,8 +409,10 @@ func (m *Model) loadAgentConfig(userID uint32, _ *RespModel) (*AgentConfig, bool
 	}
 
 	// Формируем system_prompt, tools и response_format динамически
-	if err := m.buildAgentConfiguration(userID, agentConfig, compressedData); err != nil {
-		//logger.Warn("Ошибка формирования конфигурации агента: %v", err, userID)
+	if compressedData != nil {
+		if err := m.buildAgentConfiguration(userID, agentConfig, compressedData); err != nil {
+			//logger.Warn("Ошибка формирования конфигурации агента: %v", err, userID)
+		}
 	}
 
 	//logger.Debug("Загружена конфигурация агента (GPT Model: %s, AssistName: %s)", agentConfig.ModelName, respModel.Assist.AssistName, userID)
