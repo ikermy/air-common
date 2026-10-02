@@ -209,14 +209,14 @@ func (m *Model) NewMessage(operator model.Operator, msgType string, content *mod
 	}
 }
 
-func (m *Model) GetFileAsReader(_ uint32, url string) (io.Reader, error) {
+func (m *Model) GetFileAsReader(userID uint32, url string) (io.Reader, error) {
 	if url == "" {
 		return nil, fmt.Errorf("не указан источник файла: отсутствуют URL")
 	}
 
 	if strings.HasPrefix(url, "openai_file:") {
 		fileID := strings.TrimPrefix(url, "openai_file:")
-		content, err := m.client.DownloadFileContent(m.ctx, fileID)
+		content, err := m.client.DownloadFileContent(m.ctx, userID, fileID)
 		if err != nil {
 			return nil, fmt.Errorf("ошибка получения файла из OpenAI: %w", err)
 		}
@@ -653,21 +653,21 @@ func (m *Model) CleanDialogData(dialogID uint64) {
 	m.dialogCache.Delete(dialogID)
 }
 
-func (m *Model) DeleteTempFile(fileID string) error {
+func (m *Model) DeleteTempFile(userID uint32, fileID string) error {
 	// Удаляем временный файл из OpenAI
-	if err := m.client.DeleteFile(m.ctx, fileID); err != nil {
+	if err := m.client.DeleteFile(m.ctx, userID, fileID); err != nil {
 		return fmt.Errorf("ошибка удаления временного файла: %w", err)
 	}
 	return nil
 }
 
-func (m *Model) TranscribeAudio(_ uint32, audioData []byte, fileName string) (string, error) {
+func (m *Model) TranscribeAudio(userID uint32, audioData []byte, fileName string) (string, error) {
 	// Используем существующий метод OpenAIAgentClient.TranscribeAudio
 	if m.client == nil {
 		return "", fmt.Errorf("OpenAI клиент не инициализирован")
 	}
 
-	text, err := m.client.TranscribeAudio(m.ctx, audioData, fileName)
+	text, err := m.client.TranscribeAudio(m.ctx, userID, audioData, fileName)
 	if err != nil {
 		return "", fmt.Errorf("ошибка транскрипции аудио: %w", err)
 	}

@@ -433,7 +433,7 @@ func (m *Model) processResponse(response Response, userID uint32, provider comdo
 		// Скачиваем и сохраняем каждое изображение
 		for idx, img := range response.GeneratedImages {
 			// Скачиваем изображение через Mistral Files API
-			imageData, err := m.client.DownloadFile(img.FileID)
+			imageData, err := m.client.DownloadFile(userID, img.FileID)
 			if err != nil {
 				//logger.Error("processResponse: ошибка скачивания изображения %s: %v", img.FileID, err)
 				continue
@@ -499,7 +499,7 @@ func (m *Model) processResponse(response Response, userID uint32, provider comdo
 
 		// Удаляю сгенерированные изображения из Mistral Files API
 		for _, img := range response.GeneratedImages {
-			if err := m.DeleteTempFile(img.FileID); err != nil {
+			if err := m.DeleteTempFile(userID, img.FileID); err != nil {
 				//logger.Warn("processResponse: ошибка удаления временного файла %s: %v", img.FileID, err)
 			}
 		}

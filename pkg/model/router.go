@@ -1244,7 +1244,7 @@ func (r *Router) UploadFileToProvider(userID uint32, provider comdom.ProviderTyp
 }
 
 // DeleteTempFile удаляет загруженный временный файл через Mistral провайдер
-func (r *Router) DeleteTempFile(fileID string) error {
+func (r *Router) DeleteTempFile(userID uint32, fileID string) error {
 	if r.mistral == nil {
 		return fmt.Errorf("Mistral провайдер не инициализирован")
 	}
@@ -1252,7 +1252,7 @@ func (r *Router) DeleteTempFile(fileID string) error {
 	if !ok {
 		return fmt.Errorf("Mistral провайдер не поддерживает удаление временных файлов")
 	}
-	return manager.DeleteTempFile(fileID)
+	return manager.DeleteTempFile(userID, fileID)
 }
 
 // DeleteFileFromProvider удаляет файл из указанного провайдера (только Mistral)

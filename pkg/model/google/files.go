@@ -18,14 +18,14 @@ import (
 // - Vector Storage: хранение эмбеддингов в MariaDB 12
 // - Similarity Search: поиск по косинусному сходству в БД
 // ============================================================================
-func (m *Model) DeleteTempFile(fileID string) error {
+func (m *Model) DeleteTempFile(userID uint32, fileID string) error {
 	if m.client == nil {
 		return fmt.Errorf("google клиент не инициализирован")
 	}
 	if fileID == "" {
 		return fmt.Errorf("fileID не может быть пустым")
 	}
-	err := m.client.DeleteAudioFile(fileID)
+	err := m.client.DeleteAudioFile(userID, fileID)
 	if err != nil {
 		return err
 	}
@@ -33,13 +33,13 @@ func (m *Model) DeleteTempFile(fileID string) error {
 	return nil
 }
 
-func (m *Model) GetFileAsReader(_ uint32, url string) (io.Reader, error) {
+func (m *Model) GetFileAsReader(userID uint32, url string) (io.Reader, error) {
 	if url == "" {
 		return nil, fmt.Errorf("не указан источник файла")
 	}
 	if strings.HasPrefix(url, "google_file:") {
 		fileURI := strings.TrimPrefix(url, "google_file:")
-		content, err := m.downloadFileFromGoogle(fileURI)
+		content, err := m.downloadFileFromGoogle(userID, fileURI)
 		if err != nil {
 			return nil, fmt.Errorf("ошибка получения файла из Google File API: %w", err)
 		}
@@ -60,11 +60,11 @@ func (m *Model) GetFileAsReader(_ uint32, url string) (io.Reader, error) {
 	return resp.Body, nil
 }
 
-func (m *Model) downloadFileFromGoogle(fileURI string) ([]byte, error) {
+func (m *Model) downloadFileFromGoogle(userID uint32, fileURI string) ([]byte, error) {
 	if m.client == nil {
 		return nil, fmt.Errorf("google client не инициализирован")
 	}
-	downloadURL := fmt.Sprintf("%s?key=%s", fileURI, m.client.GetAPIKey())
+	downloadURL := fmt.Sprintf("%s?key=%s", fileURI, m.client.GetAPIKeyForUser(userID))
 	req, err := http.NewRequestWithContext(m.ctx, http.MethodGet, downloadURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка создания запроса: %v", err)
@@ -106,7 +106,7 @@ func (m *Model) GenerateEmbedding(userID uint32, text string) ([]float32, error)
 		return cached, nil
 	}
 
-	// Вызываем Google API, используя персональный ключ пользователя (или глобальный если не задан)
+	// Вызываем Google API, используя персональный ключ пользователя
 	embedding, err := create.GenerateGoogleEmbedding(m.ctx, m.client.GetAPIKeyForUser(userID), text)
 	if err != nil {
 		return nil, err

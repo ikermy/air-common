@@ -1,13 +1,11 @@
 package mistral
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"regexp"
 	"strings"
@@ -1025,99 +1023,22 @@ func (m *Model) saveConversationId(dialogID uint64, conversationId string) {
 	}
 }
 
-// TranscribeAudio обёртка
-func (m *Model) TranscribeAudio(_ uint32, audioData []byte, fileName string) (string, error) {
-	return m.transcribeAudioFile(audioData, fileName)
-}
-
-// TranscribeAudio транскрибирует аудио файл используя Mistral Audio Transcription API
-func (m *Model) transcribeAudioFile(audioData []byte, fileName string) (string, error) {
+// TranscribeAudio обёртка для пакетного STT.
+// Пробрасывает userID в клиент, который резолвит персональный API-ключ.
+func (m *Model) TranscribeAudio(userID uint32, audioData []byte, fileName string) (string, error) {
+	if m.client == nil {
+		return "", fmt.Errorf("mistral client не инициализирован")
+	}
 	if len(audioData) == 0 {
 		return "", fmt.Errorf("пустые аудиоданные")
 	}
 
-	if m.client == nil {
-		return "", fmt.Errorf("mistral client не инициализирован")
-	}
-
-	// Формируем multipart request для отправки аудио файла
-	var requestBody bytes.Buffer
-	writer := multipart.NewWriter(&requestBody)
-	defer func() {
-		if err := writer.Close(); err != nil {
-			//logger.Error("TranscribeAudio: ошибка закрытия writer: %v", err)
-		}
-	}()
-
-	if err := writer.WriteField("model", "voxtral-mini-latest"); err != nil {
-		return "", fmt.Errorf("ошибка добавления поля model: %w", err)
-	}
-
-	// Добавляем аудио файл
-	part, err := writer.CreateFormFile("file", fileName)
-	if err != nil {
-		return "", fmt.Errorf("ошибка создания form file для аудио: %w", err)
-	}
-
-	if _, err := part.Write(audioData); err != nil {
-		return "", fmt.Errorf("ошибка записи аудио данных: %w", err)
-	}
-
-	// Закрываем writer перед отправкой запроса
-	if err := writer.Close(); err != nil {
-		return "", fmt.Errorf("ошибка закрытия writer: %w", err)
-	}
-
-	// Отправляем запрос на Mistral API
-	req, err := http.NewRequestWithContext(m.ctx, http.MethodPost, mode.MistralBaseURL+"/audio/transcriptions", &requestBody)
-	if err != nil {
-		return "", comerrors.NewProviderTransportError(comdom.ProviderMistral, err)
-	}
-
-	// Используем x-api-key заголовок согласно документации Mistral
-	req.Header.Set("x-api-key", m.client.apiKey)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("ошибка отправки запроса на Mistral: %w", err)
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			//logger.Error("TranscribeAudio: ошибка закрытия response body: %v", err)
-		}
-	}()
-
-	// Читаем ответ
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("ошибка чтения ответа: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return "", comerrors.NewProviderError(comdom.ProviderMistral, resp.StatusCode, string(responseBody), nil)
-	}
-
-	// Парсим ответ
-	var result struct {
-		Text string `json:"text"`
-	}
-
-	if err := json.Unmarshal(responseBody, &result); err != nil {
-		return "", fmt.Errorf("ошибка парсинга ответа Mistral: %w", err)
-	}
-
-	if result.Text == "" {
-		return "", comerrors.NewProviderError(comdom.ProviderMistral, http.StatusBadGateway, "Mistral вернул пустой текст транскрипции", nil)
-	}
-
-	//logger.Debug("TranscribeAudio: успешно транскрибировано аудио, длина текста: %d символов", len(result.Text))
-	return result.Text, nil
+	return m.client.TranscribeAudio(m.ctx, userID, "voxtral-mini-latest", "", fileName, audioData)
 }
 
 // DeleteTempFile удаляет загруженный файл из Mistral Files API
 // Используется для очистки временных файлов после обработки
-func (m *Model) DeleteTempFile(fileID string) error {
+func (m *Model) DeleteTempFile(userID uint32, fileID string) error {
 	if m.client == nil {
 		return fmt.Errorf("mistral client не инициализирован")
 	}
@@ -1126,7 +1047,7 @@ func (m *Model) DeleteTempFile(fileID string) error {
 		return fmt.Errorf("fileID не может быть пустым")
 	}
 
-	err := m.client.DeleteFile(fileID)
+	err := m.client.DeleteFile(userID, fileID)
 	if err != nil {
 		//logger.Error("DeleteTempFile: ошибка удаления файла %s: %v", fileID, err)
 		return err

@@ -24,7 +24,9 @@ type Inter interface {
 	Request(userID uint32, dialogID uint64, text string, files ...FileUpload) (AssistResponse, error)
 	RequestStreaming(userID uint32, dialogID uint64, text string, onDelta func(delta string, done bool) error, files ...FileUpload) error
 	CleanDialogData(dialogID uint64)
-	DeleteTempFile(fileID string) error
+	DeleteTempFile(userID uint32, fileID string) error
+	// TranscribeAudio транскрибирует аудио. userID обязателен: провайдеры
+	// резолвят через него персональный API-ключ (нельзя отбрасывать через `_`).
 	TranscribeAudio(userID uint32, audioData []byte, fileName string) (string, error)
 	CleanUp()
 	DisconnectUser(userID uint32)

@@ -34,7 +34,7 @@ func (m *Model) UploadDocumentWithEmbedding(userID uint32, docName, content stri
 
 	// 1. Генерируем эмбеддинг через OpenAI Embeddings API
 	//logger.Debug("OpenAI: генерация эмбеддинга для документа: %s", docName, userID)
-	embedding, err := m.GenerateEmbedding(content)
+	embedding, err := m.GenerateEmbedding(userID, content)
 	if err != nil {
 		return "", fmt.Errorf("ошибка генерации эмбеддинга: %w", err)
 	}
@@ -87,7 +87,7 @@ func (m *Model) SearchSimilarDocuments(userID uint32, query string, limit int) (
 
 	// 1. Генерируем эмбеддинг для поискового запроса
 	//logger.Debug("OpenAI: генерация эмбеддинга для поиска: %s", query, userID)
-	queryEmbedding, err := m.GenerateEmbedding(query)
+	queryEmbedding, err := m.GenerateEmbedding(userID, query)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка генерации эмбеддинга запроса: %w", err)
 	}

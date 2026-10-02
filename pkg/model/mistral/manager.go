@@ -28,7 +28,7 @@ func (m *Model) UploadFileToProvider(userID uint32, fileName string, fileData []
 	}
 
 	// 2. Загрузить документ в библиотеку через Mistral API
-	documentID, err := m.client.UploadDocumentToLibrary(libraryID, fileName, fileData)
+	documentID, err := m.client.UploadDocumentToLibrary(userID, libraryID, fileName, fileData)
 	if err != nil {
 		return "", fmt.Errorf("не удалось загрузить документ в библиотеку: %w", err)
 	}
@@ -61,7 +61,7 @@ func (m *Model) DeleteDocumentFromLibrary(userID uint32, documentID string) erro
 
 	// Удаляем документ через Mistral API
 	// Согласно документации: DELETE /v1/libraries/{library_id}/documents/{document_id}
-	err = m.client.DeleteDocumentFromLibrary(libraryID, documentID)
+	err = m.client.DeleteDocumentFromLibrary(userID, libraryID, documentID)
 	if err != nil {
 		return fmt.Errorf("не удалось удалить документ из библиотеки: %w", err)
 	}
@@ -80,7 +80,7 @@ func (m *Model) DeleteDocumentFromLibrary(userID uint32, documentID string) erro
 		//logger.Debug("В библиотеке %s не осталось файлов, удаляем её", libraryID, userID)
 
 		// Удаляем библиотеку через Mistral API
-		if err := m.client.DeleteLibrary(libraryID); err != nil {
+		if err := m.client.DeleteLibrary(userID, libraryID); err != nil {
 			//logger.Error("Ошибка удаления пустой библиотеки %s: %v", libraryID, err, userID)
 			// Не критично, просто логируем
 			//} else {
@@ -114,7 +114,7 @@ func (m *Model) AddFileToLibrary(userID uint32, fileID, _ string) error {
 
 	// Проверяем статус документа
 	//status, err := m.client.GetDocumentStatus(libraryID, fileID)
-	_, err = m.client.GetDocumentStatus(libraryID, fileID)
+	_, err = m.client.GetDocumentStatus(userID, libraryID, fileID)
 	if err != nil {
 		return fmt.Errorf("не удалось проверить статус документа: %w", err)
 	}
@@ -179,7 +179,7 @@ func (m *Model) getOrCreateUserLibrary(userID uint32) (string, error) {
 	libraryName := fmt.Sprintf("Library_User_%d", userID)
 	libraryDescription := fmt.Sprintf("Библиотека документов для пользователя %d", userID)
 
-	library, err := m.client.CreateLibrary(libraryName, libraryDescription)
+	library, err := m.client.CreateLibrary(userID, libraryName, libraryDescription)
 	if err != nil {
 		return "", fmt.Errorf("не удалось создать библиотеку: %w", err)
 	}
@@ -188,7 +188,7 @@ func (m *Model) getOrCreateUserLibrary(userID uint32) (string, error) {
 	err = m.saveLibraryID(userID, library.ID)
 	if err != nil {
 		// Пытаемся удалить созданную библиотеку при ошибке сохранения
-		_ = m.client.DeleteLibrary(library.ID)
+		_ = m.client.DeleteLibrary(userID, library.ID)
 		return "", fmt.Errorf("не удалось сохранить library_id в БД: %w", err)
 	}
 

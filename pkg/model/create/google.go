@@ -72,13 +72,12 @@ const GoogleSchemaJSON = `{
 
 // GoogleAgentClient клиент для работы с Google Gemini API
 type GoogleAgentClient struct {
-	apiKey         string
 	url            string
 	ctx            context.Context
 	universalModel *UniversalModel // Ссылка на universalModel
 	promptFetcher  GooglePromptHintFetcher
 	toolsFetcher   GoogleFunctionDeclarationsFetcher
-	keyResolver    func(userID uint32) string // Резолвер персональных ключей; nil → глобальный apiKey
+	keyResolver    func(userID uint32) string // Резолвер персональных ключей; nil → пустой ключ
 }
 
 // GooglePromptHintFetcher опционально получает prompt hint от внешнего MCP-источника.
@@ -141,17 +140,18 @@ func (m *GoogleAgentClient) SetKeyResolver(fn func(userID uint32) string) {
 	m.keyResolver = fn
 }
 
-// resolveKey возвращает API-ключ: персональный для userID (если задан) или глобальный.
+// resolveKey возвращает персональный API-ключ пользователя через keyResolver.
+// Глобального ключа нет: при отсутствии ключа возвращается пустая строка.
 func (m *GoogleAgentClient) resolveKey(userID uint32) string {
 	if m.keyResolver != nil && userID != 0 {
 		if key := m.keyResolver(userID); key != "" {
 			return key
 		}
 	}
-	return m.apiKey
+	return ""
 }
 
-// GetAPIKeyForUser возвращает эффективный API-ключ для пользователя (персональный или глобальный).
+// GetAPIKeyForUser возвращает персональный API-ключ пользователя (или пустую строку).
 func (m *GoogleAgentClient) GetAPIKeyForUser(userID uint32) string {
 	return m.resolveKey(userID)
 }
@@ -422,7 +422,7 @@ func (m *GoogleAgentClient) createGoogleAgent(modelData *comdom.UniversalModelDa
 // DeleteGoogleAgent deleteGoogleAgent удаляет Google Gemini агента по ID
 // Примечание: Google Gemini использует модели напрямую, без создания отдельных агентов
 // Поэтому "удаление" агента - это просто удаление записи из БД
-func (m *GoogleAgentClient) DeleteGoogleAgent(agentID string) error {
+func (m *GoogleAgentClient) DeleteGoogleAgent(userID uint32, agentID string) error {
 	if agentID == "" {
 		return fmt.Errorf("agentID не может быть пустым")
 	}
@@ -431,7 +431,7 @@ func (m *GoogleAgentClient) DeleteGoogleAgent(agentID string) error {
 	// Агент существует только как конфигурация в БД
 	// Если это tuned model (начинается с "tunedModels/"), пытаемся удалить
 	if strings.HasPrefix(agentID, "tunedModels/") {
-		deleteURL := fmt.Sprintf("%s/%s?key=%s", m.url, agentID, m.apiKey)
+		deleteURL := fmt.Sprintf("%s/%s?key=%s", m.url, agentID, m.resolveKey(userID))
 
 		req, err := http.NewRequestWithContext(m.ctx, http.MethodDelete, deleteURL, nil)
 		if err != nil {
@@ -467,7 +467,7 @@ func (m *GoogleAgentClient) DeleteGoogleAgent(agentID string) error {
 // - aspectRatio: "16:9", "9:16", "1:1" (по умолчанию "16:9")
 // - duration: длительность в секундах 4-8 (по умолчанию 4)
 // Возвращает: данные видео, MIME тип, ошибку
-func (m *GoogleAgentClient) GenerateVideo(prompt string, aspectRatio string, duration int) ([]byte, string, error) {
+func (m *GoogleAgentClient) GenerateVideo(userID uint32, prompt string, aspectRatio string, duration int) ([]byte, string, error) {
 	if prompt == "" {
 		return nil, "", fmt.Errorf("пустой промпт для генерации видео")
 	}
@@ -536,7 +536,7 @@ Please create a visually stunning video that captures the essence of the descrip
 	}
 
 	// URL для генерации
-	url := fmt.Sprintf("%s/models/%s:generateContent?key=%s", m.url, GoogleVideoModel, m.apiKey)
+	url := fmt.Sprintf("%s/models/%s:generateContent?key=%s", m.url, GoogleVideoModel, m.resolveKey(userID))
 
 	responseBody, err := executeGoogleAPIRequest(m.ctx, url, payload)
 	if err != nil {
@@ -586,7 +586,7 @@ Please create a visually stunning video that captures the essence of the descrip
 
 		// Проверяем file_data (URI)
 		if part.FileData.FileURI != "" && strings.HasPrefix(part.FileData.MimeType, "video/") {
-			videoData, err := m.DownloadVideoFromURI(part.FileData.FileURI)
+			videoData, err := m.DownloadVideoFromURI(userID, part.FileData.FileURI)
 			if err != nil {
 				return nil, "", fmt.Errorf("ошибка скачивания видео: %v", err)
 			}
@@ -602,13 +602,13 @@ Please create a visually stunning video that captures the essence of the descrip
 }
 
 // DownloadVideoFromURI скачивает видео по URI из Google File API
-func (m *GoogleAgentClient) DownloadVideoFromURI(fileURI string) ([]byte, error) {
+func (m *GoogleAgentClient) DownloadVideoFromURI(userID uint32, fileURI string) ([]byte, error) {
 	if fileURI == "" {
 		return nil, fmt.Errorf("пустой URI файла")
 	}
 
 	// Добавляем API ключ к запросу
-	downloadURL := fmt.Sprintf("%s?key=%s", fileURI, m.apiKey)
+	downloadURL := fmt.Sprintf("%s?key=%s", fileURI, m.resolveKey(userID))
 
 	videoData, err := executeGoogleAPIGetRequest(m.ctx, downloadURL)
 	if err != nil {
@@ -620,12 +620,7 @@ func (m *GoogleAgentClient) DownloadVideoFromURI(fileURI string) ([]byte, error)
 	return videoData, nil
 }
 
-// GetAPIKey возвращает API ключ (используется в google/files.go)
-func (m *GoogleAgentClient) GetAPIKey() string {
-	return m.apiKey
-}
-
-// GetUrl возвращает API ключ (используется где то..)
+// GetUrl возвращает базовый URL API (используется где то..)
 func (m *GoogleAgentClient) GetUrl() string {
 	return m.url
 }
@@ -669,7 +664,7 @@ func parseAudioTranscriptionResponse(responseBody []byte) (string, error) {
 // TranscribeAudio транскрибирует аудио файл в текст
 // Google Gemini поддерживает: MP3, WAV, FLAC, AAC, OGG, и другие форматы
 // Для файлов до 20MB использует inline_data (base64)
-func (m *GoogleAgentClient) TranscribeAudio(audioData []byte, mimeType string) (string, error) {
+func (m *GoogleAgentClient) TranscribeAudio(userID uint32, audioData []byte, mimeType string) (string, error) {
 	if len(audioData) == 0 {
 		return "", fmt.Errorf("пустые аудиоданные")
 	}
@@ -702,7 +697,7 @@ func (m *GoogleAgentClient) TranscribeAudio(audioData []byte, mimeType string) (
 	}
 
 	// Отправляем запрос
-	url := fmt.Sprintf("%s/models/%s:generateContent?key=%s", m.url, GoogleAudioModel, m.apiKey)
+	url := fmt.Sprintf("%s/models/%s:generateContent?key=%s", m.url, GoogleAudioModel, m.resolveKey(userID))
 
 	responseBody, err := executeGoogleAPIRequest(m.ctx, url, payload)
 	if err != nil {
@@ -721,7 +716,7 @@ func (m *GoogleAgentClient) TranscribeAudio(audioData []byte, mimeType string) (
 }
 
 // TranscribeAudioFile транскрибирует аудио файл используя File API (для больших файлов > 20MB)
-func (m *GoogleAgentClient) TranscribeAudioFile(fileURI string) (string, error) {
+func (m *GoogleAgentClient) TranscribeAudioFile(userID uint32, fileURI string) (string, error) {
 	if fileURI == "" {
 		return "", fmt.Errorf("пустой URI файла")
 	}
@@ -746,7 +741,7 @@ func (m *GoogleAgentClient) TranscribeAudioFile(fileURI string) (string, error) 
 		},
 	}
 
-	url := fmt.Sprintf("%s/models/%s:generateContent?key=%s", m.url, audioModel, m.apiKey)
+	url := fmt.Sprintf("%s/models/%s:generateContent?key=%s", m.url, audioModel, m.resolveKey(userID))
 
 	responseBody, err := executeGoogleAPIRequest(m.ctx, url, payload)
 	if err != nil {
@@ -764,12 +759,12 @@ func (m *GoogleAgentClient) TranscribeAudioFile(fileURI string) (string, error) 
 }
 
 // DeleteAudioFile удаляет загруженный аудио файл из Google File API
-func (m *GoogleAgentClient) DeleteAudioFile(fileName string) error {
+func (m *GoogleAgentClient) DeleteAudioFile(userID uint32, fileName string) error {
 	if fileName == "" {
 		return fmt.Errorf("пустое имя файла")
 	}
 
-	deleteURL := fmt.Sprintf(mode.GoogleAgentsURL+"/%s?key=%s", fileName, m.apiKey)
+	deleteURL := fmt.Sprintf(mode.GoogleAgentsURL+"/%s?key=%s", fileName, m.resolveKey(userID))
 
 	if err := executeGoogleAPIDeleteRequest(m.ctx, deleteURL); err != nil {
 		return fmt.Errorf("ошибка при вызове API: %w", err)
@@ -1067,7 +1062,7 @@ func (m *UniversalModel) createGoogleModel(userID uint32, modelData *comdom.Univ
 // GenerateImage генерирует изображение через Google Gemini API с Imagen 3
 // ВАЖНО: Google Gemini 2.0+ поддерживает встроенную генерацию изображений
 // Возвращает: imageData (PNG bytes), mimeType, error
-func (m *GoogleAgentClient) GenerateImage(prompt string, aspectRatio string) ([]byte, string, error) {
+func (m *GoogleAgentClient) GenerateImage(userID uint32, prompt string, aspectRatio string) ([]byte, string, error) {
 	if prompt == "" {
 		return nil, "", fmt.Errorf("prompt не может быть пустым")
 	}
@@ -1075,7 +1070,7 @@ func (m *GoogleAgentClient) GenerateImage(prompt string, aspectRatio string) ([]
 	// Используем Gemini Flash для генерации изображений (встроенная поддержка Imagen 3)
 	// Документация: https://ai.google.dev/gemini-api/docs/imagen
 	modelName := "gemini-2.0-flash-exp"
-	imageURL := fmt.Sprintf("%s/models/%s:generateContent?key=%s", m.url, modelName, m.apiKey)
+	imageURL := fmt.Sprintf("%s/models/%s:generateContent?key=%s", m.url, modelName, m.resolveKey(userID))
 
 	// Формируем расширенный промпт для генерации изображения
 	enhancedPrompt := fmt.Sprintf("Generate a high-quality, detailed image: %s", prompt)

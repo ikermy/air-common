@@ -76,13 +76,12 @@ type MistralLibrary struct {
 
 // MistralAgentClient клиент для работы с Mistral Agents API
 type MistralAgentClient struct {
-	apiKey         string
 	url            string
 	ctx            context.Context
 	universalModel *UniversalModel // Ссылка на UniversalModel
 	promptFetcher  GooglePromptHintFetcher
 	toolsFetcher   GoogleFunctionDeclarationsFetcher
-	keyResolver    func(userID uint32) string // Резолвер персональных ключей; nil → глобальный apiKey
+	keyResolver    func(userID uint32) string // Резолвер персональных ключей; nil → пустой ключ
 }
 
 // SetKeyResolver устанавливает функцию-резолвер персонального API-ключа пользователя.
@@ -90,14 +89,15 @@ func (m *MistralAgentClient) SetKeyResolver(fn func(userID uint32) string) {
 	m.keyResolver = fn
 }
 
-// resolveKey возвращает API-ключ: персональный для userID (если задан) или глобальный.
+// resolveKey возвращает персональный API-ключ пользователя через keyResolver.
+// Глобального ключа нет: при отсутствии ключа возвращается пустая строка.
 func (m *MistralAgentClient) resolveKey(userID uint32) string {
 	if m.keyResolver != nil && userID != 0 {
 		if key := m.keyResolver(userID); key != "" {
 			return key
 		}
 	}
-	return m.apiKey
+	return ""
 }
 
 // SetMCPConfigFetchers устанавливает внешние fetchers для prompt hint и function declarations.
@@ -149,7 +149,7 @@ func (m *UniversalModel) deleteMistralModel(userID uint32, modelData *comdom.Use
 
 				// Удаляем каждый документ из библиотеки
 				for i, file := range modelData.FileIds {
-					if err := m.mistralClient.DeleteDocumentFromLibrary(libraryID, file.ID); err != nil {
+					if err := m.mistralClient.DeleteDocumentFromLibrary(userID, libraryID, file.ID); err != nil {
 						//logger.Error("Ошибка удаления документа %s из библиотеки: %v", file.ID, err, userID)
 					}
 
@@ -164,7 +164,7 @@ func (m *UniversalModel) deleteMistralModel(userID uint32, modelData *comdom.Use
 					progressCallback("🔄 Удаление библиотеки Mistral...")
 				}
 
-				if err := m.mistralClient.DeleteLibrary(libraryID); err != nil {
+				if err := m.mistralClient.DeleteLibrary(userID, libraryID); err != nil {
 					//logger.Error("Ошибка удаления библиотеки %s: %v", libraryID, err, userID)
 					if progressCallback != nil {
 						progressCallback(fmt.Sprintf("⚠️ Не удалось удалить библиотеку: %v", err))
@@ -466,7 +466,7 @@ func (m *MistralAgentClient) createMistralAgent(modelData *comdom.UniversalModel
 // url: полный URL запроса
 // body: тело запроса (может быть nil)
 // successStatuses: список допустимых статус-кодов (если nil, то только OK)
-// userID: ID пользователя для резолвинга персонального API-ключа (0 = глобальный ключ)
+// userID: ID пользователя для резолвинга персонального API-ключа (0 = пустой ключ)
 func (m *MistralAgentClient) executeMistralRequest(method, url string, body []byte, successStatuses []int, userID uint32) ([]byte, error) {
 	var req *http.Request
 	var err error
@@ -549,16 +549,16 @@ func (m *MistralAgentClient) ListLibraries() ([]MistralLibrary, error) {
 }
 
 // DeleteLibrary удаляет библиотеку
-func (m *MistralAgentClient) DeleteLibrary(libraryID string) error {
+func (m *MistralAgentClient) DeleteLibrary(userID uint32, libraryID string) error {
 	url := fmt.Sprintf(mode.MistralBaseURL+"/libraries/%s", libraryID)
 
-	return m.executeMistralDeleteRequest(0, url)
+	return m.executeMistralDeleteRequest(userID, url)
 }
 
 // DeleteDocumentFromLibrary удаляет документ из библиотеки
 // DELETE /v1/libraries/{library_id}/documents/{document_id}
-func (m *MistralAgentClient) DeleteDocumentFromLibrary(libraryID, documentID string) error {
+func (m *MistralAgentClient) DeleteDocumentFromLibrary(userID uint32, libraryID, documentID string) error {
 	url := fmt.Sprintf(mode.MistralBaseURL+"/libraries/%s/documents/%s", libraryID, documentID)
 
-	return m.executeMistralDeleteRequest(0, url)
+	return m.executeMistralDeleteRequest(userID, url)
 }
