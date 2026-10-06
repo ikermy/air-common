@@ -1,2 +1,2 @@
-v1.60.2
-feat: enhance FileUpload to support local file paths and inline data URLs
+v1.60.3
+feat: update version to v1.60.3 for phantom project
