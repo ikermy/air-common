@@ -770,8 +770,8 @@ func (m *Model) processVideoGeneration(userID uint32, userText string, response 
 	//logger.Debug("processVideoGeneration: параметры - prompt='%s', aspect=%s, duration=%d", prompt, aspectRatio, duration)
 
 	// Генерируем видео через клиент
-	//videoData, mimeType, err := m.client.GenerateVideo(prompt, aspectRatio, duration)
-	videoData, _, err := m.client.GenerateVideo(prompt, aspectRatio, duration)
+	//videoData, mimeType, err := m.client.GenerateVideo(userID, prompt, aspectRatio, duration)
+	videoData, _, err := m.client.GenerateVideo(userID, prompt, aspectRatio, duration)
 	if err != nil {
 		//logger.Error("processVideoGeneration: ошибка генерации видео: %v", err)
 		response.Message += fmt.Sprintf("\n\n⚠️ К сожалению, не удалось сгенерировать видео: %v", err)
@@ -936,7 +936,7 @@ func (m *Model) processImageGeneration(userID uint32, userText string, response 
 	//logger.Debug("processImageGeneration: параметры - prompt='%s', aspect=%s", prompt, aspectRatio)
 
 	// Генерируем изображение через Google Imagen API
-	imageData, mimeType, err := m.client.GenerateImage(prompt, aspectRatio)
+	imageData, mimeType, err := m.client.GenerateImage(userID, prompt, aspectRatio)
 	if err != nil {
 		//logger.Error("processImageGeneration: ошибка генерации изображения: %v", err)
 		response.Message += fmt.Sprintf("\n\n⚠️ К сожалению, не удалось сгенерировать изображение: %v", err)

@@ -1,13 +1,11 @@
 package mistral
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"regexp"
 	"strings"
@@ -247,6 +245,113 @@ func (m *Model) attachMistralRealtimeSTT(session *MistralRealtimeSession) error 
 		return session.WithLLM(func() error {
 			return m.requestRealtimeLLM(session, turnID, text)
 		})
+	})
+}
+
+// StartRealtimeTranscriptionSession запускает Mistral realtime-сессию в режиме
+// «только распознавание»: поднимает сессию и подключает Voxtral realtime STT,
+// публикуя input_transcript_delta/done. LLM и TTS не задействуются. Реализует
+// model.RealtimeTranscriptionProvider.
+func (m *Model) StartRealtimeTranscriptionSession(userID uint32, dialogID, respID uint64) error {
+	if m == nil || m.realtime == nil {
+		return fmt.Errorf("Mistral realtime manager is not initialized")
+	}
+	if existing, ok := m.realtime.Get(respID); ok && existing != nil {
+		return nil // сессия уже поднята
+	}
+
+	sttModel := provider_catalog.DefaultMistralSTTModel
+	var mistralCfg *comdom.MistralRealtimeVAD
+	if m.universalModel != nil {
+		compressedData, vecIDs, readErr := m.db.ReadUserModelByProvider(userID, comdom.ProviderMistral)
+		if readErr != nil {
+			return fmt.Errorf("ошибка чтения конфигурации Mistral realtime: %w", readErr)
+		}
+		if compressedData != nil {
+			config, decodeErr := m.universalModel.DecompressModelData(compressedData, vecIDs)
+			if decodeErr != nil {
+				return fmt.Errorf("ошибка распаковки конфигурации Mistral realtime: %w", decodeErr)
+			}
+			if !config.Realtime {
+				return fmt.Errorf("Mistral realtime не включён для userID=%d", userID)
+			}
+			if config.RealtimeVAD != nil && config.RealtimeVAD.Mistral != nil {
+				mistralCfg = config.RealtimeVAD.Mistral
+				if mistralCfg.STTModel != nil && *mistralCfg.STTModel != "" {
+					sttModel = *mistralCfg.STTModel
+				}
+			}
+		}
+	}
+
+	session, err := m.realtime.Start(userID, dialogID, respID)
+	if err != nil {
+		return err
+	}
+	session.RealtimeModel = sttModel
+	session.Config = mistralCfg
+	if err := m.attachMistralRealtimeTranscription(session); err != nil {
+		m.realtime.Close(respID)
+		return err
+	}
+	return nil
+}
+
+// attachMistralRealtimeTranscription подключает STT-транспорт voxtral и
+// публикует только транскрипты (interim/final), без вызова LLM/TTS.
+func (m *Model) attachMistralRealtimeTranscription(session *MistralRealtimeSession) error {
+	if session == nil {
+		return fmt.Errorf("Mistral realtime session is nil")
+	}
+	modelName := session.RealtimeModel
+	if session.Config != nil && session.Config.STTModel != nil && *session.Config.STTModel != "" {
+		modelName = *session.Config.STTModel
+	}
+	// phantom и подобные клиенты отдают PCM16 16 кГц; при необходимости
+	// источник можно переопределить через Mistral.SourceSampleRate.
+	sourceSampleRate := 16000
+	if session.Config != nil && session.Config.SourceSampleRate != nil && *session.Config.SourceSampleRate > 0 {
+		sourceSampleRate = *session.Config.SourceSampleRate
+	}
+	apiKey := m.client.resolveKey(session.UserID())
+	transport, err := NewMistralRealtimeSTT(RealtimeSTTConfig{
+		Model:             modelName,
+		APIKey:            apiKey,
+		SourceSampleRate:  sourceSampleRate,
+		ReconnectAttempts: 5,                      // переживаем серверный idle-timeout
+		ReconnectDelay:    500 * time.Millisecond, // пауза перед переподключением
+	})
+	if err != nil {
+		return fmt.Errorf("настройка Mistral realtime STT: %w", err)
+	}
+	var lastPartial, lastFinal string
+	return session.StartSTTStream(transport, func(text string, final bool) error {
+		if strings.TrimSpace(text) == "" {
+			return nil
+		}
+		if final {
+			t := strings.TrimSpace(text)
+			if t == lastFinal {
+				return nil // дедупликация повторов финального транскрипта
+			}
+			lastFinal = t
+			lastPartial = ""
+			session.PublishEvent(model.RealtimeEvent{Type: "input_transcript_done", Text: t})
+			return nil
+		}
+		// Партиалы НЕ обрезаем: токены могут содержать значимые пробелы
+		// (иначе склеиваются в "Такнадо"). Если текст кумулятивный — публикуем
+		// приращение, иначе сам токен.
+		delta := text
+		if lastPartial != "" && strings.HasPrefix(text, lastPartial) {
+			delta = text[len(lastPartial):]
+		}
+		lastPartial = text
+		if strings.TrimSpace(delta) == "" {
+			return nil
+		}
+		session.PublishEvent(model.RealtimeEvent{Type: "input_transcript_delta", Text: text, Delta: delta})
+		return nil
 	})
 }
 
@@ -1025,99 +1130,22 @@ func (m *Model) saveConversationId(dialogID uint64, conversationId string) {
 	}
 }
 
-// TranscribeAudio обёртка
-func (m *Model) TranscribeAudio(_ uint32, audioData []byte, fileName string) (string, error) {
-	return m.transcribeAudioFile(audioData, fileName)
-}
-
-// TranscribeAudio транскрибирует аудио файл используя Mistral Audio Transcription API
-func (m *Model) transcribeAudioFile(audioData []byte, fileName string) (string, error) {
+// TranscribeAudio обёртка для пакетного STT.
+// Пробрасывает userID в клиент, который резолвит персональный API-ключ.
+func (m *Model) TranscribeAudio(userID uint32, audioData []byte, fileName string) (string, error) {
+	if m.client == nil {
+		return "", fmt.Errorf("mistral client не инициализирован")
+	}
 	if len(audioData) == 0 {
 		return "", fmt.Errorf("пустые аудиоданные")
 	}
 
-	if m.client == nil {
-		return "", fmt.Errorf("mistral client не инициализирован")
-	}
-
-	// Формируем multipart request для отправки аудио файла
-	var requestBody bytes.Buffer
-	writer := multipart.NewWriter(&requestBody)
-	defer func() {
-		if err := writer.Close(); err != nil {
-			//logger.Error("TranscribeAudio: ошибка закрытия writer: %v", err)
-		}
-	}()
-
-	if err := writer.WriteField("model", "voxtral-mini-latest"); err != nil {
-		return "", fmt.Errorf("ошибка добавления поля model: %w", err)
-	}
-
-	// Добавляем аудио файл
-	part, err := writer.CreateFormFile("file", fileName)
-	if err != nil {
-		return "", fmt.Errorf("ошибка создания form file для аудио: %w", err)
-	}
-
-	if _, err := part.Write(audioData); err != nil {
-		return "", fmt.Errorf("ошибка записи аудио данных: %w", err)
-	}
-
-	// Закрываем writer перед отправкой запроса
-	if err := writer.Close(); err != nil {
-		return "", fmt.Errorf("ошибка закрытия writer: %w", err)
-	}
-
-	// Отправляем запрос на Mistral API
-	req, err := http.NewRequestWithContext(m.ctx, http.MethodPost, mode.MistralBaseURL+"/audio/transcriptions", &requestBody)
-	if err != nil {
-		return "", comerrors.NewProviderTransportError(comdom.ProviderMistral, err)
-	}
-
-	// Используем x-api-key заголовок согласно документации Mistral
-	req.Header.Set("x-api-key", m.client.apiKey)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("ошибка отправки запроса на Mistral: %w", err)
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			//logger.Error("TranscribeAudio: ошибка закрытия response body: %v", err)
-		}
-	}()
-
-	// Читаем ответ
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("ошибка чтения ответа: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return "", comerrors.NewProviderError(comdom.ProviderMistral, resp.StatusCode, string(responseBody), nil)
-	}
-
-	// Парсим ответ
-	var result struct {
-		Text string `json:"text"`
-	}
-
-	if err := json.Unmarshal(responseBody, &result); err != nil {
-		return "", fmt.Errorf("ошибка парсинга ответа Mistral: %w", err)
-	}
-
-	if result.Text == "" {
-		return "", comerrors.NewProviderError(comdom.ProviderMistral, http.StatusBadGateway, "Mistral вернул пустой текст транскрипции", nil)
-	}
-
-	//logger.Debug("TranscribeAudio: успешно транскрибировано аудио, длина текста: %d символов", len(result.Text))
-	return result.Text, nil
+	return m.client.TranscribeAudio(m.ctx, userID, "voxtral-mini-latest", "", fileName, audioData)
 }
 
 // DeleteTempFile удаляет загруженный файл из Mistral Files API
 // Используется для очистки временных файлов после обработки
-func (m *Model) DeleteTempFile(fileID string) error {
+func (m *Model) DeleteTempFile(userID uint32, fileID string) error {
 	if m.client == nil {
 		return fmt.Errorf("mistral client не инициализирован")
 	}
@@ -1126,7 +1154,7 @@ func (m *Model) DeleteTempFile(fileID string) error {
 		return fmt.Errorf("fileID не может быть пустым")
 	}
 
-	err := m.client.DeleteFile(fileID)
+	err := m.client.DeleteFile(userID, fileID)
 	if err != nil {
 		//logger.Error("DeleteTempFile: ошибка удаления файла %s: %v", fileID, err)
 		return err

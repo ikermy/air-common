@@ -1,2 +1,2 @@
-v1.60.1
-feat: add elevenlabs voice gateway support
+v1.60.2
+feat: enhance FileUpload to support local file paths and inline data URLs

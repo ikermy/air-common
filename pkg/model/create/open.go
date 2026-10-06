@@ -106,12 +106,11 @@ func generateOpenAIEmbedding(ctx context.Context, apiKey, text, model string, di
 
 // OpenAIAgentClient клиент для работы с OpenAI API через прямые HTTP вызовы
 type OpenAIAgentClient struct {
-	apiKey         string
 	url            string
 	ctx            context.Context
 	httpClient     *http.Client
 	universalModel *UniversalModel            // Ссылка на universalModel
-	keyResolver    func(userID uint32) string // Резолвер персональных ключей; nil → глобальный apiKey
+	keyResolver    func(userID uint32) string // Резолвер персональных ключей; nil → пустой ключ
 }
 
 // StreamingFunctionCall представляет накапливаемый function call для Realtime API
@@ -159,28 +158,23 @@ func NewOpenAIAgentClient(ctx context.Context) *OpenAIAgentClient {
 	}
 }
 
-// TODO убрать или сделать внутренним ? так же для остальных провайдеров
-// GetAPIKey возвращает API ключ клиента (для использования в функциях генерации эмбеддингов)
-func (c *OpenAIAgentClient) GetAPIKey() string {
-	return c.apiKey
-}
-
 // SetKeyResolver устанавливает функцию-резолвер персонального API-ключа пользователя.
 func (c *OpenAIAgentClient) SetKeyResolver(fn func(userID uint32) string) {
 	c.keyResolver = fn
 }
 
-// resolveKey возвращает API-ключ: персональный для userID (если задан) или глобальный.
+// resolveKey возвращает персональный API-ключ пользователя через keyResolver.
+// Глобального ключа нет: при отсутствии ключа возвращается пустая строка.
 func (c *OpenAIAgentClient) resolveKey(userID uint32) string {
 	if c.keyResolver != nil && userID != 0 {
 		if key := c.keyResolver(userID); key != "" {
 			return key
 		}
 	}
-	return c.apiKey
+	return ""
 }
 
-// GetAPIKeyForUser возвращает эффективный API-ключ для пользователя (персональный или глобальный).
+// GetAPIKeyForUser возвращает персональный API-ключ пользователя (или пустую строку).
 func (c *OpenAIAgentClient) GetAPIKeyForUser(userID uint32) string {
 	return c.resolveKey(userID)
 }
@@ -227,8 +221,8 @@ func (c *OpenAIAgentClient) doRequest(ctx context.Context, method, path string, 
 }
 
 // DeleteFile удаляет файл
-func (c *OpenAIAgentClient) DeleteFile(ctx context.Context, fileID string) error {
-	resp, err := c.doRequest(ctx, "DELETE", fmt.Sprintf("/files/%s", fileID), nil, 0)
+func (c *OpenAIAgentClient) DeleteFile(ctx context.Context, userID uint32, fileID string) error {
+	resp, err := c.doRequest(ctx, "DELETE", fmt.Sprintf("/files/%s", fileID), nil, userID)
 	if err != nil {
 		return err
 	}
@@ -238,8 +232,8 @@ func (c *OpenAIAgentClient) DeleteFile(ctx context.Context, fileID string) error
 }
 
 // DownloadFileContent скачивает содержимое файла
-func (c *OpenAIAgentClient) DownloadFileContent(ctx context.Context, fileID string) ([]byte, error) {
-	resp, err := c.doRequest(ctx, "GET", fmt.Sprintf("/files/%s/content", fileID), nil, 0)
+func (c *OpenAIAgentClient) DownloadFileContent(ctx context.Context, userID uint32, fileID string) ([]byte, error) {
+	resp, err := c.doRequest(ctx, "GET", fmt.Sprintf("/files/%s/content", fileID), nil, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +243,7 @@ func (c *OpenAIAgentClient) DownloadFileContent(ctx context.Context, fileID stri
 }
 
 // TranscribeAudio транскрибирует аудио в текст
-func (c *OpenAIAgentClient) TranscribeAudio(ctx context.Context, audioData []byte, fileName string) (string, error) {
+func (c *OpenAIAgentClient) TranscribeAudio(ctx context.Context, userID uint32, audioData []byte, fileName string) (string, error) {
 	// Создаём multipart запрос для Whisper API
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
@@ -277,7 +271,7 @@ func (c *OpenAIAgentClient) TranscribeAudio(ctx context.Context, audioData []byt
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+c.resolveKey(0))
+	req.Header.Set("Authorization", "Bearer "+c.resolveKey(userID))
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	resp, err := c.httpClient.Do(req)

@@ -24,7 +24,9 @@ type Inter interface {
 	Request(userID uint32, dialogID uint64, text string, files ...FileUpload) (AssistResponse, error)
 	RequestStreaming(userID uint32, dialogID uint64, text string, onDelta func(delta string, done bool) error, files ...FileUpload) error
 	CleanDialogData(dialogID uint64)
-	DeleteTempFile(fileID string) error
+	DeleteTempFile(userID uint32, fileID string) error
+	// TranscribeAudio транскрибирует аудио. userID обязателен: провайдеры
+	// резолвят через него персональный API-ключ (нельзя отбрасывать через `_`).
 	TranscribeAudio(userID uint32, audioData []byte, fileName string) (string, error)
 	CleanUp()
 	DisconnectUser(userID uint32)
@@ -148,6 +150,15 @@ type RealtimeProvider interface {
 type RealtimeRouter interface {
 	GetRealtimeProvider(userID uint32) (RealtimeProvider, bool)
 	DisconnectRealtimeSession(respId uint64)
+}
+
+// RealtimeTranscriptionProvider — опциональный интерфейс realtime-провайдера,
+// умеющего работать в режиме «только распознавание речи» (без генерации ответа).
+// Реализуется OpenAI-провайдером (turn_detection.create_response=false).
+// Провайдеры без такого режима (например Google Live) этот интерфейс не реализуют.
+type RealtimeTranscriptionProvider interface {
+	RealtimeProvider
+	StartRealtimeTranscriptionSession(userID uint32, dialogID, respId uint64) error
 }
 
 // DeltaProcessor интерфейс унифицированной обработки стриминговых дельт.

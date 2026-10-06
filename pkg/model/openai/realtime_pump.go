@@ -298,11 +298,14 @@ func (m *Model) pumpFromOpenAI(rs *RealtimeSession) {
 				//	len(pendingFuncResults), rs.respId, rs.userID)
 				pendingFuncResults = pendingFuncResults[:0]
 
-				if err := rs.writeJSON(map[string]any{
-					"type":     "response.create",
-					"response": map[string]any{},
-				}); err != nil {
-					//logger.Warn("response.done: ошибка отправки response.create: %v", err, rs.userID)
+				// В режиме только-транскрипции ответы не генерируем.
+				if !rs.transcriptionOnly {
+					if err := rs.writeJSON(map[string]any{
+						"type":     "response.create",
+						"response": map[string]any{},
+					}); err != nil {
+						//logger.Warn("response.done: ошибка отправки response.create: %v", err, rs.userID)
+					}
 				}
 			}
 

@@ -24,10 +24,9 @@ func providerError(statusCode int, message string, err error) error {
 type MistralAgentClient struct {
 	ctx         context.Context
 	cancel      context.CancelFunc
-	apiKey      string
 	url         string
 	httpClient  *http.Client
-	keyResolver func(userID uint32) string // Резолвер персональных ключей; nil → глобальный apiKey
+	keyResolver func(userID uint32) string // Резолвер персональных ключей; nil → пустой ключ
 }
 
 // SetKeyResolver устанавливает функцию-резолвер персонального API-ключа пользователя.
@@ -35,14 +34,15 @@ func (m *MistralAgentClient) SetKeyResolver(fn func(userID uint32) string) {
 	m.keyResolver = fn
 }
 
-// resolveKey возвращает API-ключ: персональный для userID (если задан) или глобальный.
+// resolveKey возвращает персональный API-ключ пользователя через keyResolver.
+// Глобального ключа нет: при отсутствии ключа возвращается пустая строка.
 func (m *MistralAgentClient) resolveKey(userID uint32) string {
 	if m.keyResolver != nil && userID != 0 {
 		if key := m.keyResolver(userID); key != "" {
 			return key
 		}
 	}
-	return m.apiKey
+	return ""
 }
 
 // HasAPIKey возвращает true если для пользователя есть действующий API-ключ.
@@ -58,7 +58,6 @@ func NewMistralAgentClient(parent context.Context) *MistralAgentClient {
 	return &MistralAgentClient{
 		ctx:        ctx,
 		cancel:     cancel,
-		apiKey:     "",
 		url:        mode.MistralAgentsURL,
 		httpClient: &http.Client{},
 	}
@@ -118,7 +117,7 @@ type MistralDocument struct {
 
 // CreateLibrary создаёт новую библиотеку документов
 // POST /v1/libraries
-func (m *MistralAgentClient) CreateLibrary(name, description string) (*MistralLibrary, error) {
+func (m *MistralAgentClient) CreateLibrary(userID uint32, name, description string) (*MistralLibrary, error) {
 	payload := map[string]any{
 		"name": name,
 	}
@@ -136,7 +135,7 @@ func (m *MistralAgentClient) CreateLibrary(name, description string) (*MistralLi
 		return nil, fmt.Errorf("ошибка создания POST запроса: %v", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+m.apiKey)
+	req.Header.Set("Authorization", "Bearer "+m.resolveKey(userID))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
@@ -164,7 +163,7 @@ func (m *MistralAgentClient) CreateLibrary(name, description string) (*MistralLi
 
 // DeleteLibrary удаляет библиотеку
 // DELETE /v1/libraries/{library_id}
-func (m *MistralAgentClient) DeleteLibrary(libraryID string) error {
+func (m *MistralAgentClient) DeleteLibrary(userID uint32, libraryID string) error {
 	url := fmt.Sprintf(mode.MistralBaseURL+"/libraries/%s", libraryID)
 
 	req, err := http.NewRequestWithContext(m.ctx, http.MethodDelete, url, nil)
@@ -172,7 +171,7 @@ func (m *MistralAgentClient) DeleteLibrary(libraryID string) error {
 		return fmt.Errorf("ошибка создания DELETE запроса: %v", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+m.apiKey)
+	req.Header.Set("Authorization", "Bearer "+m.resolveKey(userID))
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -190,7 +189,7 @@ func (m *MistralAgentClient) DeleteLibrary(libraryID string) error {
 
 // UploadDocumentToLibrary загружает документ в библиотеку
 // POST /v1/libraries/{library_id}/documents
-func (m *MistralAgentClient) UploadDocumentToLibrary(libraryID, fileName string, fileData []byte) (string, error) {
+func (m *MistralAgentClient) UploadDocumentToLibrary(userID uint32, libraryID, fileName string, fileData []byte) (string, error) {
 	url := fmt.Sprintf(mode.MistralBaseURL+"/libraries/%s/documents", libraryID)
 
 	// Создаём multipart форму
@@ -213,7 +212,7 @@ func (m *MistralAgentClient) UploadDocumentToLibrary(libraryID, fileName string,
 		return "", fmt.Errorf("ошибка создания POST запроса: %v", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+m.apiKey)
+	req.Header.Set("Authorization", "Bearer "+m.resolveKey(userID))
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 
 	resp, err := http.DefaultClient.Do(req)
@@ -241,7 +240,7 @@ func (m *MistralAgentClient) UploadDocumentToLibrary(libraryID, fileName string,
 
 // DeleteDocumentFromLibrary удаляет документ из библиотеки
 // DELETE /v1/libraries/{library_id}/documents/{document_id}
-func (m *MistralAgentClient) DeleteDocumentFromLibrary(libraryID, documentID string) error {
+func (m *MistralAgentClient) DeleteDocumentFromLibrary(userID uint32, libraryID, documentID string) error {
 	url := fmt.Sprintf(mode.MistralBaseURL+"/libraries/%s/documents/%s", libraryID, documentID)
 
 	req, err := http.NewRequestWithContext(m.ctx, http.MethodDelete, url, nil)
@@ -249,7 +248,7 @@ func (m *MistralAgentClient) DeleteDocumentFromLibrary(libraryID, documentID str
 		return fmt.Errorf("ошибка создания DELETE запроса: %v", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+m.apiKey)
+	req.Header.Set("Authorization", "Bearer "+m.resolveKey(userID))
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -267,7 +266,7 @@ func (m *MistralAgentClient) DeleteDocumentFromLibrary(libraryID, documentID str
 
 // GetDocumentStatus получает статус документа
 // GET /v1/libraries/{library_id}/documents/{document_id}
-func (m *MistralAgentClient) GetDocumentStatus(libraryID, documentID string) (string, error) {
+func (m *MistralAgentClient) GetDocumentStatus(userID uint32, libraryID, documentID string) (string, error) {
 	url := fmt.Sprintf(mode.MistralBaseURL+"/libraries/%s/documents/%s", libraryID, documentID)
 
 	req, err := http.NewRequestWithContext(m.ctx, http.MethodGet, url, nil)
@@ -275,7 +274,7 @@ func (m *MistralAgentClient) GetDocumentStatus(libraryID, documentID string) (st
 		return "", fmt.Errorf("ошибка создания GET запроса: %v", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+m.apiKey)
+	req.Header.Set("Authorization", "Bearer "+m.resolveKey(userID))
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -302,7 +301,7 @@ func (m *MistralAgentClient) GetDocumentStatus(libraryID, documentID string) (st
 
 // DownloadFile скачивает файл (изображение) по file_id через Mistral Files API
 // Документация: https://docs.mistral.ai/api/#tag/files/operation/files_api_routes_download_file
-func (m *MistralAgentClient) DownloadFile(fileID string) ([]byte, error) {
+func (m *MistralAgentClient) DownloadFile(userID uint32, fileID string) ([]byte, error) {
 	url := fmt.Sprintf(mode.MistralBaseURL+"/files/%s/content", fileID)
 
 	req, err := http.NewRequestWithContext(m.ctx, http.MethodGet, url, nil)
@@ -310,7 +309,7 @@ func (m *MistralAgentClient) DownloadFile(fileID string) ([]byte, error) {
 		return nil, fmt.Errorf("ошибка создания GET запроса: %v", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+m.apiKey)
+	req.Header.Set("Authorization", "Bearer "+m.resolveKey(userID))
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -871,7 +870,7 @@ func (m *MistralAgentClient) readStreamingResponse(body io.Reader, onDelta func(
 
 // DeleteFile удаляет файл из Mistral Files API по его ID
 // Документация: https://docs.mistral.ai/api/#tag/files/operation/files_api_routes_delete_file
-func (m *MistralAgentClient) DeleteFile(fileID string) error {
+func (m *MistralAgentClient) DeleteFile(userID uint32, fileID string) error {
 	if fileID == "" {
 		return fmt.Errorf("fileID не может быть пустым")
 	}
@@ -882,7 +881,7 @@ func (m *MistralAgentClient) DeleteFile(fileID string) error {
 		return fmt.Errorf("ошибка создания HTTP запроса: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+m.apiKey)
+	req.Header.Set("Authorization", "Bearer "+m.resolveKey(userID))
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

@@ -928,6 +928,23 @@ func (r *Router) TranscribeAudio(userID uint32, audioData []byte, fileName strin
 	return manager.TranscribeAudio(userID, audioData, fileName)
 }
 
+// StartRealtimeTranscription запускает realtime-сессию в режиме «только
+// распознавание речи» (без генерации ответа) для активного провайдера
+// пользователя. Возвращает ошибку, если реальный провайдер такой режим
+// не поддерживает (например Google Live API) — вызывающий должен откатиться
+// на batch-распознавание (TranscribeAudio).
+func (r *Router) StartRealtimeTranscription(userID uint32, dialogID, respId uint64) error {
+	rp, ok := r.GetRealtimeProvider(userID)
+	if !ok {
+		return fmt.Errorf("realtime не поддерживается активной моделью пользователя %d", userID)
+	}
+	tp, ok := rp.(RealtimeTranscriptionProvider)
+	if !ok {
+		return fmt.Errorf("realtime-провайдер пользователя %d не поддерживает режим только-транскрипции", userID)
+	}
+	return tp.StartRealtimeTranscriptionSession(userID, dialogID, respId)
+}
+
 // GetRealtimeProvider возвращает RealtimeProvider для активной модели пользователя.
 // Если для модели включён ElevenLabs realtime-каскад (Voice.RealtimeBackend),
 // возвращается cascade-провайдер; иначе — нативный realtime активного провайдера.
@@ -1244,7 +1261,7 @@ func (r *Router) UploadFileToProvider(userID uint32, provider comdom.ProviderTyp
 }
 
 // DeleteTempFile удаляет загруженный временный файл через Mistral провайдер
-func (r *Router) DeleteTempFile(fileID string) error {
+func (r *Router) DeleteTempFile(userID uint32, fileID string) error {
 	if r.mistral == nil {
 		return fmt.Errorf("Mistral провайдер не инициализирован")
 	}
@@ -1252,7 +1269,7 @@ func (r *Router) DeleteTempFile(fileID string) error {
 	if !ok {
 		return fmt.Errorf("Mistral провайдер не поддерживает удаление временных файлов")
 	}
-	return manager.DeleteTempFile(fileID)
+	return manager.DeleteTempFile(userID, fileID)
 }
 
 // DeleteFileFromProvider удаляет файл из указанного провайдера (только Mistral)

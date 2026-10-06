@@ -467,21 +467,21 @@ func (m *Model) Shutdown(shutCh chan<- com.LogMsg) {
 }
 
 // TranscribeAudio транскрибирует аудио в текст (обёртка для клиента)
-func (m *Model) TranscribeAudio(_ uint32, audioData []byte, mimeType string) (string, error) {
+func (m *Model) TranscribeAudio(userID uint32, audioData []byte, mimeType string) (string, error) {
 	if m.client == nil {
 		return "", fmt.Errorf("google клиент не инициализирован")
 	}
 
-	return m.client.TranscribeAudio(audioData, mimeType)
+	return m.client.TranscribeAudio(userID, audioData, mimeType)
 }
 
 // GenerateVideo генерирует видео по описанию (обёртка для клиента)
-func (m *Model) GenerateVideo(prompt string, aspectRatio string, duration int) ([]byte, string, error) {
+func (m *Model) GenerateVideo(userID uint32, prompt string, aspectRatio string, duration int) ([]byte, string, error) {
 	if m.client == nil {
 		return nil, "", fmt.Errorf("google клиент не инициализирован")
 	}
 
-	return m.client.GenerateVideo(prompt, aspectRatio, duration)
+	return m.client.GenerateVideo(userID, prompt, aspectRatio, duration)
 }
 
 // GetOrSetRespGPT получает или создаёт респондента (адаптер для совместимости с Inter)
