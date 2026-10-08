@@ -1,13 +1,13 @@
 module github.com/ikermy/air-common
 
-go 1.25.8
+go 1.26.0
 
 require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/nicksnyder/go-i18n/v2 v2.6.1
 	github.com/r3labs/sse/v2 v2.10.0
 	github.com/stretchr/testify v1.12.1
-	golang.org/x/oauth2 v0.36.0
+	golang.org/x/oauth2 v0.37.0
 	golang.org/x/text v0.41.0
 	google.golang.org/api v0.294.0
 	google.golang.org/grpc v1.83.2
