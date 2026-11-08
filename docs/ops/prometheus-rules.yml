@@ -1,0 +1,82 @@
+groups:
+  - name: airorc-slo-recording
+    interval: 30s
+    rules:
+      - record: airorc:http_requests:rate5m
+        expr: sum(rate(airorc_http_requests_total[5m]))
+      - record: airorc:http_errors5xx:rate5m
+        expr: sum(rate(airorc_http_requests_total{status_code=~"5.."}[5m]))
+      - record: airorc:http_error_ratio5m
+        expr: |
+          airorc:http_errors5xx:rate5m
+          /
+          clamp_min(airorc:http_requests:rate5m, 1e-9)
+      - record: airorc:http_latency_p95_5m
+        expr: histogram_quantile(0.95, sum by (le) (rate(airorc_http_request_duration_seconds_bucket[5m])))
+      - record: airorc:http_latency_p99_5m
+        expr: histogram_quantile(0.99, sum by (le) (rate(airorc_http_request_duration_seconds_bucket[5m])))
+
+  - name: airorc-slo-alerts
+    rules:
+      - alert: AirOrchestratorDown
+        expr: up{job=~"airorc|air_orchestrator"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "air_orchestrator недоступен"
+          description: "Prometheus не может scrape-ить air_orchestrator более 2 минут."
+
+      - alert: AirOrchestratorNotReady
+        expr: probe_success{job="airorc-readyz"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "/readyz не проходит"
+          description: "Primary DB или шард недоступны более 5 минут."
+
+      - alert: AirOrchestratorHighErrorRate
+        expr: airorc:http_error_ratio5m > 0.01
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "5xx > 1% (SLO 99.9%)"
+          description: "Доля 5xx за 5 минут: {{ $value | humanizePercentage }}."
+
+      - alert: AirOrchestratorLatencyP95
+        expr: airorc:http_latency_p95_5m > 1.0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 latency > 1s"
+          description: "p95 HTTP latency {{ $value }}s за 5 минут."
+
+      - alert: AirOrchestratorStorageDegraded
+        expr: airorc_storage_healthy == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Storage деградирован"
+          description: "ReservationService/Redis недоступны."
+
+      - alert: AirShardRouterErrors
+        expr: sum(rate(air_common_db_router_errors_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ошибки DB router"
+          description: "Ошибки резолва/подключения к шардам > 0.1/с."
+
+      - alert: AirShardRouterGenerationChanged
+        expr: changes(air_common_db_router_generation[10m]) > 0
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "Сменилось поколение slot-map"
+          description: "Generation изменился; проверить rollout/recompute user_directory."

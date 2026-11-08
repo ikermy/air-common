@@ -22,21 +22,22 @@ func (d *DB) GetAllUserModels(userID uint32) ([]comdom.UserModelRecord, error) {
 	ctx, cancel := context.WithTimeout(d.Context(), sqlTimeToCancel*time.Second)
 	defer cancel()
 
-	rows, err := d.Conn().QueryContext(ctx,
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return nil, fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
+	rows, err := conn.QueryContext(ctx,
 		`SELECT 
 			um.ModelId AS UserModelId,
 			um.Provider AS ProviderName,
 			um.IsActive AS IsActive,
 			ug.AssistantId AS UserModelAssistId,
-			gm.Id AS GptModelId,
-			gm.Name AS GptModelName,
-			rm.Id AS RealtimeModelId,
-			rm.Name AS RealtimeModelName,
+			ug.Model AS GptModelId,
+			ug.Realtime AS RealtimeModelId,
 			ug.Ids AS Ids
 		FROM user_models um
 		JOIN user_gpt ug ON um.ModelId = ug.Id
-		LEFT JOIN gpt_models gm ON gm.Id = ug.Model
-		LEFT JOIN realtime_models rm ON rm.Id = ug.Realtime
 		WHERE um.UserId = ?
 		ORDER BY um.IsActive DESC, um.CreatedAt DESC`, userID)
 
@@ -58,27 +59,16 @@ func (d *DB) GetAllUserModels(userID uint32) ([]comdom.UserModelRecord, error) {
 		var isActive int8
 		var idsRaw sql.NullString
 		var gptModelID sql.NullInt64
-		var gptModelName sql.NullString
 		var realtimeModelID sql.NullInt64
-		var realtimeModelName sql.NullString
 
 		if err := rows.Scan(&record.ModelId, &record.Provider, &isActive, &record.AssistId,
-			&gptModelID, &gptModelName, &realtimeModelID, &realtimeModelName, &idsRaw); err != nil {
+			&gptModelID, &realtimeModelID, &idsRaw); err != nil {
 			return nil, fmt.Errorf("ошибка чтения модели пользователя: %w", err)
 		}
 
 		record.IsActive = isActive == 1
-		if gptModelName.Valid && gptModelID.Valid {
-			record.GptType = &comdom.GptType{
-				ID:   uint(gptModelID.Int64),
-				Name: gptModelName.String,
-			}
-		}
-		if realtimeModelName.Valid && realtimeModelID.Valid {
-			record.Realtime = &comdom.Realtime{
-				ID:   uint(realtimeModelID.Int64),
-				Name: realtimeModelName.String,
-			}
+		if err := d.fillReferenceModels(ctx, &record, gptModelID, realtimeModelID); err != nil {
+			return nil, err
 		}
 
 		// Парсим JSON из поля Ids
@@ -119,8 +109,13 @@ func (d *DB) RemoveModelFromUser(userID uint32, modelId uint64) error {
 	ctx, cancel := context.WithTimeout(d.ctx, sqlTimeToCancel*time.Second)
 	defer cancel()
 
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
 	// Начинаем транзакцию для атомарности операций
-	tx, err := d.conn.BeginTx(ctx, nil)
+	tx, err := conn.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("ошибка начала транзакции: %w", err)
 	}
@@ -263,8 +258,13 @@ func (d *DB) SaveUserModel(
 	ctx, cancel := context.WithTimeout(d.ctx, sqlTimeToCancel*time.Second)
 	defer cancel()
 
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
 	// Начинаем транзакцию для атомарности операций
-	tx, err := d.conn.BeginTx(ctx, nil)
+	tx, err := conn.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("ошибка начала транзакции: %w", err)
 	}
@@ -452,6 +452,11 @@ func (d *DB) ReadUserModel(userID uint32) ([]byte, *comdom.VecIds, error) {
 	ctx, cancel := context.WithTimeout(d.ctx, sqlTimeToCancel*time.Second)
 	defer cancel()
 
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return nil, nil, fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
 	// SQL запрос для получения Data и Ids из user_gpt через активную модель
 	query := `
 		SELECT TO_BASE64(ug.Data), ug.Ids
@@ -462,7 +467,7 @@ func (d *DB) ReadUserModel(userID uint32) ([]byte, *comdom.VecIds, error) {
 	var base64Data sql.NullString
 	var idsJson sql.NullString
 
-	err := d.conn.QueryRowContext(ctx, query, userID).Scan(&base64Data, &idsJson)
+	err := conn.QueryRowContext(ctx, query, userID).Scan(&base64Data, &idsJson)
 	if err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
@@ -517,6 +522,11 @@ func (d *DB) ReadUserModelByProvider(userID uint32, provider comdom.ProviderType
 	ctx, cancel := context.WithTimeout(d.Context(), sqlTimeToCancel*time.Second)
 	defer cancel()
 
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return nil, nil, fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
 	// SQL запрос для получения Data и Ids из user_gpt по провайдеру
 	query := `
 		SELECT TO_BASE64(ug.Data), ug.Ids
@@ -527,7 +537,7 @@ func (d *DB) ReadUserModelByProvider(userID uint32, provider comdom.ProviderType
 	var base64Data sql.NullString
 	var idsJson sql.NullString
 
-	err := d.Conn().QueryRowContext(ctx, query, userID, uint8(provider)).Scan(&base64Data, &idsJson)
+	err := conn.QueryRowContext(ctx, query, userID, uint8(provider)).Scan(&base64Data, &idsJson)
 	if err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
@@ -603,7 +613,7 @@ func (d *DB) DefaultProvidersModels(providerName string) (comdom.DefaultProvider
 		GptModelName, RealtimeModelName string
 	)
 
-	err := d.Conn().QueryRowContext(ctx, query, providerName).Scan(&GptModelId, &GptModelName, &RealtimeModelId, &RealtimeModelName)
+	err := d.RefConn().QueryRowContext(ctx, query, providerName).Scan(&GptModelId, &GptModelName, &RealtimeModelId, &RealtimeModelName)
 	if err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
@@ -625,6 +635,35 @@ func (d *DB) DefaultProvidersModels(providerName string) (comdom.DefaultProvider
 	}, nil
 }
 
+// fillReferenceModels resolves gpt/realtime model names from the reference DB.
+func (d *DB) fillReferenceModels(ctx context.Context, record *comdom.UserModelRecord, gptID, realtimeID sql.NullInt64) error {
+	if gptID.Valid {
+		var name string
+		err := d.RefConn().QueryRowContext(ctx,
+			"SELECT Name FROM gpt_models WHERE Id = ?", gptID.Int64).Scan(&name)
+		switch {
+		case err == nil:
+			record.GptType = &comdom.GptType{ID: uint(gptID.Int64), Name: name}
+		case errors.Is(err, sql.ErrNoRows):
+		default:
+			return fmt.Errorf("ошибка чтения gpt_models: %w", err)
+		}
+	}
+	if realtimeID.Valid {
+		var name string
+		err := d.RefConn().QueryRowContext(ctx,
+			"SELECT Name FROM realtime_models WHERE Id = ?", realtimeID.Int64).Scan(&name)
+		switch {
+		case err == nil:
+			record.Realtime = &comdom.Realtime{ID: uint(realtimeID.Int64), Name: name}
+		case errors.Is(err, sql.ErrNoRows):
+		default:
+			return fmt.Errorf("ошибка чтения realtime_models: %w", err)
+		}
+	}
+	return nil
+}
+
 // GetActiveModel получает активную модель пользователя
 func (d *DB) GetActiveModel(userID uint32) (*comdom.UserModelRecord, error) {
 	// Проверяем входное значение
@@ -636,7 +675,12 @@ func (d *DB) GetActiveModel(userID uint32) (*comdom.UserModelRecord, error) {
 	ctx, cancel := context.WithTimeout(d.Context(), sqlTimeToCancel*time.Second)
 	defer cancel()
 
-	// SQL запрос для получения активной модели
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return nil, fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
+	// SQL запрос для получения активной модели (reference-имена добираются отдельно).
 	query := `
 		SELECT 
 			um.Id,
@@ -644,14 +688,10 @@ func (d *DB) GetActiveModel(userID uint32) (*comdom.UserModelRecord, error) {
 			um.Provider,
 			um.IsActive,
 			ug.Ids,
-			gm.Id,
-			gm.Name,
-			rm.Id,
-			rm.Name
+			ug.Model,
+			ug.Realtime
 		FROM user_models um
 		JOIN user_gpt ug ON um.ModelId = ug.Id
-		LEFT JOIN gpt_models gm ON gm.Id = ug.Model
-		LEFT JOIN realtime_models rm ON rm.Id = ug.Realtime
 		WHERE um.userID = ? AND um.IsActive = 1
 		LIMIT 1`
 
@@ -660,21 +700,17 @@ func (d *DB) GetActiveModel(userID uint32) (*comdom.UserModelRecord, error) {
 	var provider uint8
 	var isActive bool
 	var idsJson sql.NullString
-	var modelName sql.NullString
-	var modelNameId sql.NullInt64
-	var realtimeName sql.NullString
-	var realtimeNameId sql.NullInt64
+	var modelRefID sql.NullInt64
+	var realtimeRefID sql.NullInt64
 
-	err := d.Conn().QueryRowContext(ctx, query, userID).Scan(
+	err := conn.QueryRowContext(ctx, query, userID).Scan(
 		&modelId,
 		&assistId,
 		&provider,
 		&isActive,
 		&idsJson,
-		&modelNameId,
-		&modelName,
-		&realtimeNameId,
-		&realtimeName,
+		&modelRefID,
+		&realtimeRefID,
 	)
 
 	if err != nil {
@@ -698,17 +734,8 @@ func (d *DB) GetActiveModel(userID uint32) (*comdom.UserModelRecord, error) {
 		IsActive: isActive,
 		FileIds:  []comdom.Ids{},
 	}
-	if modelName.Valid && modelNameId.Valid {
-		record.GptType = &comdom.GptType{
-			ID:   uint(modelNameId.Int64),
-			Name: modelName.String,
-		}
-	}
-	if realtimeName.Valid && realtimeNameId.Valid {
-		record.Realtime = &comdom.Realtime{
-			ID:   uint(realtimeNameId.Int64),
-			Name: realtimeName.String,
-		}
+	if err := d.fillReferenceModels(ctx, record, modelRefID, realtimeRefID); err != nil {
+		return nil, err
 	}
 
 	// Парсим JSON с Ids
@@ -740,7 +767,12 @@ func (d *DB) GetModelByProvider(userID uint32, provider comdom.ProviderType) (*c
 	ctx, cancel := context.WithTimeout(d.Context(), sqlTimeToCancel*time.Second)
 	defer cancel()
 
-	// SQL запрос для получения модели по провайдеру
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return nil, fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
+	// SQL запрос для получения модели по провайдеру (reference-имена отдельно).
 	query := `
 		SELECT 
 			um.ModelId,
@@ -748,14 +780,10 @@ func (d *DB) GetModelByProvider(userID uint32, provider comdom.ProviderType) (*c
 			um.Provider,
 			um.IsActive,
 			ug.Ids,
-			gm.Id,
-			gm.Name,
-			rm.Id,
-			rm.Name
+			ug.Model,
+			ug.Realtime
 		FROM user_models um
 		INNER JOIN user_gpt ug ON um.ModelId = ug.Id
-		LEFT JOIN gpt_models gm ON gm.Id = ug.Model
-		LEFT JOIN realtime_models rm ON rm.Id = ug.Realtime
 		WHERE um.userID = ? 
 			AND um.Provider = ?
 		LIMIT 1`
@@ -765,21 +793,17 @@ func (d *DB) GetModelByProvider(userID uint32, provider comdom.ProviderType) (*c
 	var providerDb uint8
 	var isActive bool
 	var idsJson sql.NullString
-	var modelName sql.NullString
-	var modelNameId sql.NullInt64
-	var realtimeName sql.NullString
-	var realtimeNameId sql.NullInt64
+	var modelRefID sql.NullInt64
+	var realtimeRefID sql.NullInt64
 
-	err := d.Conn().QueryRowContext(ctx, query, userID, uint8(provider)).Scan(
+	err := conn.QueryRowContext(ctx, query, userID, uint8(provider)).Scan(
 		&modelId,
 		&assistId,
 		&providerDb,
 		&isActive,
 		&idsJson,
-		&modelNameId,
-		&modelName,
-		&realtimeNameId,
-		&realtimeName,
+		&modelRefID,
+		&realtimeRefID,
 	)
 
 	if err != nil {
@@ -803,17 +827,8 @@ func (d *DB) GetModelByProvider(userID uint32, provider comdom.ProviderType) (*c
 		IsActive: isActive,
 		FileIds:  []comdom.Ids{},
 	}
-	if modelName.Valid && modelNameId.Valid {
-		record.GptType = &comdom.GptType{
-			ID:   uint(modelNameId.Int64),
-			Name: modelName.String,
-		}
-	}
-	if realtimeName.Valid && realtimeNameId.Valid {
-		record.Realtime = &comdom.Realtime{
-			ID:   uint(realtimeNameId.Int64),
-			Name: realtimeName.String,
-		}
+	if err := d.fillReferenceModels(ctx, record, modelRefID, realtimeRefID); err != nil {
+		return nil, err
 	}
 
 	// Парсим JSON с Ids
@@ -846,7 +861,12 @@ func (d *DB) GetModelByProviderAnyStatus(userID uint32, provider comdom.Provider
 	ctx, cancel := context.WithTimeout(d.Context(), sqlTimeToCancel*time.Second)
 	defer cancel()
 
-	// SQL запрос - БЕЗ условия IsActive = 1
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return nil, fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
+	// SQL запрос - БЕЗ условия IsActive = 1 (reference-имена отдельно).
 	query := `
 		SELECT 
 			um.ModelId,
@@ -854,14 +874,10 @@ func (d *DB) GetModelByProviderAnyStatus(userID uint32, provider comdom.Provider
 			um.Provider,
 			um.IsActive,
 			ug.Ids,
-			gm.Id,
-			gm.Name,
-			rm.Id,
-			rm.Name
+			ug.Model,
+			ug.Realtime
 		FROM user_models um
 		INNER JOIN user_gpt ug ON um.ModelId = ug.Id
-		LEFT JOIN gpt_models gm ON gm.Id = ug.Model
-		LEFT JOIN realtime_models rm ON rm.Id = ug.Realtime
 		WHERE um.userID = ? 
 			AND um.Provider = ?
 		LIMIT 1`
@@ -871,21 +887,17 @@ func (d *DB) GetModelByProviderAnyStatus(userID uint32, provider comdom.Provider
 	var providerDb uint8
 	var isActive bool
 	var idsJson sql.NullString
-	var modelName sql.NullString
-	var modelNameId sql.NullInt64
-	var realtimeName sql.NullString
-	var realtimeNameId sql.NullInt64
+	var modelRefID sql.NullInt64
+	var realtimeRefID sql.NullInt64
 
-	err := d.Conn().QueryRowContext(ctx, query, userID, uint8(provider)).Scan(
+	err := conn.QueryRowContext(ctx, query, userID, uint8(provider)).Scan(
 		&modelId,
 		&assistId,
 		&providerDb,
 		&isActive,
 		&idsJson,
-		&modelNameId,
-		&modelName,
-		&realtimeNameId,
-		&realtimeName,
+		&modelRefID,
+		&realtimeRefID,
 	)
 
 	if err != nil {
@@ -909,17 +921,8 @@ func (d *DB) GetModelByProviderAnyStatus(userID uint32, provider comdom.Provider
 		IsActive: isActive,
 		FileIds:  []comdom.Ids{},
 	}
-	if modelName.Valid && modelNameId.Valid {
-		record.GptType = &comdom.GptType{
-			ID:   uint(modelNameId.Int64),
-			Name: modelName.String,
-		}
-	}
-	if realtimeName.Valid && realtimeNameId.Valid {
-		record.Realtime = &comdom.Realtime{
-			ID:   uint(realtimeNameId.Int64),
-			Name: realtimeName.String,
-		}
+	if err := d.fillReferenceModels(ctx, record, modelRefID, realtimeRefID); err != nil {
+		return nil, err
 	}
 
 	// Парсим JSON с Ids
@@ -954,8 +957,13 @@ func (d *DB) SetActiveModel(userID uint32, modelId uint64) error {
 	ctx, cancel := context.WithTimeout(d.Context(), mode.GetSQLTimeToCancel())
 	defer cancel()
 
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
 	// Начинаем транзакцию
-	tx, err := d.Conn().BeginTx(ctx, nil)
+	tx, err := conn.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("ошибка начала транзакции: %w", err)
 	}
@@ -1025,8 +1033,13 @@ func (d *DB) SetActiveModelByProvider(userID uint32, provider comdom.ProviderTyp
 	ctx, cancel := context.WithTimeout(d.Context(), mode.GetSQLTimeToCancel())
 	defer cancel()
 
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
 	// Начинаем транзакцию
-	tx, err := d.Conn().BeginTx(ctx, nil)
+	tx, err := conn.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("ошибка начала транзакции: %w", err)
 	}
@@ -1101,6 +1114,11 @@ func (d *DB) UpdateUserGPT(userID uint32, modelId uint64, assistId string, allId
 	ctx, cancel := context.WithTimeout(d.Context(), sqlTimeToCancel*time.Second)
 	defer cancel()
 
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
 	// Подготавливаем значение для БД
 	// Если allIds == nil, то сохраняем SQL NULL, иначе строку
 	var idsValue any
@@ -1111,7 +1129,7 @@ func (d *DB) UpdateUserGPT(userID uint32, modelId uint64, assistId string, allId
 	}
 
 	// Обновляем поле Ids в user_gpt
-	_, err := d.Conn().ExecContext(ctx, `
+	_, err := conn.ExecContext(ctx, `
 		UPDATE user_gpt
 		SET Ids = ?
 		WHERE Id = ? AND AssistantId = ?

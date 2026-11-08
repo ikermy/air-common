@@ -7,27 +7,55 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/pkg/httpclient"
+	"github.com/ikermy/air-common/pkg/mcpsession"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 )
 
-const mcpURL = "http://airorc:8080/int/mcp"
+const defaultMCPURL = "http://airorc:8080/int/mcp"
 
 // UniversalActionHandler универсальный обработчик функций для всех провайдеров
 type UniversalActionHandler struct {
-	ctx        context.Context
-	httpClient *http.Client // shared client с таймаутом
+	ctx           context.Context
+	httpClient    *httpclient.Client // shared client с таймаутом, retry и circuit breaker
+	mcpURL        string
+	sessionSecret string
+	serviceKey    string
 }
 
 // NewUniversalActionHandler создаёт новый action handler с доступом к БД
 func NewUniversalActionHandler(ctx context.Context) *UniversalActionHandler {
+	mcpURL := os.Getenv("MCP_URL")
+	if mcpURL == "" {
+		mcpURL = defaultMCPURL
+	}
 	return &UniversalActionHandler{
 		ctx: ctx,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		httpClient: httpclient.New(httpclient.Options{
+			Timeout:          30 * time.Second,
+			Retries:          2,
+			Backoff:          100 * time.Millisecond,
+			FailureThreshold: 5,
+			OpenFor:          10 * time.Second,
+		}),
+		mcpURL:        mcpURL,
+		sessionSecret: os.Getenv("MCP_SESSION_SECRET"),
+		serviceKey:    os.Getenv("MCP_SERVICE_KEY"),
 	}
+}
+
+// sessionHeader строит X-Session-ID: подписанный при наличии секрета,
+// иначе legacy-формат "userId:provider".
+func (h *UniversalActionHandler) sessionHeader(userID uint32, provider comdom.ProviderType) string {
+	if h.sessionSecret == "" {
+		return fmt.Sprintf("%d:%d", userID, provider)
+	}
+	return mcpsession.Sign(h.sessionSecret, userID, provider, time.Now())
 }
 
 // callMCP отправляет единый JSON-RPC запрос к MCP серверу (POST /mcp).
@@ -62,14 +90,19 @@ func (h *UniversalActionHandler) callMCP(ctx context.Context, toolName, argument
 		return string(result)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, mcpURL, bytes.NewBuffer(bodyBytes))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.mcpURL, bytes.NewBuffer(bodyBytes))
 	if err != nil {
 		result, _ := json.Marshal(map[string]string{"error": "failed to create MCP request"})
 		return string(result)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	// Пробрасываем W3C trace context в MCP.
+	otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(req.Header))
+	if h.serviceKey != "" {
+		req.Header.Set("X-Service-Key", h.serviceKey)
+	}
 	// Идентификация пользователя и провайдера — реальный UserID без кодирования
-	req.Header.Set("X-Session-ID", fmt.Sprintf("%d:%d", userID, provider))
+	req.Header.Set("X-Session-ID", h.sessionHeader(userID, provider))
 
 	resp, err := h.httpClient.Do(req)
 	if err != nil {
@@ -137,14 +170,18 @@ func (h *UniversalActionHandler) callMCPMethod(ctx context.Context, method strin
 		return nil, fmt.Errorf("failed to marshal MCP request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, mcpURL, bytes.NewBuffer(bodyBytes))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.mcpURL, bytes.NewBuffer(bodyBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create MCP request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Session-ID", fmt.Sprintf("%d:%d", userID, provider))
+	otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(req.Header))
+	if h.serviceKey != "" {
+		req.Header.Set("X-Service-Key", h.serviceKey)
+	}
+	req.Header.Set("X-Session-ID", h.sessionHeader(userID, provider))
 
-	resp, err := h.httpClient.Do(req)
+	resp, err := h.httpClient.DoWithPolicy(req, true)
 	if err != nil {
 		return nil, fmt.Errorf("MCP request failed: %w", err)
 	}

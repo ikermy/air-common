@@ -18,6 +18,11 @@ func (d *DB) GetUserVectorStorage(userID uint32) (string, error) {
 	ctx, cancel := context.WithTimeout(d.Context(), sqlTimeToCancel*time.Second)
 	defer cancel()
 
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return "", fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
 	// SQL запрос для получения первого элемента VectorId из JSON активной модели
 	// Используем новую структуру через user_models
 	query := `
@@ -28,7 +33,7 @@ func (d *DB) GetUserVectorStorage(userID uint32) (string, error) {
   LIMIT 1`
 
 	var data sql.NullString
-	err := d.Conn().QueryRowContext(ctx, query, userID).Scan(&data)
+	err := conn.QueryRowContext(ctx, query, userID).Scan(&data)
 	if err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
@@ -59,8 +64,13 @@ func (d *DB) GetOrSetUserStorageLimit(userID uint32, setStorage int64) (remainin
 	ctx, cancel := context.WithTimeout(d.ctx, sqlTimeToCancel*time.Second)
 	defer cancel()
 
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return 0, 0, fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
 	// Начинаем транзакцию
-	tx, err := d.conn.BeginTx(ctx, nil)
+	tx, err := conn.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, 0, fmt.Errorf("ошибка начала транзакции: %w", err)
 	}

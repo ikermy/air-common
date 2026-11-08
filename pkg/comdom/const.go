@@ -15,9 +15,7 @@ const (
 	Instagram   ChannelType = 6
 )
 
-// AllChannels — валидные каналы (значения 0–6 заняты в БД).
-// Значение 255 не занято и трактуется как "unknown" (именованной константы нет).
-var AllChannels = []ChannelType{TelegramBot, Web, Telegram, Avito, Widget, WhatsApp, Instagram}
+// AllChannels is defined in channels.go from the canonical channel registry.
 
 func (c ChannelType) String() string {
 	switch c {
@@ -41,24 +39,10 @@ func (c ChannelType) String() string {
 }
 
 func (c ChannelType) FromString(s string) (ChannelType, error) {
-	switch s {
-	case "TelegramBot", "telegram_bot", "telegrambot", "tg_bot", "tgbot":
-		return TelegramBot, nil
-	case "Web", "web":
-		return Web, nil
-	case "TelegramUserBot", "tgubot", "telegram_user_bot", "telegramuserbot":
-		return Telegram, nil
-	case "Avito", "avito":
-		return Avito, nil
-	case "Widget", "widget":
-		return Widget, nil
-	case "WhatsApp", "whatsapp":
-		return WhatsApp, nil
-	case "Instagram", "instagram", "insta":
-		return Instagram, nil
-	default:
-		return 0, fmt.Errorf("unknown channel: %s", s)
+	if info, ok := ChannelBySlug(s); ok {
+		return info.Type, nil
 	}
+	return 0, fmt.Errorf("unknown channel: %s", s)
 }
 
 func (c ChannelType) FromUint8(value uint8) ChannelType { return ChannelType(value) }

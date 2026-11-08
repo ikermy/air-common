@@ -621,6 +621,10 @@ func sanitizeMistralTTSText(text string) string {
 // or other non-verbal symbols. Mistral rejects those after its own
 // sanitization with HTTP 400 instead of producing an empty audio response.
 func hasMistralSpeechText(text string) bool {
+	// Mistral sanitizes stage directions / code fences before TTS. Apply the
+	// same sanitization here so text like "*улыбается*" is not treated as
+	// speech and does not produce an avoidable HTTP 400.
+	text = sanitizeMistralTTSText(text)
 	for _, r := range text {
 		if unicode.IsLetter(r) || unicode.IsNumber(r) {
 			return true

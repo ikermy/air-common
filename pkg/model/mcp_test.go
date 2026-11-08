@@ -1,3 +1,5 @@
+//go:build integration
+
 package model_test
 
 import (

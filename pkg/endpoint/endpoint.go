@@ -302,24 +302,126 @@ func (e *Endpoint) GetDialogHistory(dialogID uint64, limit int) ([]Message, erro
 	e.mu.Unlock()
 	defer e.mu.Lock()
 
-	jsonData, err := e.db.ReadDialog(dialogID, uint8(limit))
+	var (
+		jsonData []byte
+		err      error
+	)
+	if limit <= 0 {
+		jsonData, err = e.db.ReadDialog(dialogID)
+	} else {
+		n := limit
+		if n > 255 {
+			n = 255
+		}
+		jsonData, err = e.db.ReadDialog(dialogID, uint8(n))
+	}
 	if err != nil {
 		return nil, fmt.Errorf("ошибка чтения диалога из БД: %w", err)
 	}
 
-	if jsonData == nil || len(jsonData) == 0 {
-		//logger.Debug("Endpoint: диалог %d не найден в БД", dialogID)
+	if len(jsonData) == 0 {
 		return nil, nil
 	}
 
-	// Парсим JSON данные
-	var messages []Message
-	if err := json.Unmarshal(jsonData, &messages); err != nil {
+	messages, err := parseDialogHistoryPayload(jsonData)
+	if err != nil {
 		return nil, fmt.Errorf("ошибка парсинга данных диалога из БД: %w", err)
 	}
 
 	//logger.Debug("Endpoint: прочитано %d сообщений из БД для диалога %d", len(messages), dialogID)
 	return messages, nil
+}
+
+type dialogMessageWire struct {
+	Creator   json.RawMessage `json:"creator"`
+	Message   json.RawMessage `json:"message"`
+	Timestamp string          `json:"timestamp"`
+}
+
+// parseDialogHistoryPayload accepts both the ReadDialog envelope
+// ({"Data": [...], ...}) and a bare array of messages.
+func parseDialogHistoryPayload(raw []byte) ([]Message, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+
+	data := raw
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &envelope); err == nil {
+		if d, ok := envelope["Data"]; ok {
+			data = d
+		}
+	}
+
+	// Data may be a JSON string containing the array.
+	var encoded string
+	if err := json.Unmarshal(data, &encoded); err == nil {
+		trimmed := strings.TrimSpace(encoded)
+		if strings.HasPrefix(trimmed, "[") {
+			data = []byte(trimmed)
+		}
+	}
+
+	var items []json.RawMessage
+	if err := json.Unmarshal(data, &items); err != nil {
+		return nil, err
+	}
+
+	messages := make([]Message, 0, len(items))
+	for _, item := range items {
+		// Each item may itself be a JSON string containing the object.
+		var inner string
+		if err := json.Unmarshal(item, &inner); err == nil {
+			item = []byte(inner)
+		}
+
+		var wire dialogMessageWire
+		if err := json.Unmarshal(item, &wire); err != nil {
+			continue
+		}
+
+		var resp model.AssistResponse
+		if len(wire.Message) > 0 {
+			if err := json.Unmarshal(wire.Message, &resp); err != nil {
+				var text string
+				if json.Unmarshal(wire.Message, &text) == nil {
+					resp.Message = text
+				}
+			}
+		}
+
+		ts := time.Now()
+		if wire.Timestamp != "" {
+			if parsed, err := time.Parse(time.RFC3339Nano, wire.Timestamp); err == nil {
+				ts = parsed
+			}
+		}
+
+		messages = append(messages, Message{
+			Creator:   parseCreator(wire.Creator),
+			Message:   resp,
+			Timestamp: ts,
+		})
+	}
+	return messages, nil
+}
+
+func parseCreator(raw json.RawMessage) comdom.CreatorType {
+	if len(raw) == 0 {
+		return 0
+	}
+	var n int
+	if err := json.Unmarshal(raw, &n); err == nil {
+		return comdom.CreatorType(n)
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		var parsed int
+		if _, err := fmt.Sscanf(s, "%d", &parsed); err == nil {
+			return comdom.CreatorType(parsed)
+		}
+	}
+	return 0
 }
 
 func (e *Endpoint) SaveDialog(creator comdom.CreatorType, treadId uint64, resp *model.AssistResponse) {

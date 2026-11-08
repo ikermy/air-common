@@ -8,10 +8,16 @@ import (
 
 // SetContactAvailability сохраняет доступность контакта в конкретном провайдере
 func (d *DB) SetContactAvailability(userID uint32, contact, provider string, isAvailable bool) error {
+	conn, _, cancel, err := d.connForUserCtx(userID)
+	if err != nil {
+		return fmt.Errorf("выбор шарда: %w", err)
+	}
+	defer cancel()
+
 	// Сначала получаем ContactId из service_contacts
 	var contactID int64
 	query := `SELECT Id FROM service_contacts WHERE userID = ? AND Contact = ? LIMIT 1`
-	err := d.Conn().QueryRow(query, userID, contact).Scan(&contactID)
+	err = conn.QueryRow(query, userID, contact).Scan(&contactID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("контакт %s не найден в service_contacts для пользователя %d", contact, userID)
@@ -29,7 +35,7 @@ func (d *DB) SetContactAvailability(userID uint32, contact, provider string, isA
 			UpdatedAt = NOW()
 	`
 
-	_, err = d.Conn().Exec(insertQuery, contactID, provider, isAvailable)
+	_, err = conn.Exec(insertQuery, contactID, provider, isAvailable)
 	if err != nil {
 		return fmt.Errorf("ошибка сохранения доступности контакта: %w", err)
 	}
@@ -39,6 +45,12 @@ func (d *DB) SetContactAvailability(userID uint32, contact, provider string, isA
 
 // GetContactAvailability получает доступность контакта во всех провайдерах
 func (d *DB) GetContactAvailability(userID uint32, contact string) (map[string]bool, error) {
+	conn, _, cancel, err := d.connForUserCtx(userID)
+	if err != nil {
+		return nil, fmt.Errorf("выбор шарда: %w", err)
+	}
+	defer cancel()
+
 	query := `
 		SELECT ca.Provider, ca.IsAvailable 
 		FROM service_contact_availability ca
@@ -46,7 +58,7 @@ func (d *DB) GetContactAvailability(userID uint32, contact string) (map[string]b
 		WHERE c.userID = ? AND c.Contact = ?
 	`
 
-	rows, err := d.Conn().Query(query, userID, contact)
+	rows, err := conn.Query(query, userID, contact)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка получения доступности контакта: %w", err)
 	}
@@ -71,6 +83,12 @@ func (d *DB) GetContactAvailability(userID uint32, contact string) (map[string]b
 
 // GetContactsAvailableIn получает список контактов доступных в указанном провайдере
 func (d *DB) GetContactsAvailableIn(userID uint32, provider string) ([]string, error) {
+	conn, _, cancel, err := d.connForUserCtx(userID)
+	if err != nil {
+		return nil, fmt.Errorf("выбор шарда: %w", err)
+	}
+	defer cancel()
+
 	query := `
 		SELECT DISTINCT c.Contact 
 		FROM service_contact_availability ca
@@ -81,7 +99,7 @@ func (d *DB) GetContactsAvailableIn(userID uint32, provider string) ([]string, e
 		ORDER BY c.Contact
 	`
 
-	rows, err := d.Conn().Query(query, userID, provider)
+	rows, err := conn.Query(query, userID, provider)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка получения контактов для провайдера %s: %w", provider, err)
 	}
@@ -105,6 +123,12 @@ func (d *DB) GetContactsAvailableIn(userID uint32, provider string) ([]string, e
 
 // GetContactsInBothProviders получает контакты доступные в обеих указанных платформах
 func (d *DB) GetContactsInBothProviders(userID uint32, provider1, provider2 string) ([]string, error) {
+	conn, _, cancel, err := d.connForUserCtx(userID)
+	if err != nil {
+		return nil, fmt.Errorf("выбор шарда: %w", err)
+	}
+	defer cancel()
+
 	query := `
 		SELECT c.Contact
 		FROM service_contacts c
@@ -118,7 +142,7 @@ func (d *DB) GetContactsInBothProviders(userID uint32, provider1, provider2 stri
 		ORDER BY c.Contact
 	`
 
-	rows, err := d.Conn().Query(query, userID, provider1, provider2)
+	rows, err := conn.Query(query, userID, provider1, provider2)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка получения общих контактов: %w", err)
 	}

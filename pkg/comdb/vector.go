@@ -20,6 +20,11 @@ func (d *DB) SaveEmbedding(userID uint32, modelId uint64, provider comdom.Provid
 	ctx, cancel := context.WithTimeout(d.MainCTX(), time.Duration(sqlTimeToCancel)*time.Second)
 	defer cancel()
 
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
 	// Валидация размерности (поддержка Google 768 и OpenAI 512/1536/3072)
 	embeddingDim := len(embedding)
 	if embeddingDim != 512 && embeddingDim != 768 && embeddingDim != 1536 && embeddingDim != 3072 {
@@ -66,7 +71,7 @@ func (d *DB) SaveEmbedding(userID uint32, modelId uint64, provider comdom.Provid
                  embedding_dim = VALUES(embedding_dim),
                  metadata = VALUES(metadata)`
 
-	_, err = d.Conn().ExecContext(ctx, query, userID, modelId, provider.String(), docID, docName, content, embeddingStr, embeddingDim, metadataJSON)
+	_, err = conn.ExecContext(ctx, query, userID, modelId, provider.String(), docID, docName, content, embeddingStr, embeddingDim, metadataJSON)
 	if err != nil {
 		return fmt.Errorf("SaveEmbedding: ошибка сохранения эмбеддинга для modelId=%d, docID=%s: %v", modelId, docID, err)
 	}

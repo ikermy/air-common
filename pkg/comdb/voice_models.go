@@ -44,7 +44,7 @@ func (d *DB) SyncVoiceModels(provider comdom.ProviderType, kind comdom.VoiceKind
 		normalized = append(normalized, trimmed)
 	}
 
-	tx, err := d.conn.BeginTx(ctx, nil)
+	tx, err := d.RefConn().BeginTx(ctx, nil)
 	if err != nil {
 		return result, fmt.Errorf("ошибка начала транзакции синхронизации голосовых моделей: %w", err)
 	}
@@ -145,7 +145,7 @@ func (d *DB) GetVoiceModels(provider comdom.ProviderType) ([]comdom.ProviderMode
 	ctx, cancel := context.WithTimeout(d.Context(), sqlTimeToCancel*time.Second)
 	defer cancel()
 
-	rows, err := d.conn.QueryContext(ctx,
+	rows, err := d.RefConn().QueryContext(ctx,
 		`SELECT Id, Name, Kind, IsDefault FROM voice_models WHERE Provider = ? ORDER BY Kind, Name`, provider)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка получения голосовых моделей: %w", err)
@@ -188,7 +188,7 @@ func (d *DB) GetProviderModels(provider comdom.ProviderType, modelType comdom.Mo
 		return nil, fmt.Errorf("некорректный тип модели: %d", modelType)
 	}
 
-	rows, err := d.conn.QueryContext(ctx, fmt.Sprintf(`SELECT Id, Name FROM %s WHERE Provider = ? ORDER BY Name`, table), provider)
+	rows, err := d.RefConn().QueryContext(ctx, fmt.Sprintf(`SELECT Id, Name FROM %s WHERE Provider = ? ORDER BY Name`, table), provider)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка получения моделей провайдера: %w", err)
 	}

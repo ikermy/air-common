@@ -347,6 +347,9 @@ func (s *MistralRealtimeSession) SetDisconnectCallback(callback func(uint64)) {
 // Interrupt cancels output from the current turn and signals playback drain.
 func (s *MistralRealtimeSession) Interrupt() {
 	s.metrics.Interruptions.Add(1)
+	// Invalidate the active turn before cancelling its context. Producers that
+	// already hold the turn ID must not publish late audio after interruption.
+	s.turns.Invalidate()
 	s.turnMu.Lock()
 	if s.turnCancel != nil {
 		s.turnCancel()

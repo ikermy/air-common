@@ -1,3 +1,5 @@
+//go:build integration
+
 package model_test
 
 // mcp_providers_test.go — тесты инструментов MCP для всех провайдеров, uid=23.

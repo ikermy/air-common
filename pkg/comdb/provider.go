@@ -19,10 +19,17 @@ func (d *DB) GetActiveProvider(userID uint32) (comdom.ProviderType, error) {
 		return 0, fmt.Errorf("получен некорректный userID")
 	}
 
+	ctx, cancel := context.WithTimeout(d.Context(), sqlTimeToCancel*time.Second)
+	defer cancel()
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return 0, fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
 	// Используем родительский контекст напрямую для максимальной производительности
 	// Запрашиваем активные модели с лимитом 2, чтобы проверить уникальность за один запрос
 	query := `SELECT Provider FROM user_models WHERE userID = ? AND IsActive = 1 LIMIT 2`
-	rows, err := d.Conn().QueryContext(d.Context(), query, userID)
+	rows, err := conn.QueryContext(ctx, query, userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
@@ -68,8 +75,13 @@ func (d *DB) GetUserAPIKey(userID uint32, provider comdom.ProviderType) (string,
 	ctx, cancel := context.WithTimeout(d.ctx, sqlTimeToCancel*time.Second)
 	defer cancel()
 
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return "", fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
 	var apiKey string
-	err := d.conn.QueryRowContext(ctx,
+	err := conn.QueryRowContext(ctx,
 		`SELECT ApiKey
 		   FROM user_api_keys
 		  WHERE UserId = ? AND Provider IN (?, ?)
@@ -130,6 +142,11 @@ func (d *DB) SetUserAPIKey(userID uint32, provider comdom.ProviderType, apiKey s
 	ctx, cancel := context.WithTimeout(d.ctx, sqlTimeToCancel*time.Second)
 	defer cancel()
 
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
 	keyToStore := strings.TrimSpace(apiKey)
 	if keyToStore == "" {
 		return fmt.Errorf("API-ключ не может быть пустым")
@@ -162,12 +179,12 @@ func (d *DB) SetUserAPIKey(userID uint32, provider comdom.ProviderType, apiKey s
 	          VALUES (?, ?, ?)
 	          ON DUPLICATE KEY UPDATE ApiKey = VALUES(ApiKey)`
 
-	_, execErr := d.conn.ExecContext(ctx, query, userID, provider.String(), keyToStore)
+	_, execErr := conn.ExecContext(ctx, query, userID, provider.String(), keyToStore)
 	if execErr != nil {
 		return fmt.Errorf("ошибка сохранения API-ключа: %w", execErr)
 	}
 
-	if _, err := d.conn.ExecContext(ctx,
+	if _, err := conn.ExecContext(ctx,
 		`DELETE FROM user_api_keys WHERE UserId = ? AND Provider = ?`,
 		userID,
 		strconv.Itoa(int(provider)),
@@ -187,7 +204,12 @@ func (d *DB) DeleteUserAPIKey(userID uint32, provider comdom.ProviderType) error
 	ctx, cancel := context.WithTimeout(d.ctx, sqlTimeToCancel*time.Second)
 	defer cancel()
 
-	_, err := d.conn.ExecContext(ctx,
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
+	_, err := conn.ExecContext(ctx,
 		`DELETE FROM user_api_keys WHERE UserId = ? AND Provider IN (?, ?)`,
 		userID,
 		provider.String(),

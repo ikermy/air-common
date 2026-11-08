@@ -54,9 +54,13 @@ build/
 gen/
 generated/
 
-# Exclude documentation and migration files
+# Exclude documentation and migration dumps
 ../air_orc/doc/comm/docs/
 migrations/
+
+# Embedded SQL migrations are source code and must be tracked.
+!pkg/migrate/migrations/
+!pkg/migrate/migrations/*.sql
 
 # Temporary files
 tmp/

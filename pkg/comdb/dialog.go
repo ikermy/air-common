@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
+	"math"
 	"time"
 
 	"github.com/ikermy/air-common/pkg/comdom"
@@ -17,66 +17,64 @@ import (
 // ReadDialog читает всю историю диалога и возвращает структурированные данные
 func (d *DB) ReadDialog(dialogId uint64, limit ...uint8) (json.RawMessage, error) {
 	if dialogId == 0 {
-		return nil, fmt.Errorf("получен некорректный dialogId")
+		return nil, ErrInvalidDialogID
 	}
 
 	ctx, cancel := context.WithTimeout(d.Context(), sqlTimeToCancel*time.Second)
 	defer cancel()
 
-	var raw sql.NullString
-	var err error
-	if len(limit) == 0 {
-		err = d.Conn().QueryRowContext(ctx, "SELECT ReadDialog(?, NULL);", dialogId).Scan(&raw)
-	} else {
-		err = d.Conn().QueryRowContext(ctx, "SELECT ReadDialog(?, ?);", dialogId, limit[0]).Scan(&raw)
-	}
-	if err != nil {
-		switch {
-		case errors.Is(err, context.DeadlineExceeded):
-			return nil, fmt.Errorf("тайм-аут при вызове ReadDialog: %w", err)
-		case errors.Is(err, context.Canceled):
-			return nil, fmt.Errorf("операция отменена: %w", err)
-		case errors.Is(err, sql.ErrNoRows):
-			return nil, fmt.Errorf("диалог не найден")
-		default:
-			return nil, fmt.Errorf("ошибка ReadDialog: %w", err)
+	// Lazy-миграция: заполняем dialog_messages из legacy Data при первом чтении.
+	d.backfillDialogMessages(ctx, dialogId)
+
+	if d.DialogV2ReadEnabled {
+		if result, ok := d.readDialogV2(ctx, dialogId, limit...); ok {
+			return result, nil
 		}
 	}
-	if !raw.Valid {
-		return nil, fmt.Errorf("получены пустые данные")
-	}
 
-	result := json.RawMessage(raw.String)
-
-	// Обрабатываем результат: расшифровка (если нужно) и нормализация массива Data
-	result = d.processReadDialogResult(ctx, dialogId, result)
-
-	return result, nil
+	return d.readDialogLegacy(ctx, dialogId, limit...)
 }
 
-// DeleteDialog удаляет диалог с проверкой прав пользователя
+// DeleteDialog удаляет диалог с проверкой прав пользователя.
+// Каскад dialog_messages/dialog_contexts выполняет FK ON DELETE CASCADE.
 func (d *DB) DeleteDialog(userID uint32, dialogId uint64) error {
 	// Проверяем входные значения
 	if dialogId == 0 {
-		return fmt.Errorf("получен некорректный dialogId")
+		return ErrInvalidDialogID
 	}
 	if userID == 0 {
-		return fmt.Errorf("получен некорректный userID")
+		return ErrInvalidUserID
 	}
 
 	// Дочерний контекст с тайм-аутом на операцию
 	ctx, cancel := context.WithTimeout(d.Context(), sqlTimeToCancel*time.Second)
 	defer cancel()
 
-	// Вызываем хранимую процедуру с проверкой прав
-	_, err := d.Conn().ExecContext(ctx, "CALL DeleteDialog(?, ?)", dialogId, userID)
+	conn, err := d.ConnForUser(ctx, userID)
 	if err != nil {
-		// Проверяем специальный код ошибки для демо-пользователя
-		if strings.Contains(err.Error(), "SQLSTATE 45001") ||
-			strings.Contains(err.Error(), "Невозможно удалить диалог демо пользователя") {
-			return fmt.Errorf("демо пользователь не может удалять диалоги")
-		}
+		return fmt.Errorf("deleteDialog select shard: %w", err)
+	}
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("deleteDialog begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
 
+	var roleID int
+	if err := tx.QueryRowContext(ctx,
+		"SELECT RoleId FROM users WHERE Id = ?", userID).Scan(&roleID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w: %d", ErrUserNotFound, userID)
+		}
+		return fmt.Errorf("deleteDialog role: %w", err)
+	}
+	if roleID == 1 {
+		return ErrDemoUserDeletion
+	}
+
+	res, err := tx.ExecContext(ctx,
+		"DELETE FROM dialogs WHERE Id = ? AND `User` = ?", dialogId, userID)
+	if err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
 			return fmt.Errorf("тайм-аут (%d с) при удалении диалога: %w", sqlTimeToCancel, err)
@@ -86,11 +84,20 @@ func (d *DB) DeleteDialog(userID uint32, dialogId uint64) error {
 			return fmt.Errorf("ошибка удаления диалога: %w", err)
 		}
 	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return ErrDialogNotFound
+	}
 
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("deleteDialog commit: %w", err)
+	}
 	return nil
 }
 
-// SaveDialog сохраняет всю историю диалога в базу данных
+// SaveDialog сохраняет всю историю диалога в базу данных.
+// Читает + (при необходимости) расшифровывает + аппендит + шифрует + сохраняет.
+// Использует транзакцию с FOR UPDATE для защиты от гонки.
 func (d *DB) SaveDialog(treadId uint64, message json.RawMessage) error {
 	if treadId == 0 {
 		return fmt.Errorf("получен пустой тред")
@@ -99,28 +106,12 @@ func (d *DB) SaveDialog(treadId uint64, message json.RawMessage) error {
 	ctx, cancel := context.WithTimeout(d.Context(), mode.GetSQLTimeToCancel())
 	defer cancel()
 
-	// Если resolver задан — обрабатываем шифрование сами (минуя SP)
-	if d.MasterKeyResolver != nil {
-		return d.saveDialogWithResolver(ctx, treadId, message)
-	}
-
-	// Fallback: хранимая процедура (plaintext, обратная совместимость)
-	if _, err := d.Conn().ExecContext(ctx, "CALL SaveDialog(?, ?)", treadId, message); err != nil {
-		switch {
-		case errors.Is(err, context.DeadlineExceeded):
-			return fmt.Errorf("тайм-аут при сохранении диалога: %w", err)
-		case errors.Is(err, context.Canceled):
-			return fmt.Errorf("операция отменена: %w", err)
-		default:
-			return fmt.Errorf("ошибка сохранения диалога: %w", err)
-		}
-	}
-	return nil
+	return d.saveDialog(ctx, treadId, message)
 }
 
 // saveDialogWithResolver читает + расшифровывает + аппендит + шифрует + сохраняет.
 // Использует транзакцию с FOR UPDATE для защиты от гонки.
-func (d *DB) saveDialogWithResolver(ctx context.Context, treadId uint64, message json.RawMessage) error {
+func (d *DB) saveDialog(ctx context.Context, treadId uint64, message json.RawMessage) error {
 	tx, err := d.Conn().BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("saveDialog begin tx: %w", err)
@@ -139,7 +130,13 @@ func (d *DB) saveDialogWithResolver(ctx context.Context, treadId uint64, message
 		return fmt.Errorf("saveDialog read: %w", err)
 	}
 
-	mk, hasMK := d.MasterKeyResolver(userId)
+	var (
+		mk    [32]byte
+		hasMK bool
+	)
+	if d.MasterKeyResolver != nil {
+		mk, hasMK = d.MasterKeyResolver(userId)
+	}
 
 	// Разворачиваем текущий массив данных
 	var arr []json.RawMessage
@@ -156,6 +153,7 @@ func (d *DB) saveDialogWithResolver(ctx context.Context, treadId uint64, message
 	}
 
 	// Аппендим новое сообщение
+	seq := len(arr)
 	arr = append(arr, message)
 
 	newBytes, err := json.Marshal(arr)
@@ -177,6 +175,8 @@ func (d *DB) saveDialogWithResolver(ctx context.Context, treadId uint64, message
 		return fmt.Errorf("saveDialog update: %w", err)
 	}
 
+	d.appendDialogMessageV2(ctx, tx, treadId, userId, uint64(seq), message)
+
 	return tx.Commit()
 }
 
@@ -189,7 +189,17 @@ func (d *DB) UpdateDialogsMeta(dialogId uint64, meta string) error {
 	ctx, cancel := context.WithTimeout(d.Context(), mode.GetSQLTimeToCancel())
 	defer cancel()
 
-	if _, err := d.Conn().ExecContext(ctx, "CALL UpdateDialogsMeta(?,?)", dialogId, meta); err != nil {
+	var query string
+	switch meta {
+	case "target":
+		query = "UPDATE dialogs SET Target = 1 WHERE Id = ?"
+	case "trigger":
+		query = "UPDATE dialogs SET `Trigger` = 1 WHERE Id = ?"
+	default:
+		return fmt.Errorf("недопустимое значение meta: %q (ожидается target или trigger)", meta)
+	}
+
+	if _, err := d.Conn().ExecContext(ctx, query, dialogId); err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
 			return fmt.Errorf("тайм-аут (%d с) при сохранении достижения цели: %w", mode.GetSQLTimeToCancel(), err)
@@ -203,7 +213,8 @@ func (d *DB) UpdateDialogsMeta(dialogId uint64, meta string) error {
 	return nil
 }
 
-// GetOrSetTreadAndResponder получает или создает тред и респондера
+// GetOrSetTreadAndResponder получает или создает тред и респондера.
+// Реализация на Go: responder уникален в рамках (user_id, chat_type, real_id).
 func (d *DB) GetOrSetTreadAndResponder(
 	userID uint32,
 	responderRealId uint64,
@@ -213,47 +224,80 @@ func (d *DB) GetOrSetTreadAndResponder(
 	if userID == 0 {
 		return 0, fmt.Errorf("получен пустой userID")
 	}
+	if responderRealId > math.MaxInt64 {
+		return 0, fmt.Errorf("responderRealId %d превышает BIGINT", responderRealId)
+	}
 
 	ctx, cancel := context.WithTimeout(d.Context(), mode.GetSQLTimeToCancel())
 	defer cancel()
 
-	// Создаём временную переменную для выхода
-	if _, err := d.Conn().ExecContext(ctx, "SET @out_dialogId = 0;"); err != nil {
-		switch {
-		case errors.Is(err, context.DeadlineExceeded):
-			return 0, fmt.Errorf("тайм-аут (%d с) при создании временной переменной: %w", mode.GetSQLTimeToCancel(), err)
-		case errors.Is(err, context.Canceled):
-			return 0, fmt.Errorf("операция отменена: %w", err)
-		default:
-			return 0, fmt.Errorf("ошибка при создании временной переменной: %w", err)
+	conn, err := d.ConnForUser(ctx, userID)
+	if err != nil {
+		return 0, fmt.Errorf("GetOrSetTreadAndResponder select shard: %w", err)
+	}
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("GetOrSetTreadAndResponder begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// Сериализуем создание responder/dialog в рамках пользователя.
+	var lockedUser uint32
+	if err := tx.QueryRowContext(ctx,
+		"SELECT Id FROM users WHERE Id = ? FOR UPDATE", userID).Scan(&lockedUser); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, fmt.Errorf("пользователь %d не найден", userID)
+		}
+		return 0, fmt.Errorf("GetOrSetTreadAndResponder lock user: %w", err)
+	}
+
+	realID := int64(responderRealId)
+
+	var responderID uint64
+	err = tx.QueryRowContext(ctx, `
+		SELECT Id FROM responders
+		WHERE user_id = ? AND Type = ? AND RealId = ?
+		ORDER BY Id LIMIT 1 FOR UPDATE`, userID, int(chatType), realID).Scan(&responderID)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		responderID = d.nextID()
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO responders (Id, user_id, Type, Name, RealId, is_orphan, Date)
+			VALUES (?, ?, ?, ?, ?, 0, NOW())`,
+			responderID, userID, int(chatType), responderName, realID); err != nil {
+			return 0, fmt.Errorf("GetOrSetTreadAndResponder insert responder: %w", err)
+		}
+	case err != nil:
+		return 0, fmt.Errorf("GetOrSetTreadAndResponder find responder: %w", err)
+	default:
+		if responderName != "" {
+			if _, err := tx.ExecContext(ctx, `
+				UPDATE responders SET Name = ?
+				WHERE Id = ? AND (Name IS NULL OR Name <> ?)`,
+				responderName, responderID, responderName); err != nil {
+				return 0, fmt.Errorf("GetOrSetTreadAndResponder update responder: %w", err)
+			}
 		}
 	}
 
-	// Выполняем вызов процедуры
-	if _, err := d.Conn().ExecContext(ctx, "CALL GetOrSetTreadAndResponder(?, ?, ?, ?, @out_dialogId);",
-		userID, responderRealId, responderName, chatType); err != nil { // Тип чата TgBot
-		switch {
-		case errors.Is(err, context.DeadlineExceeded):
-			return 0, fmt.Errorf("тайм-аут (%d с) при вызове процедуры GetOrSetTreadAndResponder: %w", mode.GetSQLTimeToCancel(), err)
-		case errors.Is(err, context.Canceled):
-			return 0, fmt.Errorf("операция отменена: %w", err)
-		default:
-			return 0, fmt.Errorf("ошибка вызова процедуры GetOrSetTreadAndResponder: %w", err)
+	var dialogID uint64
+	err = tx.QueryRowContext(ctx,
+		"SELECT Id FROM dialogs WHERE `User` = ? AND Responder = ? AND Type = ? ORDER BY Id LIMIT 1 FOR UPDATE",
+		userID, responderID, int(chatType)).Scan(&dialogID)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		dialogID = d.nextID()
+		if _, err := tx.ExecContext(ctx,
+			"INSERT INTO dialogs (Id, id_source, `User`, Responder, Type, Date) VALUES (?, 'snowflake', ?, ?, ?, NOW())",
+			dialogID, userID, responderID, int(chatType)); err != nil {
+			return 0, fmt.Errorf("GetOrSetTreadAndResponder insert dialog: %w", err)
 		}
+	case err != nil:
+		return 0, fmt.Errorf("GetOrSetTreadAndResponder find dialog: %w", err)
 	}
 
-	// Читаем значение из переменной
-	var dialogId uint64
-	if err := d.Conn().QueryRowContext(ctx, "SELECT @out_dialogId;").Scan(&dialogId); err != nil {
-		switch {
-		case errors.Is(err, context.DeadlineExceeded):
-			return 0, fmt.Errorf("тайм-аут (%d с) при получении значения @out_dialogId: %w", mode.GetSQLTimeToCancel(), err)
-		case errors.Is(err, context.Canceled):
-			return 0, fmt.Errorf("операция отменена: %w", err)
-		default:
-			return 0, fmt.Errorf("ошибка получения значения @out_dialogId: %w", err)
-		}
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("GetOrSetTreadAndResponder commit: %w", err)
 	}
-
-	return dialogId, nil
+	return dialogID, nil
 }

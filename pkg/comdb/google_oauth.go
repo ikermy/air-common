@@ -41,6 +41,11 @@ func (d *DB) SaveGoogleToken(userID uint32, googleEmail string, token *oauth2.To
 	ctx, cancel := context.WithTimeout(d.Context(), sqlTimeToCancel*time.Second)
 	defer cancel()
 
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
 	accessToken := token.AccessToken
 	refreshToken := token.RefreshToken
 
@@ -78,7 +83,7 @@ func (d *DB) SaveGoogleToken(userID uint32, googleEmail string, token *oauth2.To
 			updated_at    = CURRENT_TIMESTAMP
 	`
 
-	_, err = d.Conn().ExecContext(ctx, query,
+	_, err = conn.ExecContext(ctx, query,
 		userID,
 		googleEmail,
 		accessToken,
@@ -111,6 +116,11 @@ func (d *DB) GetGoogleToken(userID uint32) (*oauth2.Token, string, error) {
 	ctx, cancel := context.WithTimeout(d.Context(), sqlTimeToCancel*time.Second)
 	defer cancel()
 
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return nil, "", fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
 	query := `
 		SELECT access_token, refresh_token, token_type, expiry, scopes, google_email
 		FROM google_oauth_tokens
@@ -122,7 +132,7 @@ func (d *DB) GetGoogleToken(userID uint32) (*oauth2.Token, string, error) {
 	var expiry time.Time
 	var scopesJSON sql.NullString
 
-	err := d.Conn().QueryRowContext(ctx, query, userID).Scan(
+	err := conn.QueryRowContext(ctx, query, userID).Scan(
 		&accessToken,
 		&refreshToken,
 		&tokenType,
@@ -227,12 +237,17 @@ func (d *DB) DeleteGoogleToken(userID uint32) error {
 	ctx, cancel := context.WithTimeout(d.Context(), sqlTimeToCancel*time.Second)
 	defer cancel()
 
+	conn, connErr := d.ConnForUser(ctx, userID)
+	if connErr != nil {
+		return fmt.Errorf("выбор шарда: %w", connErr)
+	}
+
 	query := `
 		DELETE FROM google_oauth_tokens
 		WHERE user_id = ?
 	`
 
-	_, err := d.Conn().ExecContext(ctx, query, userID)
+	_, err := conn.ExecContext(ctx, query, userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):

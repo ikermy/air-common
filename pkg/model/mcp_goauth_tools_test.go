@@ -1,3 +1,5 @@
+//go:build integration
+
 package model_test
 
 // mcp_goauth_tools_test.go — тесты, проверяющие что Calendar/Sheets инструменты
