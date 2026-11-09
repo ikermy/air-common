@@ -3,7 +3,7 @@ package comdb
 import (
 	"encoding/json"
 
-	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/v2/pkg/comdom"
 	"golang.org/x/oauth2"
 )
 

@@ -3,7 +3,7 @@ package startpoint
 import (
 	"testing"
 
-	"github.com/ikermy/air-common/pkg/model"
+	"github.com/ikermy/air-common/v2/pkg/model"
 )
 
 func TestExtractStreamText_PartialMessage(t *testing.T) {

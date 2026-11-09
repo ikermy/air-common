@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ikermy/air-common/pkg/dbrouter"
+	"github.com/ikermy/air-common/v2/pkg/dbrouter"
 )
 
 // UserDirectoryBackfillStats reports the result of BackfillUserDirectory.

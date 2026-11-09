@@ -6,8 +6,8 @@ import (
 	"net/url"
 
 	"github.com/gorilla/websocket"
-	"github.com/ikermy/air-common/pkg/comdom"
-	"github.com/ikermy/air-common/pkg/comerrors"
+	"github.com/ikermy/air-common/v2/pkg/comdom"
+	"github.com/ikermy/air-common/v2/pkg/comerrors"
 )
 
 // ============================================================================

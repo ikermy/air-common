@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/v2/pkg/comdom"
 )
 
 // Version is the signed header version prefix.

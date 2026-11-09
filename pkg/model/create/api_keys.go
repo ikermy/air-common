@@ -1,7 +1,7 @@
 package create
 
 import (
-	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/v2/pkg/comdom"
 )
 
 // ProvidersWithApiKeys проверяет наличие пользовательских ключей у всех

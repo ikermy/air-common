@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ikermy/air-common/pkg/comdom"
-	"github.com/ikermy/air-common/pkg/crypto"
+	"github.com/ikermy/air-common/v2/pkg/comdom"
+	"github.com/ikermy/air-common/v2/pkg/crypto"
 )
 
 // execer is implemented by both *sql.DB and *sql.Tx.

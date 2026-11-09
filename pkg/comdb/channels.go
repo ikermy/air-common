@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ikermy/air-common/pkg/comdom"
-	"github.com/ikermy/air-common/pkg/mode"
+	"github.com/ikermy/air-common/v2/pkg/comdom"
+	"github.com/ikermy/air-common/v2/pkg/mode"
 )
 
 // SaveChannelDataRaw stores a channel payload in the legacy channels table and

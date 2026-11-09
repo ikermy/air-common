@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ikermy/air-common/pkg/comdom"
-	"github.com/ikermy/air-common/pkg/model/elevenlabs"
+	"github.com/ikermy/air-common/v2/pkg/comdom"
+	"github.com/ikermy/air-common/v2/pkg/model/elevenlabs"
 )
 
 func TestCascadeChunker(t *testing.T) {

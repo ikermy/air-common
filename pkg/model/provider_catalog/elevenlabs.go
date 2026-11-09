@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ikermy/air-common/pkg/comdom"
-	"github.com/ikermy/air-common/pkg/comerrors"
-	"github.com/ikermy/air-common/pkg/mode"
+	"github.com/ikermy/air-common/v2/pkg/comdom"
+	"github.com/ikermy/air-common/v2/pkg/comerrors"
+	"github.com/ikermy/air-common/v2/pkg/mode"
 )
 
 // Static catalog values for ElevenLabs capabilities that are not exposed via

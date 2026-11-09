@@ -3,8 +3,8 @@ package mistral
 import (
 	"testing"
 
-	"github.com/ikermy/air-common/pkg/comdom"
-	"github.com/ikermy/air-common/pkg/model"
+	"github.com/ikermy/air-common/v2/pkg/comdom"
+	"github.com/ikermy/air-common/v2/pkg/model"
 )
 
 type savedDialog struct {

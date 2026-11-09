@@ -3,7 +3,7 @@ package mode
 import (
 	"time"
 
-	"github.com/ikermy/air-common/pkg/com"
+	"github.com/ikermy/air-common/v2/pkg/com"
 )
 
 var (

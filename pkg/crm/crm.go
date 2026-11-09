@@ -2,7 +2,7 @@
 //
 // Пример использования Builder Pattern:
 //
-//	import "github.com/ikermy/air-common/pkg/crm"
+//	import "github.com/ikermy/air-common/v2/pkg/crm"
 //
 //	// Стандартная инициализация
 //	crmClient := crm.New(ctx, cfg)
@@ -72,7 +72,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ikermy/air-common/pkg/com"
+	"github.com/ikermy/air-common/v2/pkg/com"
 )
 
 type Inter interface {

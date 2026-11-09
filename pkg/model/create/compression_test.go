@@ -3,7 +3,7 @@ package create
 import (
 	"testing"
 
-	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/v2/pkg/comdom"
 )
 
 func TestModelDataCompressionRoundTripPreservesRealtimeAndVectorIDs(t *testing.T) {

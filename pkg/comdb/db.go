@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ikermy/air-common/pkg/idgen"
+	"github.com/ikermy/air-common/v2/pkg/idgen"
 )
 
 // Тайм-аут на операции с БД фактически для тяжолых операций добавляются коэфициентч x2, x3...

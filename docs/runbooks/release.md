@@ -40,12 +40,12 @@ git -C air-common push origin v1.61.0
 
 Скрипт отказывается работать на `master`/`main`, проверяет major модуля
 (сейчас нет `/v2`, поэтому `v2.x` Go не примет) и прогоняет `verify-all`.
-Версия — semver. После push модуль доступен как `github.com/ikermy/air-common@v1.61.0`.
+Версия — semver. После push модуль доступен как `github.com/ikermy/air-common/v2@v1.61.0`.
 
 Проверка:
 
 ```bash
-GOWORK=off go list -m github.com/ikermy/air-common@v1.61.0
+GOWORK=off go list -m github.com/ikermy/air-common/v2@v1.61.0
 ```
 
 ## 3. Bump сервисов
@@ -56,8 +56,8 @@ pwsh ./scripts/bump-air-common.ps1 -Version v1.61.0
 
 Скрипт:
 
-- находит все `go.mod`, где есть `github.com/ikermy/air-common`;
-- выполняет `go mod edit -require=github.com/ikermy/air-common@<version>`;
+- находит все `go.mod`, где есть `github.com/ikermy/air-common/v2`;
+- выполняет `go mod edit -require=github.com/ikermy/air-common/v2@<version>`;
 - `go mod tidy`;
 - запускает `scripts/verify-all.ps1`.
 

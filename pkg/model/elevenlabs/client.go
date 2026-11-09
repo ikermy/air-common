@@ -15,9 +15,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ikermy/air-common/pkg/comdom"
-	"github.com/ikermy/air-common/pkg/comerrors"
-	"github.com/ikermy/air-common/pkg/mode"
+	"github.com/ikermy/air-common/v2/pkg/comdom"
+	"github.com/ikermy/air-common/v2/pkg/comerrors"
+	"github.com/ikermy/air-common/v2/pkg/mode"
 )
 
 // Client is a minimal ElevenLabs REST client authenticated with a user API key.

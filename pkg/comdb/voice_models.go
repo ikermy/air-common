@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/v2/pkg/comdom"
 )
 
 // SyncVoiceModels синхронизирует каталог голосовых моделей провайдера

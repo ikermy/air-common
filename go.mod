@@ -1,4 +1,4 @@
-module github.com/ikermy/air-common
+module github.com/ikermy/air-common/v2
 
 go 1.26.0
 

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/ikermy/air-common/pkg/crypto"
+	"github.com/ikermy/air-common/v2/pkg/crypto"
 )
 
 // processReadDialogResult выполняет расшифровку и нормализацию данных диалога.

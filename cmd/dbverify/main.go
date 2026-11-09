@@ -19,7 +19,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 
-	"github.com/ikermy/air-common/pkg/dbverify"
+	"github.com/ikermy/air-common/v2/pkg/dbverify"
 )
 
 func main() {

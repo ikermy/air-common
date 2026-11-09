@@ -195,7 +195,7 @@ package main
 import (
 	"context"
 
-	"github.com/ikermy/air-common/pkg/model"
+	"github.com/ikermy/air-common/v2/pkg/model"
 )
 
 func main() {

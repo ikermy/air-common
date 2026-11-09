@@ -19,8 +19,8 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 
-	"github.com/ikermy/air-common/pkg/comdb"
-	"github.com/ikermy/air-common/pkg/dbrouter"
+	"github.com/ikermy/air-common/v2/pkg/comdb"
+	"github.com/ikermy/air-common/v2/pkg/dbrouter"
 )
 
 func main() {

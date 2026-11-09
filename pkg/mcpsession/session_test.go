@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ikermy/air-common/pkg/comdom"
+	"github.com/ikermy/air-common/v2/pkg/comdom"
 )
 
 func TestSignParseRoundTrip(t *testing.T) {

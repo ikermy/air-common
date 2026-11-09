@@ -10,9 +10,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/ikermy/air-common/pkg/comdom"
-	"github.com/ikermy/air-common/pkg/httpclient"
-	"github.com/ikermy/air-common/pkg/mcpsession"
+	"github.com/ikermy/air-common/v2/pkg/comdom"
+	"github.com/ikermy/air-common/v2/pkg/httpclient"
+	"github.com/ikermy/air-common/v2/pkg/mcpsession"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 )

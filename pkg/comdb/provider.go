@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ikermy/air-common/pkg/comdom"
-	"github.com/ikermy/air-common/pkg/crypto"
+	"github.com/ikermy/air-common/v2/pkg/comdom"
+	"github.com/ikermy/air-common/v2/pkg/crypto"
 )
 
 // GetActiveProvider получает тип провайдера активной модели пользователя без создания дочернего контекста дял максимальной производительности

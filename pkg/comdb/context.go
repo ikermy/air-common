@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/ikermy/air-common/pkg/comdom"
-	"github.com/ikermy/air-common/pkg/mode"
+	"github.com/ikermy/air-common/v2/pkg/comdom"
+	"github.com/ikermy/air-common/v2/pkg/mode"
 )
 
 // ReadContext читает контекст диалога из базы данных.

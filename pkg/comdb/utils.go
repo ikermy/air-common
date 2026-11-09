@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ikermy/air-common/pkg/comdom"
-	"github.com/ikermy/air-common/pkg/mode"
+	"github.com/ikermy/air-common/v2/pkg/comdom"
+	"github.com/ikermy/air-common/v2/pkg/mode"
 )
 
 func (d *DB) UserTimeZone(userID uint64) (string, error) {
