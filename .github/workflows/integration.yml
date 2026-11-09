@@ -44,17 +44,17 @@ jobs:
       RUN_MIGRATIONS: ${{ inputs.run_migrations }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Integration tests live in the orchestrator module. Requires a token that
       # can read ikermy/air_orchestrator (or a public repo).
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: ikermy/air_orchestrator
           path: air_orchestrator
           token: ${{ secrets.ORG_REPO_TOKEN || secrets.GITHUB_TOKEN }}
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: '1.27.x'
           cache: true

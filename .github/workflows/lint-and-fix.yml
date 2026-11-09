@@ -14,10 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: 'stable' # Использует последнюю стабильную версию Go
           cache: true          # Включает кэширование зависимостей для скорости
@@ -28,7 +28,7 @@ jobs:
           go fmt ./...
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v8
         with:
           version: latest
           # --fix пытается автоматически исправить базовые ошибки (стиль, импорты)

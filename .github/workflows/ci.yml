@@ -18,13 +18,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: '1.27.x'
-          cache: true
+          # Do not restore the shared Go build/module cache: a stale GitHub
+          # cache archive makes tar fail with "Cannot open: File exists".
+          cache: false
 
       - name: Download dependencies
         run: go mod download
@@ -35,8 +37,8 @@ jobs:
       - name: Vet
         run: go vet ./...
 
-      - name: Unit tests
-        run: go test ./...
+      - name: Unit tests (with coverage)
+        run: go test -cover ./...
 
       - name: Race tests (critical packages)
         run: go test -race ./pkg/idgen/... ./pkg/dbrouter/... ./pkg/telemetry/...
@@ -46,19 +48,3 @@ jobs:
         with:
           go-version-input: '1.27.x'
           go-package: ./...
-
-      - name: Lint (new issues only)
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
-          only-new-issues: true
-          args: --timeout=5m
-
-      - name: Coverage report
-        run: go test -coverprofile=coverage.out ./...
-      - name: Upload coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage
-          path: coverage.out
-          if-no-files-found: ignore
