@@ -42,7 +42,7 @@ type MistralRealtimeSession struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	userID          uint32
+	userID          uint64
 	dialogID        uint64
 	respID          uint64
 	RealtimeModel   string
@@ -252,7 +252,7 @@ func (s *MistralRealtimeSession) acceptFinalTranscript(text string) bool {
 }
 
 // NewRealtimeSession creates a session with bounded audio queues.
-func NewRealtimeSession(parent context.Context, userID uint32, dialogID, respID uint64) *MistralRealtimeSession {
+func NewRealtimeSession(parent context.Context, userID uint64, dialogID, respID uint64) *MistralRealtimeSession {
 	if parent == nil {
 		parent = context.Background()
 	}
@@ -274,7 +274,7 @@ func NewRealtimeSession(parent context.Context, userID uint32, dialogID, respID 
 }
 
 func (s *MistralRealtimeSession) Context() context.Context         { return s.ctx }
-func (s *MistralRealtimeSession) UserID() uint32                   { return s.userID }
+func (s *MistralRealtimeSession) UserID() uint64                   { return s.userID }
 func (s *MistralRealtimeSession) DialogID() uint64                 { return s.dialogID }
 func (s *MistralRealtimeSession) RespID() uint64                   { return s.respID }
 func (s *MistralRealtimeSession) DroppedAudio() uint64             { return s.droppedAudio.Load() }

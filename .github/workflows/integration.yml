@@ -1,0 +1,77 @@
+# Manual integration suite against a real MariaDB.
+# Not part of PR CI: it needs a schema baseline and takes several minutes.
+name: Integration (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_migrations:
+        description: "Apply pkg/migrate migrations after the baseline dump"
+        type: boolean
+        default: true
+      test_filter:
+        description: "Go -run regexp"
+        type: string
+        default: "TestFinalUserMigrationLocal|TestSoftDeleteAndPurgeLocal|TestDBVerifySelfLocal"
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: air
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+
+    env:
+      DB_HOST: 127.0.0.1:3307
+      DB_NAME: air
+      DB_USER: root
+      DB_PASSWORD: root
+      IDGEN_ENABLED: "true"
+      RUN_MIGRATIONS: ${{ inputs.run_migrations }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Integration tests live in the orchestrator module. Requires a token that
+      # can read ikermy/air_orchestrator (or a public repo).
+      - uses: actions/checkout@v4
+        with:
+          repository: ikermy/air_orchestrator
+          path: air_orchestrator
+          token: ${{ secrets.ORG_REPO_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'
+          cache: true
+
+      - name: Create Go workspace (use local air-common)
+        run: go work init . ./air_orchestrator
+
+      - name: Load schema baseline
+        run: |
+          sudo apt-get update && sudo apt-get install -y mariadb-client
+          mariadb -h 127.0.0.1 -P 3307 -uroot -proot air < docs/air_prod.sql
+
+      - name: Apply embedded migrations
+        if: ${{ inputs.run_migrations }}
+        working-directory: air_orchestrator
+        run: go test -tags integration -count=1 -run TestApplyMigrationsLocal ./internal/repository/mysql/
+
+      - name: Run integration tests
+        working-directory: air_orchestrator
+        run: go test -tags integration -count=1 -run '${{ inputs.test_filter }}' -v ./internal/repository/mysql/

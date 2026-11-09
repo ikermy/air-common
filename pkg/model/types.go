@@ -38,7 +38,7 @@ type Assistant struct {
 	AssistName string
 	Metas      Target
 	Events     Notifications
-	UserID     uint32
+	UserID     uint64
 	Limit      uint32
 	Provider   comdom.ProviderType
 	Espero     uint8
@@ -97,7 +97,7 @@ type AssistResponse struct {
 type Ch struct {
 	TxCh     chan Message
 	RxCh     chan Message
-	UserID   uint32
+	UserID   uint64
 	DialogID uint64
 	RespName string
 	txClosed atomic.Bool

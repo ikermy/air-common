@@ -62,7 +62,7 @@ func (d *DB) BackfillResponders(ctx context.Context) (ResponderBackfillStats, er
 	}
 	stats.Total = len(responders)
 
-	usage := make(map[uint64][]uint32)
+	usage := make(map[uint64][]uint64)
 	usageRows, err := tx.QueryContext(ctx,
 		"SELECT Responder, `User` FROM dialogs GROUP BY Responder, `User` ORDER BY Responder, `User`")
 	if err != nil {
@@ -71,7 +71,7 @@ func (d *DB) BackfillResponders(ctx context.Context) (ResponderBackfillStats, er
 	for usageRows.Next() {
 		var (
 			responderID uint64
-			userID      uint32
+			userID      uint64
 		)
 		if err := usageRows.Scan(&responderID, &userID); err != nil {
 			usageRows.Close()
@@ -142,7 +142,7 @@ func (d *DB) BackfillResponders(ctx context.Context) (ResponderBackfillStats, er
 
 // UserOwnsResponder reports whether responderID belongs to userID.
 // Responders without an owner (is_orphan) never match.
-func (d *DB) UserOwnsResponder(userID uint32, responderID uint64) (bool, error) {
+func (d *DB) UserOwnsResponder(userID uint64, responderID uint64) (bool, error) {
 	var exists int
 	err := d.Conn().QueryRow(
 		"SELECT 1 FROM responders WHERE Id = ? AND user_id = ? LIMIT 1",
@@ -156,7 +156,7 @@ func (d *DB) UserOwnsResponder(userID uint32, responderID uint64) (bool, error) 
 	return true, nil
 }
 
-func findResponder(ctx context.Context, tx *sql.Tx, userID uint32, r responderRow) (uint64, error) {
+func findResponder(ctx context.Context, tx *sql.Tx, userID uint64, r responderRow) (uint64, error) {
 	var id uint64
 	err := tx.QueryRowContext(ctx, `
 		SELECT Id FROM responders
@@ -177,7 +177,7 @@ func mergeDuplicateResponders(ctx context.Context, tx *sql.Tx) (int, error) {
 	}
 
 	type group struct {
-		userID uint32
+		userID uint64
 		typ    int
 		realID int64
 	}
@@ -219,7 +219,7 @@ func mergeDuplicateResponders(ctx context.Context, tx *sql.Tx) (int, error) {
 	return merged, nil
 }
 
-func duplicateIDs(ctx context.Context, tx *sql.Tx, userID uint32, typ int, realID int64) ([]uint64, error) {
+func duplicateIDs(ctx context.Context, tx *sql.Tx, userID uint64, typ int, realID int64) ([]uint64, error) {
 	rows, err := tx.QueryContext(ctx, `
 		SELECT Id FROM responders
 		WHERE user_id = ? AND Type = ? AND RealId = ?

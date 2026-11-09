@@ -37,7 +37,7 @@ func (d *DB) ReadDialog(dialogId uint64, limit ...uint8) (json.RawMessage, error
 
 // DeleteDialog удаляет диалог с проверкой прав пользователя.
 // Каскад dialog_messages/dialog_contexts выполняет FK ON DELETE CASCADE.
-func (d *DB) DeleteDialog(userID uint32, dialogId uint64) error {
+func (d *DB) DeleteDialog(userID uint64, dialogId uint64) error {
 	// Проверяем входные значения
 	if dialogId == 0 {
 		return ErrInvalidDialogID
@@ -119,7 +119,7 @@ func (d *DB) saveDialog(ctx context.Context, treadId uint64, message json.RawMes
 	defer func() { _ = tx.Rollback() }()
 
 	// Читаем userId и текущий Data с блокировкой строки
-	var userId uint32
+	var userId uint64
 	var rawData sql.NullString
 	if err = tx.QueryRowContext(ctx,
 		"SELECT `User`, `Data` FROM dialogs WHERE Id = ? FOR UPDATE", treadId).
@@ -216,7 +216,7 @@ func (d *DB) UpdateDialogsMeta(dialogId uint64, meta string) error {
 // GetOrSetTreadAndResponder получает или создает тред и респондера.
 // Реализация на Go: responder уникален в рамках (user_id, chat_type, real_id).
 func (d *DB) GetOrSetTreadAndResponder(
-	userID uint32,
+	userID uint64,
 	responderRealId uint64,
 	responderName string,
 	chatType comdom.ChannelType,

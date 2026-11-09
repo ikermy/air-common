@@ -40,11 +40,11 @@ type cleanupRecorder struct {
 	samples []string
 }
 
-func (c *cleanupRecorder) DeleteVoice(_ context.Context, _ uint32, id string) error {
+func (c *cleanupRecorder) DeleteVoice(_ context.Context, _ uint64, id string) error {
 	c.voices = append(c.voices, id)
 	return nil
 }
-func (c *cleanupRecorder) DeleteReferenceAudio(_ context.Context, _ uint32, id string) error {
+func (c *cleanupRecorder) DeleteReferenceAudio(_ context.Context, _ uint64, id string) error {
 	c.samples = append(c.samples, id)
 	return nil
 }

@@ -19,7 +19,7 @@ func TestOpenAITranscribeAudioUsesPersonalKey(t *testing.T) {
 	defer server.Close()
 
 	client := &OpenAIAgentClient{url: server.URL, httpClient: server.Client()}
-	client.SetKeyResolver(func(userID uint32) string {
+	client.SetKeyResolver(func(userID uint64) string {
 		if userID == 42 {
 			return "personal-openai"
 		}
@@ -50,7 +50,7 @@ func TestGoogleTranscribeAudioUsesPersonalKey(t *testing.T) {
 	defer server.Close()
 
 	client := &GoogleAgentClient{url: server.URL, ctx: context.Background()}
-	client.SetKeyResolver(func(userID uint32) string {
+	client.SetKeyResolver(func(userID uint64) string {
 		if userID == 42 {
 			return "personal-google"
 		}
@@ -81,7 +81,7 @@ func TestGoogleTranscribeAudioNoGlobalFallback(t *testing.T) {
 	defer server.Close()
 
 	client := &GoogleAgentClient{url: server.URL, ctx: context.Background()}
-	client.SetKeyResolver(func(uint32) string { return "personal-google" })
+	client.SetKeyResolver(func(uint64) string { return "personal-google" })
 
 	if _, err := client.TranscribeAudio(0, []byte("audio"), "audio/wav"); err != nil {
 		t.Fatalf("TranscribeAudio() error: %v", err)

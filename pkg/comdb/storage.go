@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func (d *DB) GetUserVectorStorage(userID uint32) (string, error) {
+func (d *DB) GetUserVectorStorage(userID uint64) (string, error) {
 	// Проверяем входное значение
 	if userID == 0 {
 		return "", fmt.Errorf("получен некорректный userID")
@@ -54,7 +54,7 @@ func (d *DB) GetUserVectorStorage(userID uint32) (string, error) {
 	return data.String, nil
 }
 
-func (d *DB) GetOrSetUserStorageLimit(userID uint32, setStorage int64) (remaining uint64, totalLimit uint64, err error) {
+func (d *DB) GetOrSetUserStorageLimit(userID uint64, setStorage int64) (remaining uint64, totalLimit uint64, err error) {
 	// Проверяем входное значение
 	if userID == 0 {
 		return 0, 0, fmt.Errorf("получен некорректный userID")

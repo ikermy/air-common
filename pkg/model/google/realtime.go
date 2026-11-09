@@ -25,7 +25,7 @@ type GoogleRealtimeSession struct {
 	ctx         context.Context // Контекст сессии — отменяется при CloseRealtimeSession
 	cancel      context.CancelFunc
 	agentConfig *GoogleAgentConfig // Ссылка на конфиг агента (не копируется)
-	userID      uint32
+	userID      uint64
 	dialogID    uint64
 	respId      uint64
 
@@ -167,7 +167,7 @@ func (m *Model) GetRealtimeGenerating(respId uint64) *atomic.Bool {
 }
 
 // StartRealtimeSession создаёт WSS-соединение к Google Multimodal Live API и запускает pump-горутины.
-func (m *Model) StartRealtimeSession(userID uint32, dialogID, respId uint64) error {
+func (m *Model) StartRealtimeSession(userID uint64, dialogID, respId uint64) error {
 	if existing := m.GetGoogleRealtimeSession(respId); existing != nil {
 		//logger.Debug("StartRealtimeSession: сессия уже существует для respId=%d", respId, userID)
 		return nil

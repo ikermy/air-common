@@ -14,7 +14,7 @@ import (
 )
 
 // GetActiveProvider получает тип провайдера активной модели пользователя без создания дочернего контекста дял максимальной производительности
-func (d *DB) GetActiveProvider(userID uint32) (comdom.ProviderType, error) {
+func (d *DB) GetActiveProvider(userID uint64) (comdom.ProviderType, error) {
 	if userID == 0 {
 		return 0, fmt.Errorf("получен некорректный userID")
 	}
@@ -71,7 +71,7 @@ func (d *DB) GetActiveProvider(userID uint32) (comdom.ProviderType, error) {
 // Numeric provider ("3") читается только для обратной совместимости.
 // Автоматически расшифровывает "$app$"; "$mk$" расшифровывает при наличии
 // MasterKeyResolver, иначе оставляет для внешней model.WithMasterKeyProvider обёртки.
-func (d *DB) GetUserAPIKey(userID uint32, provider comdom.ProviderType) (string, error) {
+func (d *DB) GetUserAPIKey(userID uint64, provider comdom.ProviderType) (string, error) {
 	ctx, cancel := context.WithTimeout(d.ctx, sqlTimeToCancel*time.Second)
 	defer cancel()
 
@@ -138,7 +138,7 @@ func (d *DB) GetUserAPIKey(userID uint32, provider comdom.ProviderType) (string,
 
 // SetUserAPIKey сохраняет API-ключ пользователя с автоматическим шифрованием,
 // если MasterKey пользователя загружен или application encryption key установлен.
-func (d *DB) SetUserAPIKey(userID uint32, provider comdom.ProviderType, apiKey string) error {
+func (d *DB) SetUserAPIKey(userID uint64, provider comdom.ProviderType, apiKey string) error {
 	ctx, cancel := context.WithTimeout(d.ctx, sqlTimeToCancel*time.Second)
 	defer cancel()
 
@@ -196,7 +196,7 @@ func (d *DB) SetUserAPIKey(userID uint32, provider comdom.ProviderType, apiKey s
 }
 
 // DeleteUserAPIKey удаляет персональный API-ключ пользователя для провайдера.
-func (d *DB) DeleteUserAPIKey(userID uint32, provider comdom.ProviderType) error {
+func (d *DB) DeleteUserAPIKey(userID uint64, provider comdom.ProviderType) error {
 	if userID == 0 {
 		return fmt.Errorf("некорректный userID")
 	}
@@ -290,6 +290,38 @@ func (d *DB) SyncProviderModels(union comdom.Union, modelNames []string) (comdom
 		result.Synced++
 	}
 
+	// Гарантируем, что после синхронизации останется модель по умолчанию.
+	// Иначе при удалении устаревшей default-модели нечем будет заменить
+	// realtime-модель у пользователей (ошибка "отсутствует модель по умолчанию").
+	if len(seenNames) > 0 {
+		defaultNameRows, err := tx.QueryContext(ctx, fmt.Sprintf(
+			`SELECT Name FROM %s WHERE Provider = ? AND IsDefault = 1`, tableName), union.Provider)
+		if err != nil {
+			return result, fmt.Errorf("ошибка получения моделей по умолчанию: %w", err)
+		}
+		hasCurrentDefault := false
+		for defaultNameRows.Next() {
+			var defaultName string
+			if err := defaultNameRows.Scan(&defaultName); err != nil {
+				continue
+			}
+			if _, ok := seenNames[strings.TrimSpace(defaultName)]; ok {
+				hasCurrentDefault = true
+			}
+		}
+		_ = defaultNameRows.Close()
+
+		if !hasCurrentDefault {
+			for _, name := range normalizedNames {
+				if _, err := tx.ExecContext(ctx, fmt.Sprintf(
+					`UPDATE %s SET IsDefault = 1 WHERE Provider = ? AND Name = ?`, tableName), union.Provider, name); err != nil {
+					return result, fmt.Errorf("ошибка назначения модели по умолчанию %s: %w", name, err)
+				}
+				break
+			}
+		}
+	}
+
 	rows, err := tx.QueryContext(ctx, fmt.Sprintf(`SELECT Id, Name FROM %s WHERE Provider = ?`, tableName), union.Provider)
 	if err != nil {
 		return result, fmt.Errorf("ошибка получения текущего списка моделей: %w", err)
@@ -329,7 +361,7 @@ func (d *DB) SyncProviderModels(union comdom.Union, modelNames []string) (comdom
 	}
 
 	for _, stale := range staleModels {
-		var affectedUsers []uint32
+		var affectedUsers []uint64
 		userRows, err := tx.QueryContext(ctx, fmt.Sprintf(`
 			SELECT um.userID
 			FROM user_models um
@@ -340,7 +372,7 @@ func (d *DB) SyncProviderModels(union comdom.Union, modelNames []string) (comdom
 			return result, fmt.Errorf("ошибка получения пользователей, использующих удалённую модель %s: %w", stale.name, err)
 		}
 		for userRows.Next() {
-			var userID uint32
+			var userID uint64
 			if err := userRows.Scan(&userID); err != nil {
 				continue
 			}
@@ -374,11 +406,19 @@ func (d *DB) SyncProviderModels(union comdom.Union, modelNames []string) (comdom
 			return result, fmt.Errorf("ошибка поиска модели для замены %s: %w", stale.name, err)
 		}
 
+		// AssistantId очищаем только при смене general-модели. Для realtime-модели
+		// это поле хранит id/имя обычной (general) модели и не должно затрагиваться:
+		// у Google там лежит имя модели (например, gemini-2.5-flash), и его
+		// очистка ломает последующее обновление модели (UpdateModel).
+		setClause := fmt.Sprintf("%s = ?", userModelColumn)
+		if union.ModelType.IsGeneral() {
+			setClause += ", AssistantId = ''"
+		}
 		if _, err := tx.ExecContext(ctx, fmt.Sprintf(`
 			UPDATE user_gpt
-			SET %s = ?, AssistantId = ''
+			SET %s
 			WHERE Provider = ? AND %s = ?
-		`, userModelColumn, userModelColumn), replacementID, union.Provider, stale.id); err != nil {
+		`, setClause, userModelColumn), replacementID, union.Provider, stale.id); err != nil {
 			return result, fmt.Errorf("ошибка переназначения пользователей с модели %s: %w", stale.name, err)
 		}
 

@@ -11,7 +11,7 @@ type DocumentMetadata struct {
 }
 type VectorDocument struct {
 	ID        string           `json:"id"`
-	UserID    uint32           `json:"user_id"`
+	UserID    uint64           `json:"user_id"`
 	Name      string           `json:"name"`
 	Content   string           `json:"content"`
 	Embedding []float32        `json:"embedding"`

@@ -2,17 +2,16 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v5.29.3
-// source: svc_config.proto
+// source: pkg/rpc/proto/svc_config.proto
 
 package proto
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -31,7 +30,7 @@ type GetBotConfigRequest struct {
 
 func (x *GetBotConfigRequest) Reset() {
 	*x = GetBotConfigRequest{}
-	mi := &file_svc_config_proto_msgTypes[0]
+	mi := &file_pkg_rpc_proto_svc_config_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -43,7 +42,7 @@ func (x *GetBotConfigRequest) String() string {
 func (*GetBotConfigRequest) ProtoMessage() {}
 
 func (x *GetBotConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_svc_config_proto_msgTypes[0]
+	mi := &file_pkg_rpc_proto_svc_config_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -56,7 +55,7 @@ func (x *GetBotConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBotConfigRequest.ProtoReflect.Descriptor instead.
 func (*GetBotConfigRequest) Descriptor() ([]byte, []int) {
-	return file_svc_config_proto_rawDescGZIP(), []int{0}
+	return file_pkg_rpc_proto_svc_config_proto_rawDescGZIP(), []int{0}
 }
 
 // BotConfigResponse — Telegram bot settings.
@@ -70,7 +69,7 @@ type BotConfigResponse struct {
 
 func (x *BotConfigResponse) Reset() {
 	*x = BotConfigResponse{}
-	mi := &file_svc_config_proto_msgTypes[1]
+	mi := &file_pkg_rpc_proto_svc_config_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -82,7 +81,7 @@ func (x *BotConfigResponse) String() string {
 func (*BotConfigResponse) ProtoMessage() {}
 
 func (x *BotConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_svc_config_proto_msgTypes[1]
+	mi := &file_pkg_rpc_proto_svc_config_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -95,7 +94,7 @@ func (x *BotConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BotConfigResponse.ProtoReflect.Descriptor instead.
 func (*BotConfigResponse) Descriptor() ([]byte, []int) {
-	return file_svc_config_proto_rawDescGZIP(), []int{1}
+	return file_pkg_rpc_proto_svc_config_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *BotConfigResponse) GetToken() string {
@@ -115,14 +114,14 @@ func (x *BotConfigResponse) GetBotName() string {
 // GetUserMasterKeyRequest — request for a user's MasterKey.
 type GetUserMasterKeyRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        uint32                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` // User ID
+	UserId        uint64                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` // User ID
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetUserMasterKeyRequest) Reset() {
 	*x = GetUserMasterKeyRequest{}
-	mi := &file_svc_config_proto_msgTypes[2]
+	mi := &file_pkg_rpc_proto_svc_config_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -134,7 +133,7 @@ func (x *GetUserMasterKeyRequest) String() string {
 func (*GetUserMasterKeyRequest) ProtoMessage() {}
 
 func (x *GetUserMasterKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_svc_config_proto_msgTypes[2]
+	mi := &file_pkg_rpc_proto_svc_config_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -147,10 +146,10 @@ func (x *GetUserMasterKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUserMasterKeyRequest.ProtoReflect.Descriptor instead.
 func (*GetUserMasterKeyRequest) Descriptor() ([]byte, []int) {
-	return file_svc_config_proto_rawDescGZIP(), []int{2}
+	return file_pkg_rpc_proto_svc_config_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *GetUserMasterKeyRequest) GetUserId() uint32 {
+func (x *GetUserMasterKeyRequest) GetUserId() uint64 {
 	if x != nil {
 		return x.UserId
 	}
@@ -168,7 +167,7 @@ type UserMasterKeyResponse struct {
 
 func (x *UserMasterKeyResponse) Reset() {
 	*x = UserMasterKeyResponse{}
-	mi := &file_svc_config_proto_msgTypes[3]
+	mi := &file_pkg_rpc_proto_svc_config_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -180,7 +179,7 @@ func (x *UserMasterKeyResponse) String() string {
 func (*UserMasterKeyResponse) ProtoMessage() {}
 
 func (x *UserMasterKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_svc_config_proto_msgTypes[3]
+	mi := &file_pkg_rpc_proto_svc_config_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -193,7 +192,7 @@ func (x *UserMasterKeyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserMasterKeyResponse.ProtoReflect.Descriptor instead.
 func (*UserMasterKeyResponse) Descriptor() ([]byte, []int) {
-	return file_svc_config_proto_rawDescGZIP(), []int{3}
+	return file_pkg_rpc_proto_svc_config_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *UserMasterKeyResponse) GetMasterKey() []byte {
@@ -205,7 +204,7 @@ func (x *UserMasterKeyResponse) GetMasterKey() []byte {
 
 type WidgetTokenData struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	UserId         uint32                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`                         // User ID
+	UserId         uint64                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`                         // User ID
 	RespId         uint64                 `protobuf:"varint,2,opt,name=resp_id,json=respId,proto3" json:"resp_id,omitempty"`                         // Response ID
 	ExpiredSeconds int64                  `protobuf:"varint,3,opt,name=expired_seconds,json=expiredSeconds,proto3" json:"expired_seconds,omitempty"` // Expiration time in seconds
 	Origin         string                 `protobuf:"bytes,4,opt,name=origin,proto3" json:"origin,omitempty"`                                        // Normalized browser origin
@@ -216,7 +215,7 @@ type WidgetTokenData struct {
 
 func (x *WidgetTokenData) Reset() {
 	*x = WidgetTokenData{}
-	mi := &file_svc_config_proto_msgTypes[4]
+	mi := &file_pkg_rpc_proto_svc_config_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -228,7 +227,7 @@ func (x *WidgetTokenData) String() string {
 func (*WidgetTokenData) ProtoMessage() {}
 
 func (x *WidgetTokenData) ProtoReflect() protoreflect.Message {
-	mi := &file_svc_config_proto_msgTypes[4]
+	mi := &file_pkg_rpc_proto_svc_config_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -241,10 +240,10 @@ func (x *WidgetTokenData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WidgetTokenData.ProtoReflect.Descriptor instead.
 func (*WidgetTokenData) Descriptor() ([]byte, []int) {
-	return file_svc_config_proto_rawDescGZIP(), []int{4}
+	return file_pkg_rpc_proto_svc_config_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *WidgetTokenData) GetUserId() uint32 {
+func (x *WidgetTokenData) GetUserId() uint64 {
 	if x != nil {
 		return x.UserId
 	}
@@ -281,7 +280,7 @@ func (x *WidgetTokenData) GetJti() string {
 
 type WidgetCodeData struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        uint32                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	UserId        uint64                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	ExamKey       string                 `protobuf:"bytes,2,opt,name=exam_key,json=examKey,proto3" json:"exam_key,omitempty"`
 	ExpiresAt     int64                  `protobuf:"varint,3,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	NeverExpires  bool                   `protobuf:"varint,4,opt,name=never_expires,json=neverExpires,proto3" json:"never_expires,omitempty"`
@@ -293,7 +292,7 @@ type WidgetCodeData struct {
 
 func (x *WidgetCodeData) Reset() {
 	*x = WidgetCodeData{}
-	mi := &file_svc_config_proto_msgTypes[5]
+	mi := &file_pkg_rpc_proto_svc_config_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -305,7 +304,7 @@ func (x *WidgetCodeData) String() string {
 func (*WidgetCodeData) ProtoMessage() {}
 
 func (x *WidgetCodeData) ProtoReflect() protoreflect.Message {
-	mi := &file_svc_config_proto_msgTypes[5]
+	mi := &file_pkg_rpc_proto_svc_config_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -318,10 +317,10 @@ func (x *WidgetCodeData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WidgetCodeData.ProtoReflect.Descriptor instead.
 func (*WidgetCodeData) Descriptor() ([]byte, []int) {
-	return file_svc_config_proto_rawDescGZIP(), []int{5}
+	return file_pkg_rpc_proto_svc_config_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *WidgetCodeData) GetUserId() uint32 {
+func (x *WidgetCodeData) GetUserId() uint64 {
 	if x != nil {
 		return x.UserId
 	}
@@ -372,7 +371,7 @@ type WidgetRawToken struct {
 
 func (x *WidgetRawToken) Reset() {
 	*x = WidgetRawToken{}
-	mi := &file_svc_config_proto_msgTypes[6]
+	mi := &file_pkg_rpc_proto_svc_config_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -384,7 +383,7 @@ func (x *WidgetRawToken) String() string {
 func (*WidgetRawToken) ProtoMessage() {}
 
 func (x *WidgetRawToken) ProtoReflect() protoreflect.Message {
-	mi := &file_svc_config_proto_msgTypes[6]
+	mi := &file_pkg_rpc_proto_svc_config_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -397,7 +396,7 @@ func (x *WidgetRawToken) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WidgetRawToken.ProtoReflect.Descriptor instead.
 func (*WidgetRawToken) Descriptor() ([]byte, []int) {
-	return file_svc_config_proto_rawDescGZIP(), []int{6}
+	return file_pkg_rpc_proto_svc_config_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *WidgetRawToken) GetToken() string {
@@ -407,28 +406,28 @@ func (x *WidgetRawToken) GetToken() string {
 	return ""
 }
 
-var File_svc_config_proto protoreflect.FileDescriptor
+var File_pkg_rpc_proto_svc_config_proto protoreflect.FileDescriptor
 
-const file_svc_config_proto_rawDesc = "" +
+const file_pkg_rpc_proto_svc_config_proto_rawDesc = "" +
 	"\n" +
-	"\x10svc_config.proto\x12\x05svcpb\"\x15\n" +
+	"\x1epkg/rpc/proto/svc_config.proto\x12\x05svcpb\"\x15\n" +
 	"\x13GetBotConfigRequest\"D\n" +
 	"\x11BotConfigResponse\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x19\n" +
 	"\bbot_name\x18\x02 \x01(\tR\abotName\"2\n" +
 	"\x17GetUserMasterKeyRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\rR\x06userId\"6\n" +
+	"\auser_id\x18\x01 \x01(\x04R\x06userId\"6\n" +
 	"\x15UserMasterKeyResponse\x12\x1d\n" +
 	"\n" +
 	"master_key\x18\x01 \x01(\fR\tmasterKey\"\x96\x01\n" +
 	"\x0fWidgetTokenData\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\rR\x06userId\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x04R\x06userId\x12\x17\n" +
 	"\aresp_id\x18\x02 \x01(\x04R\x06respId\x12'\n" +
 	"\x0fexpired_seconds\x18\x03 \x01(\x03R\x0eexpiredSeconds\x12\x16\n" +
 	"\x06origin\x18\x04 \x01(\tR\x06origin\x12\x10\n" +
 	"\x03jti\x18\x05 \x01(\tR\x03jti\"\xbd\x01\n" +
 	"\x0eWidgetCodeData\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\rR\x06userId\x12\x19\n" +
+	"\auser_id\x18\x01 \x01(\x04R\x06userId\x12\x19\n" +
 	"\bexam_key\x18\x02 \x01(\tR\aexamKey\x12\x1d\n" +
 	"\n" +
 	"expires_at\x18\x03 \x01(\x03R\texpiresAt\x12#\n" +
@@ -448,19 +447,19 @@ const file_svc_config_proto_rawDesc = "" +
 	"\x17WidgetParseExpiredToken\x12\x15.svcpb.WidgetRawToken\x1a\x16.svcpb.WidgetTokenDataB,Z*github.com/ikermy/air-common/pkg/rpc/protob\x06proto3"
 
 var (
-	file_svc_config_proto_rawDescOnce sync.Once
-	file_svc_config_proto_rawDescData []byte
+	file_pkg_rpc_proto_svc_config_proto_rawDescOnce sync.Once
+	file_pkg_rpc_proto_svc_config_proto_rawDescData []byte
 )
 
-func file_svc_config_proto_rawDescGZIP() []byte {
-	file_svc_config_proto_rawDescOnce.Do(func() {
-		file_svc_config_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_svc_config_proto_rawDesc), len(file_svc_config_proto_rawDesc)))
+func file_pkg_rpc_proto_svc_config_proto_rawDescGZIP() []byte {
+	file_pkg_rpc_proto_svc_config_proto_rawDescOnce.Do(func() {
+		file_pkg_rpc_proto_svc_config_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pkg_rpc_proto_svc_config_proto_rawDesc), len(file_pkg_rpc_proto_svc_config_proto_rawDesc)))
 	})
-	return file_svc_config_proto_rawDescData
+	return file_pkg_rpc_proto_svc_config_proto_rawDescData
 }
 
-var file_svc_config_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
-var file_svc_config_proto_goTypes = []any{
+var file_pkg_rpc_proto_svc_config_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_pkg_rpc_proto_svc_config_proto_goTypes = []any{
 	(*GetBotConfigRequest)(nil),     // 0: svcpb.GetBotConfigRequest
 	(*BotConfigResponse)(nil),       // 1: svcpb.BotConfigResponse
 	(*GetUserMasterKeyRequest)(nil), // 2: svcpb.GetUserMasterKeyRequest
@@ -469,7 +468,7 @@ var file_svc_config_proto_goTypes = []any{
 	(*WidgetCodeData)(nil),          // 5: svcpb.WidgetCodeData
 	(*WidgetRawToken)(nil),          // 6: svcpb.WidgetRawToken
 }
-var file_svc_config_proto_depIdxs = []int32{
+var file_pkg_rpc_proto_svc_config_proto_depIdxs = []int32{
 	0, // 0: svcpb.ConfigService.GetBotConfig:input_type -> svcpb.GetBotConfigRequest
 	0, // 1: svcpb.ConfigService.GetOperBotConfig:input_type -> svcpb.GetBotConfigRequest
 	2, // 2: svcpb.ConfigService.GetUserMasterKey:input_type -> svcpb.GetUserMasterKeyRequest
@@ -493,26 +492,26 @@ var file_svc_config_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_svc_config_proto_init() }
-func file_svc_config_proto_init() {
-	if File_svc_config_proto != nil {
+func init() { file_pkg_rpc_proto_svc_config_proto_init() }
+func file_pkg_rpc_proto_svc_config_proto_init() {
+	if File_pkg_rpc_proto_svc_config_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_svc_config_proto_rawDesc), len(file_svc_config_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pkg_rpc_proto_svc_config_proto_rawDesc), len(file_pkg_rpc_proto_svc_config_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_svc_config_proto_goTypes,
-		DependencyIndexes: file_svc_config_proto_depIdxs,
-		MessageInfos:      file_svc_config_proto_msgTypes,
+		GoTypes:           file_pkg_rpc_proto_svc_config_proto_goTypes,
+		DependencyIndexes: file_pkg_rpc_proto_svc_config_proto_depIdxs,
+		MessageInfos:      file_pkg_rpc_proto_svc_config_proto_msgTypes,
 	}.Build()
-	File_svc_config_proto = out.File
-	file_svc_config_proto_goTypes = nil
-	file_svc_config_proto_depIdxs = nil
+	File_pkg_rpc_proto_svc_config_proto = out.File
+	file_pkg_rpc_proto_svc_config_proto_goTypes = nil
+	file_pkg_rpc_proto_svc_config_proto_depIdxs = nil
 }

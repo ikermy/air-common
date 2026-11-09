@@ -110,7 +110,7 @@ func New(parent context.Context, actionHandler model.ActionHandler, db DB, route
 	mistralClient := NewMistralAgentClient(parent)
 
 	// Резолвер персональных ключей Mistral: возвращаем только ключ из БД или пустую строку.
-	mistralClient.SetKeyResolver(func(userID uint32) string {
+	mistralClient.SetKeyResolver(func(userID uint64) string {
 		if key, err := db.GetUserAPIKey(userID, comdom.ProviderMistral); err == nil {
 			return key
 		}
@@ -133,7 +133,7 @@ func New(parent context.Context, actionHandler model.ActionHandler, db DB, route
 
 // StartMistralRealtimeSession creates a managed voice session. The transport
 // pump can be attached after the provider's streaming STT protocol is chosen.
-func (m *Model) StartMistralRealtimeSession(userID uint32, dialogID, respID uint64) (*MistralRealtimeSession, error) {
+func (m *Model) StartMistralRealtimeSession(userID uint64, dialogID, respID uint64) (*MistralRealtimeSession, error) {
 	if m == nil || m.realtime == nil {
 		return nil, fmt.Errorf("Mistral realtime manager is not initialized")
 	}
@@ -252,7 +252,7 @@ func (m *Model) attachMistralRealtimeSTT(session *MistralRealtimeSession) error 
 // «только распознавание»: поднимает сессию и подключает Voxtral realtime STT,
 // публикуя input_transcript_delta/done. LLM и TTS не задействуются. Реализует
 // model.RealtimeTranscriptionProvider.
-func (m *Model) StartRealtimeTranscriptionSession(userID uint32, dialogID, respID uint64) error {
+func (m *Model) StartRealtimeTranscriptionSession(userID uint64, dialogID, respID uint64) error {
 	if m == nil || m.realtime == nil {
 		return fmt.Errorf("Mistral realtime manager is not initialized")
 	}
@@ -768,7 +768,7 @@ func (m *Model) SetMistralRealtimeDisconnectCallback(respID uint64, callback fun
 // The following methods implement model.RealtimeProvider. The transport and
 // session orchestration remain Mistral-specific, while the router can expose
 // the same realtime API to clients as it does for OpenAI and Google.
-func (m *Model) StartRealtimeSession(userID uint32, dialogID, respID uint64) error {
+func (m *Model) StartRealtimeSession(userID uint64, dialogID, respID uint64) error {
 	_, err := m.StartMistralRealtimeSession(userID, dialogID, respID)
 	return err
 }
@@ -805,22 +805,22 @@ func (m *Model) SetRealtimeDisconnectCallback(respID uint64, callback func(uint6
 	return m.SetMistralRealtimeDisconnectCallback(respID, callback)
 }
 
-func (m *Model) CreateVoice(userID uint32, request comdom.CreateVoiceRequest) (comdom.Voice, error) {
+func (m *Model) CreateVoice(userID uint64, request comdom.CreateVoiceRequest) (comdom.Voice, error) {
 	return m.client.CreateVoice(m.ctx, userID, request)
 }
-func (m *Model) ListVoices(userID uint32, limit, offset int, voiceType string) (comdom.VoiceList, error) {
+func (m *Model) ListVoices(userID uint64, limit, offset int, voiceType string) (comdom.VoiceList, error) {
 	return m.client.ListVoices(m.ctx, userID, limit, offset, voiceType)
 }
-func (m *Model) GetVoice(userID uint32, voiceID string) (comdom.Voice, error) {
+func (m *Model) GetVoice(userID uint64, voiceID string) (comdom.Voice, error) {
 	return m.client.GetVoice(m.ctx, userID, voiceID)
 }
-func (m *Model) UpdateVoice(userID uint32, voiceID string, request comdom.UpdateVoiceRequest) (comdom.Voice, error) {
+func (m *Model) UpdateVoice(userID uint64, voiceID string, request comdom.UpdateVoiceRequest) (comdom.Voice, error) {
 	return m.client.UpdateVoice(m.ctx, userID, voiceID, request)
 }
-func (m *Model) DeleteVoice(userID uint32, voiceID string) (comdom.Voice, error) {
+func (m *Model) DeleteVoice(userID uint64, voiceID string) (comdom.Voice, error) {
 	return m.client.DeleteVoice(m.ctx, userID, voiceID)
 }
-func (m *Model) GetVoiceSample(userID uint32, voiceID string) (io.ReadCloser, string, error) {
+func (m *Model) GetVoiceSample(userID uint64, voiceID string) (io.ReadCloser, string, error) {
 	return m.client.GetVoiceSample(m.ctx, userID, voiceID)
 }
 
@@ -844,10 +844,10 @@ func NewAsRouterOption() model.RouterOption {
 		}
 		if mcpProvider, ok := model.ActionHandler(actionHandler).(model.MCPConfigProvider); ok {
 			universalModel.SetMistralMCPFetchers(
-				func(fetchCtx context.Context, userID uint32, provider comdom.ProviderType) (string, error) {
+				func(fetchCtx context.Context, userID uint64, provider comdom.ProviderType) (string, error) {
 					return mcpProvider.FetchSystemPrompt(fetchCtx, userID, provider)
 				},
-				func(fetchCtx context.Context, userID uint32, provider comdom.ProviderType) ([]create.FunctionDeclaration, error) {
+				func(fetchCtx context.Context, userID uint64, provider comdom.ProviderType) ([]create.FunctionDeclaration, error) {
 					mcpTools, err := mcpProvider.FetchToolsList(fetchCtx, userID, provider)
 					if err != nil {
 						return nil, err
@@ -890,7 +890,7 @@ func (m *Model) NewMessage(operator model.Operator, msgType string, content *mod
 }
 
 // GetFileAsReader загружает файл по URL (реализация model.UniversalModel)
-func (m *Model) GetFileAsReader(_ uint32, url string) (io.Reader, error) {
+func (m *Model) GetFileAsReader(_ uint64, url string) (io.Reader, error) {
 	if url == "" {
 		return nil, fmt.Errorf("не указан источник файла: отсутствуют URL")
 	}
@@ -1136,7 +1136,7 @@ func (m *Model) saveConversationId(dialogID uint64, conversationId string) {
 
 // TranscribeAudio обёртка для пакетного STT.
 // Пробрасывает userID в клиент, который резолвит персональный API-ключ.
-func (m *Model) TranscribeAudio(userID uint32, audioData []byte, fileName string) (string, error) {
+func (m *Model) TranscribeAudio(userID uint64, audioData []byte, fileName string) (string, error) {
 	if m.client == nil {
 		return "", fmt.Errorf("mistral client не инициализирован")
 	}
@@ -1149,7 +1149,7 @@ func (m *Model) TranscribeAudio(userID uint32, audioData []byte, fileName string
 
 // DeleteTempFile удаляет загруженный файл из Mistral Files API
 // Используется для очистки временных файлов после обработки
-func (m *Model) DeleteTempFile(userID uint32, fileID string) error {
+func (m *Model) DeleteTempFile(userID uint64, fileID string) error {
 	if m.client == nil {
 		return fmt.Errorf("mistral client не инициализирован")
 	}
@@ -1296,7 +1296,7 @@ func (m *Model) SetUniversalModel(um *create.UniversalModel) {
 }
 
 // InvalidateUserAgentConfigCache инвалидирует кэш конфигурации модели для пользователя
-func (m *Model) InvalidateUserAgentConfigCache(userID uint32) {
+func (m *Model) InvalidateUserAgentConfigCache(userID uint64) {
 	var invalidatedCount int
 	m.responders.Range(func(key, value any) bool {
 		respModel := value.(*RespModel)
@@ -1314,7 +1314,7 @@ func (m *Model) InvalidateUserAgentConfigCache(userID uint32) {
 // DisconnectUser выполняет graceful завершение всех активных сессий пользователя:
 // отменяет контексты всех респондентов и удаляет их из кэша.
 // Mistral не поддерживает realtime-сессии.
-func (m *Model) DisconnectUser(userID uint32) {
+func (m *Model) DisconnectUser(userID uint64) {
 	m.responders.Range(func(key, value any) bool {
 		respModel := value.(*RespModel)
 		if respModel.Assist.UserID == userID {

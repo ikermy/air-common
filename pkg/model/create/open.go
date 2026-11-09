@@ -110,7 +110,7 @@ type OpenAIAgentClient struct {
 	ctx            context.Context
 	httpClient     *http.Client
 	universalModel *UniversalModel            // Ссылка на universalModel
-	keyResolver    func(userID uint32) string // Резолвер персональных ключей; nil → пустой ключ
+	keyResolver    func(userID uint64) string // Резолвер персональных ключей; nil → пустой ключ
 }
 
 // StreamingFunctionCall представляет накапливаемый function call для Realtime API
@@ -159,13 +159,13 @@ func NewOpenAIAgentClient(ctx context.Context) *OpenAIAgentClient {
 }
 
 // SetKeyResolver устанавливает функцию-резолвер персонального API-ключа пользователя.
-func (c *OpenAIAgentClient) SetKeyResolver(fn func(userID uint32) string) {
+func (c *OpenAIAgentClient) SetKeyResolver(fn func(userID uint64) string) {
 	c.keyResolver = fn
 }
 
 // resolveKey возвращает персональный API-ключ пользователя через keyResolver.
 // Глобального ключа нет: при отсутствии ключа возвращается пустая строка.
-func (c *OpenAIAgentClient) resolveKey(userID uint32) string {
+func (c *OpenAIAgentClient) resolveKey(userID uint64) string {
 	if c.keyResolver != nil && userID != 0 {
 		if key := c.keyResolver(userID); key != "" {
 			return key
@@ -175,18 +175,18 @@ func (c *OpenAIAgentClient) resolveKey(userID uint32) string {
 }
 
 // GetAPIKeyForUser возвращает персональный API-ключ пользователя (или пустую строку).
-func (c *OpenAIAgentClient) GetAPIKeyForUser(userID uint32) string {
+func (c *OpenAIAgentClient) GetAPIKeyForUser(userID uint64) string {
 	return c.resolveKey(userID)
 }
 
 // HasAPIKey возвращает true если для пользователя есть действующий API-ключ.
 // Используется для ранней проверки перед выполнением запросов.
-func (c *OpenAIAgentClient) HasAPIKey(userID uint32) bool {
+func (c *OpenAIAgentClient) HasAPIKey(userID uint64) bool {
 	return c.resolveKey(userID) != ""
 }
 
 // doRequest выполняет HTTP запрос к OpenAI API
-func (c *OpenAIAgentClient) doRequest(ctx context.Context, method, path string, body any, userID uint32) (*http.Response, error) {
+func (c *OpenAIAgentClient) doRequest(ctx context.Context, method, path string, body any, userID uint64) (*http.Response, error) {
 	url := c.url + path
 
 	var reqBody io.Reader
@@ -221,7 +221,7 @@ func (c *OpenAIAgentClient) doRequest(ctx context.Context, method, path string, 
 }
 
 // DeleteFile удаляет файл
-func (c *OpenAIAgentClient) DeleteFile(ctx context.Context, userID uint32, fileID string) error {
+func (c *OpenAIAgentClient) DeleteFile(ctx context.Context, userID uint64, fileID string) error {
 	resp, err := c.doRequest(ctx, "DELETE", fmt.Sprintf("/files/%s", fileID), nil, userID)
 	if err != nil {
 		return err
@@ -232,7 +232,7 @@ func (c *OpenAIAgentClient) DeleteFile(ctx context.Context, userID uint32, fileI
 }
 
 // DownloadFileContent скачивает содержимое файла
-func (c *OpenAIAgentClient) DownloadFileContent(ctx context.Context, userID uint32, fileID string) ([]byte, error) {
+func (c *OpenAIAgentClient) DownloadFileContent(ctx context.Context, userID uint64, fileID string) ([]byte, error) {
 	resp, err := c.doRequest(ctx, "GET", fmt.Sprintf("/files/%s/content", fileID), nil, userID)
 	if err != nil {
 		return nil, err
@@ -243,7 +243,7 @@ func (c *OpenAIAgentClient) DownloadFileContent(ctx context.Context, userID uint
 }
 
 // TranscribeAudio транскрибирует аудио в текст
-func (c *OpenAIAgentClient) TranscribeAudio(ctx context.Context, userID uint32, audioData []byte, fileName string) (string, error) {
+func (c *OpenAIAgentClient) TranscribeAudio(ctx context.Context, userID uint64, audioData []byte, fileName string) (string, error) {
 	// Создаём multipart запрос для Whisper API
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
@@ -333,7 +333,7 @@ func (c *OpenAIAgentClient) CreateResponse(
 	agentConfig any,
 	onDelta func(string) error,
 	onToolCall func([]any) ([]any, error),
-	userID uint32,
+	userID uint64,
 ) (any, string, error) {
 	return c.createResponseInternal(ctx, input, agentConfig, onDelta, onToolCall, userID, 0)
 }
@@ -344,7 +344,7 @@ func (c *OpenAIAgentClient) createResponseInternal(
 	agentConfig any, // *OpenAIAgentConfig
 	onDelta func(string) error,
 	onToolCall func([]any) ([]any, error),
-	userID uint32,
+	userID uint64,
 	depth int,
 ) (any, string, error) {
 	// Защита от бесконечной рекурсии при многократных вызовах инструментов
@@ -935,7 +935,7 @@ func GenerateModelSchema(hasMetaAction bool, hasOperator bool) map[string]any {
 }
 
 // createModel Создаю новую модель OpenAI Assistant
-func (m *UniversalModel) createModel(_ uint32, modelData *comdom.UniversalModelData, _ []comdom.Ids) (comdom.UMCR, error) {
+func (m *UniversalModel) createModel(_ uint64, modelData *comdom.UniversalModelData, _ []comdom.Ids) (comdom.UMCR, error) {
 	// modelData уже распарсена и типизирована, используем напрямую
 
 	// НОВЫЙ ПОДХОД: Генерируем эмбеддинги локально вместо использования Vector Store API
@@ -969,7 +969,7 @@ func (m *UniversalModel) createModel(_ uint32, modelData *comdom.UniversalModelD
 }
 
 // deleteModel удаляет модель OpenAI и связанные ресурсы
-func (m *UniversalModel) deleteModel(_ uint32, modelRecord *comdom.UserModelRecord, _ bool, progressCallback func(string)) error {
+func (m *UniversalModel) deleteModel(_ uint64, modelRecord *comdom.UserModelRecord, _ bool, progressCallback func(string)) error {
 	if progressCallback != nil {
 		progressCallback("🔄 Удаление модели OpenAI...")
 	}
@@ -1003,7 +1003,7 @@ func (m *UniversalModel) deleteModel(_ uint32, modelRecord *comdom.UserModelReco
 }
 
 // updateOpenAIModelInPlace обновляет OpenAI Assistant
-func (m *UniversalModel) updateOpenAIModelInPlace(userID uint32, _, updated *comdom.UniversalModelData) error {
+func (m *UniversalModel) updateOpenAIModelInPlace(userID uint64, _, updated *comdom.UniversalModelData) error {
 
 	// ВАЖНО: В новом подходе с Chat Completions API НЕ создаётся Assistant в OpenAI.
 	// AssistId в БД хранит имя модели (например "gpt-4o-mini"), а не ID ассистента.

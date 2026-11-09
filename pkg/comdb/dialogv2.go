@@ -147,7 +147,7 @@ func parseLegacyMessage(raw json.RawMessage) (legacyDialogMessage, error) {
 func (d *DB) readDialogLegacy(ctx context.Context, dialogID uint64, limit ...uint8) (json.RawMessage, error) {
 	var (
 		chatType      int
-		userID        uint32
+		userID        uint64
 		date          sql.NullTime
 		rawData       sql.NullString
 		responderName sql.NullString
@@ -342,7 +342,7 @@ func nullableString(v sql.NullString) any {
 	return nil
 }
 
-func (d *DB) appendDialogMessageV2(ctx context.Context, ex execer, dialogID uint64, userID uint32, seq uint64, raw json.RawMessage) {
+func (d *DB) appendDialogMessageV2(ctx context.Context, ex execer, dialogID uint64, userID uint64, seq uint64, raw json.RawMessage) {
 	if len(raw) == 0 {
 		return
 	}
@@ -354,7 +354,7 @@ func (d *DB) appendDialogMessageV2(ctx context.Context, ex execer, dialogID uint
 // backfillDialogMessages migrates a legacy JSON array into dialog_messages.
 func (d *DB) backfillDialogMessages(ctx context.Context, dialogID uint64) {
 	var (
-		userID   uint32
+		userID   uint64
 		migrated bool
 		rawData  sql.NullString
 	)

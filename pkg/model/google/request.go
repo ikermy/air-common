@@ -44,7 +44,7 @@ func (dm *DialogMessage) GetCreator() string {
 // google не хранит модели на своей стороне, поэтому modelId игнорируется
 // ОПТИМИЗАЦИЯ: История диалога кэшируется локально в памяти с LiveTTL для избежания постоянных обращений к БД
 // Использует RequestStreaming с буферизацией для получения финального ответа
-func (m *Model) Request(userID uint32, dialogID uint64, text string, files ...model.FileUpload) (model.AssistResponse, error) {
+func (m *Model) Request(userID uint64, dialogID uint64, text string, files ...model.FileUpload) (model.AssistResponse, error) {
 	return model.StreamingToSync(text, files, func(onDelta func(string, bool) error, files ...model.FileUpload) error {
 		return m.RequestStreaming(userID, dialogID, text, onDelta, files...)
 	})
@@ -175,7 +175,7 @@ func (m *Model) createModelMessage(assistResponse model.AssistResponse) GoogleCo
 
 // sendToGeminiAPI отправляет запрос к Google Gemini API
 // Автоматически обрабатывает ошибку 429 (quota exceeded) с retry логикой
-func (m *Model) sendToGeminiAPI(modelName string, payload map[string]any, userID uint32) ([]byte, error) {
+func (m *Model) sendToGeminiAPI(modelName string, payload map[string]any, userID uint64) ([]byte, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка сериализации запроса: %v", err)
@@ -256,7 +256,7 @@ func (m *Model) sendToGeminiAPIStreaming(
 	modelName string,
 	payload map[string]any,
 	onDelta func(delta string) error,
-	userID uint32) (string, map[string]any, []map[string]any, error) {
+	userID uint64) (string, map[string]any, []map[string]any, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("ошибка сериализации запроса: %v", err)
@@ -491,7 +491,7 @@ func (m *Model) sendToGeminiAPIStreaming(
 // parseGeminiResponseWithFunctionHandling парсит ответ и обрабатывает function calls через multi-turn conversation
 // Если модель вызывает функцию без текста, отправляем результат обратно модели для продолжения
 func (m *Model) parseGeminiResponseWithFunctionHandling(responseBody []byte, history []GoogleContent,
-	payload map[string]any, modelName string, provider comdom.ProviderType, userID uint32) (model.AssistResponse, error) {
+	payload map[string]any, modelName string, provider comdom.ProviderType, userID uint64) (model.AssistResponse, error) {
 
 	var emptyResponse model.AssistResponse
 
@@ -688,7 +688,7 @@ func (m *Model) parseGeminiResponseWithFunctionHandling(responseBody []byte, his
 }
 
 // handleFunctionCall обрабатывает вызов функции от модели
-func (m *Model) handleFunctionCall(functionCall map[string]any, provider comdom.ProviderType, userID uint32) (map[string]any, error) {
+func (m *Model) handleFunctionCall(functionCall map[string]any, provider comdom.ProviderType, userID uint64) (map[string]any, error) {
 	functionName, ok := functionCall["name"].(string)
 	if !ok {
 		return nil, fmt.Errorf("function call не содержит имени")
@@ -725,7 +725,7 @@ func (m *Model) handleFunctionCall(functionCall map[string]any, provider comdom.
 
 // processVideoGeneration автоматически генерирует видео если модель вызвала generate_video
 // или если в промпте агента включен флаг Video и обнаружены ключевые слова
-func (m *Model) processVideoGeneration(userID uint32, userText string, response model.AssistResponse, agentConfig *GoogleAgentConfig, provider comdom.ProviderType) (model.AssistResponse, error) {
+func (m *Model) processVideoGeneration(userID uint64, userText string, response model.AssistResponse, agentConfig *GoogleAgentConfig, provider comdom.ProviderType) (model.AssistResponse, error) {
 	// Проверяем включена ли генерация видео в конфигурации
 	if !m.isVideoEnabled(agentConfig) {
 		return response, nil
@@ -894,7 +894,7 @@ func getStringField(m map[string]any, key string) string {
 
 // processImageGeneration автоматически генерирует изображение если модель включила Image
 // и обнаружены ключевые слова в запросе пользователя
-func (m *Model) processImageGeneration(userID uint32, userText string, response model.AssistResponse, agentConfig *GoogleAgentConfig, provider comdom.ProviderType) (model.AssistResponse, error) {
+func (m *Model) processImageGeneration(userID uint64, userText string, response model.AssistResponse, agentConfig *GoogleAgentConfig, provider comdom.ProviderType) (model.AssistResponse, error) {
 	// Проверяем включена ли генерация изображений в конфигурации
 	if !agentConfig.Image {
 		return response, nil
@@ -1098,7 +1098,7 @@ type ragResp struct {
 	cacheHit              bool
 }
 
-func (m *Model) applyRAG(userID uint32, dialogID uint64, text string, ch chan<- ragResp) {
+func (m *Model) applyRAG(userID uint64, dialogID uint64, text string, ch chan<- ragResp) {
 	defer close(ch)
 
 	result := ragResp{}
@@ -1262,7 +1262,7 @@ User query: %s`, contextText, text)
 // RequestStreaming выполняет запрос с потоковой передачей через SSE (Server-Sent Events)
 // Использует Google Gemini streamGenerateContent API для получения ответов в реальном времени
 // onDelta вызывается для каждого delta-события, в финальной дельте передаются данные о токенах
-func (m *Model) RequestStreaming(userID uint32, dialogID uint64, text string, onDelta func(delta string, done bool) error, files ...model.FileUpload) error {
+func (m *Model) RequestStreaming(userID uint64, dialogID uint64, text string, onDelta func(delta string, done bool) error, files ...model.FileUpload) error {
 	if text == "" && len(files) == 0 {
 		return fmt.Errorf("пустое сообщение и нет файлов")
 	}

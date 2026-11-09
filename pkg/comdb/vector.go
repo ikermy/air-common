@@ -16,7 +16,7 @@ import (
 // SaveEmbedding сохраняет эмбеддинг документа в MariaDB с привязкой к модели
 // Поддерживает динамические размерности: 512 (OpenAI small), 768 (Google), 1536 (OpenAI medium), 3072 (OpenAI large)
 // Использует нативный тип VECTOR(3072) с padding нулями для эффективного хранения
-func (d *DB) SaveEmbedding(userID uint32, modelId uint64, provider comdom.ProviderType, docID, docName, content string, embedding []float32, metadata comdom.DocumentMetadata) error {
+func (d *DB) SaveEmbedding(userID uint64, modelId uint64, provider comdom.ProviderType, docID, docName, content string, embedding []float32, metadata comdom.DocumentMetadata) error {
 	ctx, cancel := context.WithTimeout(d.MainCTX(), time.Duration(sqlTimeToCancel)*time.Second)
 	defer cancel()
 

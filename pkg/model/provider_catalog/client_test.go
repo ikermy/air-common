@@ -185,6 +185,144 @@ func TestMistralAllModelsIntegration(t *testing.T) {
 	}
 }
 
+func TestIsGeneralGoogleModelKeepsChatModelsOnly(t *testing.T) {
+	keep := []string{
+		"gemini-2.5-flash",
+		"gemini-2.5-flash-lite",
+		"gemini-2.5-pro",
+		"gemini-3-flash-preview",
+		"gemini-3.1-flash-lite",
+		"gemini-3.1-pro-preview",
+		"gemini-3.8-flash",
+		"gemini-flash-latest",
+	}
+	for _, name := range keep {
+		if !isGeneralGoogleModel(name) {
+			t.Errorf("isGeneralGoogleModel(%q) = false, want true", name)
+		}
+	}
+
+	drop := []string{
+		"gemini-3-pro-image",
+		"gemini-3.1-flash-image-preview",
+		"gemini-2.5-flash-live-preview",
+		"gemini-omni-1.1-flash",
+		"gemini-omni-flash-preview",
+		"gemini-2.5-computer-use-preview-10-2025",
+		"gemini-robotics-er-2-preview",
+		"gemini-nano-banana-2.1",
+		"gemma-4-31b-it",
+		"lyria-3-pro-preview",
+		"deep-research-pro-preview-12-2025",
+		"antigravity-preview-latest",
+	}
+	for _, name := range drop {
+		if isGeneralGoogleModel(name) {
+			t.Errorf("isGeneralGoogleModel(%q) = true, want false", name)
+		}
+	}
+}
+
+func TestRealtimeGoogleModelsFiltersBidiGenerateContent(t *testing.T) {
+	client := &Client{
+		GoogleBaseURL: "https://google.test/v1beta",
+		HTTPClient: &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				if got := req.URL.Query().Get("key"); got != "test-key" {
+					t.Errorf("key = %q", got)
+				}
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body: io.NopCloser(strings.NewReader(`{
+						"models": [
+							{"name":"models/gemini-3.1-flash-live-preview","supportedGenerationMethods":["generateContent","bidiGenerateContent"]},
+							{"name":"models/gemini-2.5-flash-live-preview","supportedGenerationMethods":["generateContent"]},
+							{"name":"models/gemini-omni-flash-preview","supportedGenerationMethods":["generateContent","embedContent"]},
+							{"name":"models/gemini-2.0-flash-exp","supportedGenerationMethods":["generateContent","bidiGenerateContent"]}
+						]
+					}`)),
+				}, nil
+			}),
+		},
+	}
+
+	got, err := client.realtimeGoogleModels(context.Background(), "test-key")
+	if err != nil {
+		t.Fatalf("realtimeGoogleModels() error: %v", err)
+	}
+	want := []string{"gemini-3.1-flash-live-preview"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("realtimeGoogleModels() = %v, want %v", got, want)
+	}
+}
+
+func TestRealtimeGoogleModelsKeepsOnlyLiveNames(t *testing.T) {
+	client := &Client{
+		GoogleBaseURL: "https://google.test/v1beta",
+		HTTPClient: &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body: io.NopCloser(strings.NewReader(`{
+						"models": [
+							{"name":"models/gemini-3.1-flash-live-preview"},
+							{"name":"models/gemini-2.5-flash"},
+							{"name":"models/gemini-2.0-flash-exp"},
+							{"name":"models/gemini-live-2.5-flash-preview"}
+						]
+					}`)),
+				}, nil
+			}),
+		},
+	}
+
+	got, err := client.realtimeGoogleModels(context.Background(), "test-key")
+	if err != nil {
+		t.Fatalf("realtimeGoogleModels() error: %v", err)
+	}
+	want := []string{"gemini-3.1-flash-live-preview", "gemini-live-2.5-flash-preview"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("realtimeGoogleModels() = %v, want %v", got, want)
+	}
+}
+
+func TestRealtimeGoogleModelsPaginates(t *testing.T) {
+	client := &Client{
+		GoogleBaseURL: "https://google.test/v1beta",
+		HTTPClient: &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				body := `{
+					"models": [
+						{"name":"models/gemini-3.1-flash-live-preview","supportedGenerationMethods":["bidiGenerateContent"]}
+					],
+					"nextPageToken":"page-2"
+				}`
+				if req.URL.Query().Get("pageToken") == "page-2" {
+					body = `{
+						"models": [
+							{"name":"models/gemini-omni-flash-preview","supportedGenerationMethods":["generateContent"]},
+							{"name":"models/gemini-live-2.5-flash-preview","supportedGenerationMethods":["bidiGenerateContent"]}
+						]
+					}`
+				}
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(body)),
+				}, nil
+			}),
+		},
+	}
+
+	got, err := client.realtimeGoogleModels(context.Background(), "test-key")
+	if err != nil {
+		t.Fatalf("realtimeGoogleModels() error: %v", err)
+	}
+	want := []string{"gemini-3.1-flash-live-preview", "gemini-live-2.5-flash-preview"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("realtimeGoogleModels() = %v, want %v", got, want)
+	}
+}
+
 func TestMistralSpecializedModelFilters(t *testing.T) {
 	models := []string{
 		"voxtral-mini-transcribe-realtime-2602",

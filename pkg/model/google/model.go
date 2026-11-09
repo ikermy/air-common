@@ -18,7 +18,7 @@ import (
 )
 
 type Inter interface {
-	UploadDocumentWithEmbedding(userID uint32, docName, content string, metadata comdom.DocumentMetadata) (string, error)
+	UploadDocumentWithEmbedding(userID uint64, docName, content string, metadata comdom.DocumentMetadata) (string, error)
 }
 
 type DB = comdb.Exterior
@@ -133,7 +133,7 @@ func New(parent context.Context, d DB, actionHandler model.ActionHandler) *Model
 	// Клиент не принимает глобальный ключ — персональный ключ читается из БД через keyResolver.
 	googleClient := create.NewGoogleAgentClient(ctx)
 
-	googleClient.SetKeyResolver(func(userID uint32) string {
+	googleClient.SetKeyResolver(func(userID uint64) string {
 		if key, err := d.GetUserAPIKey(userID, comdom.ProviderGoogle); err == nil {
 			return key
 		}
@@ -141,10 +141,10 @@ func New(parent context.Context, d DB, actionHandler model.ActionHandler) *Model
 	})
 	if mcpProvider, ok := actionHandler.(model.MCPConfigProvider); ok {
 		googleClient.SetMCPConfigFetchers(
-			func(fetchCtx context.Context, userID uint32, provider comdom.ProviderType) (string, error) {
+			func(fetchCtx context.Context, userID uint64, provider comdom.ProviderType) (string, error) {
 				return mcpProvider.FetchSystemPrompt(fetchCtx, userID, provider)
 			},
-			func(fetchCtx context.Context, userID uint32, provider comdom.ProviderType) ([]create.FunctionDeclaration, error) {
+			func(fetchCtx context.Context, userID uint64, provider comdom.ProviderType) ([]create.FunctionDeclaration, error) {
 				mcpTools, err := mcpProvider.FetchToolsList(fetchCtx, userID, provider)
 				if err != nil {
 					return nil, err
@@ -230,7 +230,7 @@ func (m *Model) NewMessage(operator model.Operator, msgType string, content *mod
 // loadAgentConfig загружает конфигурацию агента для Google модели
 // Пытается загрузить из AllIds, если пусто - создает конфигурацию по умолчанию
 // Также проверяет наличие эмбеддингов в таблице vector_embeddings
-func (m *Model) loadAgentConfig(userID uint32, respModel *GoogleRespModel) error {
+func (m *Model) loadAgentConfig(userID uint64, respModel *GoogleRespModel) error {
 	// Получаем API-ключ напрямую через DB: это обеспечивает правильную обработку $mk$-ключей —
 	// если MasterKey недоступен (Landing не ответил / пользователь не входил), ошибка и уведомление
 	// пропагируются явно, а не теряются внутри HasAPIKey.
@@ -333,8 +333,13 @@ func (m *Model) loadAgentConfig(userID uint32, respModel *GoogleRespModel) error
 		}
 	}
 
-	// Формируем массив Tools на основе загруженных параметров
-	// ВАЖНО: WebSearch (google_search) добавляем только если он включен
+	// Формируем массив Tools на основе загруженных параметров.
+	//
+	// Gemini запрещает комбинировать встроенные инструменты (google_search,
+	// code_execution) с function calling в одном запросе:
+	// "Built-in tools ({google_search}) and Function Calling cannot be combined".
+	// Поэтому явно включённый пользователем WebSearch имеет приоритет: в этом
+	// режиме MCP function_declarations и code_execution не добавляются.
 	if agentConfig.WebSearch {
 		agentConfig.Tools = append(agentConfig.Tools, map[string]any{
 			"google_search": map[string]any{},
@@ -344,14 +349,16 @@ func (m *Model) loadAgentConfig(userID uint32, respModel *GoogleRespModel) error
 	// Формируем function_declarations от MCP сервера.
 	// Если MCP недоступен — function tools не добавляются (модель работает только с modelData.Prompt).
 	var functionDeclarations []map[string]any
-	if mcpProvider, ok := m.actionHandler.(model.MCPConfigProvider); ok {
-		if mcpTools, fetchErr := mcpProvider.FetchToolsList(m.ctx, userID, comdom.ProviderGoogle); fetchErr == nil {
-			for _, t := range mcpTools {
-				functionDeclarations = append(functionDeclarations, map[string]any{
-					"name":        t.Name,
-					"description": t.Description,
-					"parameters":  t.InputSchema,
-				})
+	if !agentConfig.WebSearch {
+		if mcpProvider, ok := m.actionHandler.(model.MCPConfigProvider); ok {
+			if mcpTools, fetchErr := mcpProvider.FetchToolsList(m.ctx, userID, comdom.ProviderGoogle); fetchErr == nil {
+				for _, t := range mcpTools {
+					functionDeclarations = append(functionDeclarations, map[string]any{
+						"name":        t.Name,
+						"description": t.Description,
+						"parameters":  t.InputSchema,
+					})
+				}
 			}
 		}
 	}
@@ -363,10 +370,11 @@ func (m *Model) loadAgentConfig(userID uint32, respModel *GoogleRespModel) error
 		})
 	}
 
-	// 5. Code Interpreter (только если нет других function_declarations)
+	// 5. Code Interpreter (только если нет других function_declarations
+	// и не включён WebSearch — встроенные инструменты не комбинируются)
 	// ВАЖНО: Google Gemini НЕ поддерживает одновременное использование
 	// function_declarations и code_execution в одном запросе
-	if agentConfig.Interpreter && len(functionDeclarations) == 0 {
+	if agentConfig.Interpreter && len(functionDeclarations) == 0 && !agentConfig.WebSearch {
 		agentConfig.Tools = append(agentConfig.Tools, map[string]any{
 			"code_execution": map[string]any{},
 		})
@@ -467,7 +475,7 @@ func (m *Model) Shutdown(shutCh chan<- com.LogMsg) {
 }
 
 // TranscribeAudio транскрибирует аудио в текст (обёртка для клиента)
-func (m *Model) TranscribeAudio(userID uint32, audioData []byte, mimeType string) (string, error) {
+func (m *Model) TranscribeAudio(userID uint64, audioData []byte, mimeType string) (string, error) {
 	if m.client == nil {
 		return "", fmt.Errorf("google клиент не инициализирован")
 	}
@@ -476,7 +484,7 @@ func (m *Model) TranscribeAudio(userID uint32, audioData []byte, mimeType string
 }
 
 // GenerateVideo генерирует видео по описанию (обёртка для клиента)
-func (m *Model) GenerateVideo(userID uint32, prompt string, aspectRatio string, duration int) ([]byte, string, error) {
+func (m *Model) GenerateVideo(userID uint64, prompt string, aspectRatio string, duration int) ([]byte, string, error) {
 	if m.client == nil {
 		return nil, "", fmt.Errorf("google клиент не инициализирован")
 	}
@@ -852,7 +860,7 @@ func (m *Model) periodicFlush() {
 }
 
 // InvalidateUserAgentConfigCache инвалидирует кэш конфигурации модели для пользователя
-func (m *Model) InvalidateUserAgentConfigCache(userID uint32) {
+func (m *Model) InvalidateUserAgentConfigCache(userID uint64) {
 	var invalidatedCount int
 	m.responders.Range(func(key, value any) bool {
 		respModel := value.(*GoogleRespModel)
@@ -871,7 +879,7 @@ func (m *Model) InvalidateUserAgentConfigCache(userID uint32) {
 // 1. Закрывает все realtime-сессии (WebSocket + каналы)
 // 2. Отменяет контексты всех респондентов
 // 3. Удаляет респондентов из кэша
-func (m *Model) DisconnectUser(userID uint32) {
+func (m *Model) DisconnectUser(userID uint64) {
 	// Шаг 1: закрываем realtime-сессии пользователя
 	m.realtimeSessions.Range(func(key, value any) bool {
 		rs := value.(*GoogleRealtimeSession)

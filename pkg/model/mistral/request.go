@@ -69,7 +69,7 @@ func prepareUserContent(text string, files []model.FileUpload) any {
 }
 
 // Request выполняет запрос к Mistral модели, используя историю диалога как контекст
-func (m *Model) Request(userID uint32, dialogID uint64, text string, files ...model.FileUpload) (model.AssistResponse, error) {
+func (m *Model) Request(userID uint64, dialogID uint64, text string, files ...model.FileUpload) (model.AssistResponse, error) {
 	var emptyResponse model.AssistResponse
 
 	if text == "" && len(files) == 0 {
@@ -382,7 +382,7 @@ func (m *Model) Request(userID uint32, dialogID uint64, text string, files ...mo
 }
 
 // processResponse обрабатывает ответ от Mistral
-func (m *Model) processResponse(response Response, userID uint32, provider comdom.ProviderType) model.AssistResponse {
+func (m *Model) processResponse(response Response, userID uint64, provider comdom.ProviderType) model.AssistResponse {
 	messageText := strings.TrimSpace(response.Message)
 
 	// СНАЧАЛА парсим JSON из ответа (если есть) чтобы получить красивые имена файлов
@@ -627,7 +627,7 @@ func base64Encode(data []byte) string {
 // RequestStreaming выполняет запрос с потоковой передачей (TRUE STREAMING)
 // Использует Mistral Conversations API в streaming режиме с Server-Sent Events (SSE)
 // Поддерживает вызов функций и подсчет токенов
-func (m *Model) RequestStreaming(userID uint32, dialogID uint64, text string, onDelta func(delta string, done bool) error, files ...model.FileUpload) error {
+func (m *Model) RequestStreaming(userID uint64, dialogID uint64, text string, onDelta func(delta string, done bool) error, files ...model.FileUpload) error {
 	if text == "" && len(files) == 0 {
 		return fmt.Errorf("пустое сообщение и нет файлов")
 	}

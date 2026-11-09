@@ -58,7 +58,7 @@ func sendHTTPRequest(url string, payload map[string]any) error {
 	return nil
 }
 
-func (e *Endpoint) SendEvent(userID uint32, event, userName, assistName, target string) {
+func (e *Endpoint) SendEvent(userID uint64, event, userName, assistName, target string) {
 	msg := com.CarpCh{
 		UserID:     userID,
 		Event:      event,
@@ -165,7 +165,7 @@ func (e *Endpoint) SendNotification(msg com.CarpCh) error {
 	return nil
 }
 
-func SendTelegramNotification(uid uint32, tId int64, event, userName, assistName, target string) error {
+func SendTelegramNotification(uid uint64, tId int64, event, userName, assistName, target string) error {
 	const url = notificationsURL + "/telega"
 
 	payload := map[string]any{
@@ -180,7 +180,7 @@ func SendTelegramNotification(uid uint32, tId int64, event, userName, assistName
 	return sendHTTPRequest(url, payload)
 }
 
-func SendEmailNotification(uid uint32, email, event, userName, assistName, target string) error {
+func SendEmailNotification(uid uint64, email, event, userName, assistName, target string) error {
 	const url = notificationsURL + "/mail"
 
 	payload := map[string]any{
@@ -195,7 +195,7 @@ func SendEmailNotification(uid uint32, email, event, userName, assistName, targe
 	return sendHTTPRequest(url, payload)
 }
 
-func SendInstantNotification(uid uint32, event, userName, assistName, target string) error {
+func SendInstantNotification(uid uint64, event, userName, assistName, target string) error {
 	const url = notificationsURL + "/instant"
 
 	payload := map[string]any{
@@ -223,7 +223,7 @@ type PaymentInfo struct {
 // PaymentStatus Структура для информации о статусе платежа
 type PaymentStatus struct {
 	OrderID        string  `json:"orderId"`
-	UserID         uint32  `json:"userID"`
+	UserID         uint64  `json:"userID"`
 	Status         string  `json:"status"`
 	Currency       string  `json:"currency"`
 	Network        string  `json:"network"`
@@ -680,7 +680,7 @@ func (e *Endpoint) NotificationListener(notifCh chan<- com.LogMsg) {
 	}
 }
 
-func (e *Endpoint) TranslateMessageWithUserID(userID uint32, message string) string {
+func (e *Endpoint) TranslateMessageWithUserID(userID uint64, message string) string {
 	lang := e.db.UserLanguage(userID)
 
 	loc, err := simpleLocalizer(lang)

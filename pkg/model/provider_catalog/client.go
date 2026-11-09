@@ -20,6 +20,8 @@ type Client struct {
 	HTTPClient *http.Client
 	// ElevenLabsBaseURL переопределяет базовый URL ElevenLabs (для тестов).
 	ElevenLabsBaseURL string
+	// GoogleBaseURL переопределяет базовый URL Google Generative Language API (для тестов).
+	GoogleBaseURL string
 }
 
 // DefaultMistralSTTModel is the production default Voxtral realtime
@@ -102,7 +104,7 @@ func (c *Client) FetchModelNames(
 		case union.ModelType.IsGeneral():
 			return client.generalGoogleModels(ctx, apiKey)
 		case union.ModelType.IsRealtime():
-			return client.realtimeGoogleModels()
+			return client.realtimeGoogleModels(ctx, apiKey)
 		default:
 			return client.fetchGoogleModels(ctx, apiKey)
 		}
@@ -206,13 +208,54 @@ func (c *Client) generalGoogleModels(ctx context.Context, apiKey string) ([]stri
 	return result, nil
 }
 
-// Google не отдаёт список live моделей, альтернативных источников я тоже не нашёл...
-func (c *Client) realtimeGoogleModels() ([]string, error) {
-	result := []string{
-		"gemini-3.1-flash-live-preview",
-		"gemini-2.5-flash-live-preview",
-		"gemini-2.0-flash-exp",
-		"gemini-omni-flash-preview",
+// isGoogleLiveModelName — в live-каталог попадают только модели, в имени
+// которых есть "live" (например, gemini-3.1-flash-live-preview).
+func isGoogleLiveModelName(modelName string) bool {
+	return strings.Contains(strings.ToLower(strings.TrimSpace(modelName)), "live")
+}
+
+// realtimeGoogleModels возвращает live-модели Google для Multimodal Live API:
+// только записи с "live" в имени. Если API вернул supportedGenerationMethods,
+// дополнительно требуется bidiGenerateContent — иначе Google отклонит сессию
+// с close code=1008.
+func (c *Client) realtimeGoogleModels(ctx context.Context, apiKey string) ([]string, error) {
+	infos, err := c.fetchGoogleModelInfos(ctx, apiKey)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка получения live-моделей Google: %w", err)
+	}
+
+	// Если API не вернул supportedGenerationMethods ни для одной модели,
+	// фильтруем только по имени (live).
+	hasMethods := false
+	for _, info := range infos {
+		if len(info.Methods) > 0 {
+			hasMethods = true
+			break
+		}
+	}
+
+	result := make([]string, 0, len(infos))
+	for _, info := range infos {
+		if !isGoogleLiveModelName(info.Name) {
+			continue
+		}
+		if hasMethods {
+			supportsBidi := false
+			for _, method := range info.Methods {
+				if method == "bidiGenerateContent" {
+					supportsBidi = true
+					break
+				}
+			}
+			if !supportsBidi {
+				continue
+			}
+		}
+		result = append(result, info.Name)
+	}
+
+	if len(result) == 0 {
+		return nil, fmt.Errorf("получено 0 live-моделей Google (live + bidiGenerateContent)")
 	}
 	return result, nil
 }
@@ -247,10 +290,43 @@ func isGeneralOpenAIModel(modelName string) bool {
 	return true
 }
 
+// isGeneralGoogleModel оставляет только текстовые/чат-модели Gemini.
+// Google models.list отдаёт десятки моделей (image, video, music, TTS,
+// deep-research, robotics, omni, embeddings и т.п.) — в выборе языковой
+// модели они не нужны.
 func isGeneralGoogleModel(modelName string) bool {
-	return isGeneralOpenAIModel(modelName) && !strings.Contains(modelName, "live") &&
-		!strings.Contains(modelName, "imagen") && !strings.Contains(modelName, "veo") &&
-		!strings.Contains(modelName, "embedding")
+	name := strings.ToLower(strings.TrimSpace(modelName))
+	if name == "" || !isGeneralOpenAIModel(name) {
+		return false
+	}
+	if !strings.HasPrefix(name, "gemini-") {
+		return false
+	}
+
+	exclude := []string{
+		"live",
+		"image",
+		"imagen",
+		"veo",
+		"embedding",
+		"tts",
+		"audio",
+		"omni",
+		"robotics",
+		"computer-use",
+		"deep-research",
+		"antigravity",
+		"nano-banana",
+		"lyria",
+		"gemma",
+		"aqa",
+	}
+	for _, bad := range exclude {
+		if strings.Contains(name, bad) {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *Client) fetchMistralModels(ctx context.Context, apiKey string) ([]string, error) {
@@ -364,43 +440,108 @@ func (c *Client) ttsMistralModels(ctx context.Context, apiKey string) ([]string,
 	return result, nil
 }
 
-func (c *Client) fetchGoogleModels(ctx context.Context, apiKey string) ([]string, error) {
-	// Google API expects the API key as a query parameter, not as a Bearer token.
-	baseURL := mode.GoogleAgentsURL + "/models"
-	u, err := url.Parse(baseURL)
-	if err != nil {
-		return nil, fmt.Errorf("ошибка формирования URL Google: %w", err)
+// googleModelInfo — модель Google вместе со списком поддерживаемых методов
+// генерации (supportedGenerationMethods), например "bidiGenerateContent".
+type googleModelInfo struct {
+	Name    string
+	Methods []string
+}
+
+func (c *Client) googleBaseURL() string {
+	if c != nil && c.GoogleBaseURL != "" {
+		return c.GoogleBaseURL
 	}
-	q := u.Query()
-	q.Set("key", apiKey)
-	u.RawQuery = q.Encode()
-	return c.fetchListModels(ctx, u.String(), "", comdom.ProviderGoogle, func(body []byte) ([]string, error) {
+	return mode.GoogleAgentsURL
+}
+
+// fetchGoogleModelInfos получает полный список моделей Google с пагинацией.
+// Google API expects the API key as a query parameter, not as a Bearer token.
+func (c *Client) fetchGoogleModelInfos(ctx context.Context, apiKey string) ([]googleModelInfo, error) {
+	base := strings.TrimRight(c.googleBaseURL(), "/")
+	pageToken := ""
+	var result []googleModelInfo
+
+	for {
+		u, err := url.Parse(base + "/models")
+		if err != nil {
+			return nil, fmt.Errorf("ошибка формирования URL Google: %w", err)
+		}
+		q := u.Query()
+		q.Set("key", apiKey)
+		q.Set("pageSize", "1000")
+		if pageToken != "" {
+			q.Set("pageToken", pageToken)
+		}
+		u.RawQuery = q.Encode()
+
+		body, err := c.fetchBody(ctx, u.String(), comdom.ProviderGoogle)
+		if err != nil {
+			return nil, err
+		}
+
 		var payload struct {
 			Models []struct {
-				Name string `json:"name"`
+				Name                       string   `json:"name"`
+				SupportedGenerationMethods []string `json:"supportedGenerationMethods"`
 			} `json:"models"`
+			NextPageToken string `json:"nextPageToken"`
 		}
 		if err := json.Unmarshal(body, &payload); err != nil {
 			return nil, fmt.Errorf("ошибка разбора ответа Google: %w", err)
 		}
-		result := make([]string, 0, len(payload.Models))
+
 		for _, item := range payload.Models {
 			name := strings.TrimSpace(strings.TrimPrefix(item.Name, "models/"))
-			if name != "" {
-				result = append(result, name)
+			if name == "" {
+				continue
 			}
+			result = append(result, googleModelInfo{Name: name, Methods: item.SupportedGenerationMethods})
 		}
-		return result, nil
-	})
+
+		if payload.NextPageToken == "" {
+			break
+		}
+		pageToken = payload.NextPageToken
+	}
+
+	if len(result) == 0 {
+		return nil, fmt.Errorf("Google вернул пустой список моделей")
+	}
+	return result, nil
+}
+
+func (c *Client) fetchGoogleModels(ctx context.Context, apiKey string) ([]string, error) {
+	infos, err := c.fetchGoogleModelInfos(ctx, apiKey)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]string, 0, len(infos))
+	for _, info := range infos {
+		result = append(result, info.Name)
+	}
+	return result, nil
 }
 
 func (c *Client) fetchListModels(ctx context.Context, url, apiKey string, provider comdom.ProviderType, parser func([]byte) ([]string, error)) ([]string, error) {
+	body, err := c.fetchBody(ctx, url, provider, apiKey)
+	if err != nil {
+		return nil, err
+	}
+	return parser(body)
+}
+
+// fetchBody выполняет GET-запрос к provider API и возвращает тело ответа.
+// apiKey передаётся через Bearer-заголовок; пустое значение допустимо.
+func (c *Client) fetchBody(ctx context.Context, url string, provider comdom.ProviderType, apiKeys ...string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
-	if apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+apiKey)
+	for _, apiKey := range apiKeys {
+		if apiKey != "" {
+			req.Header.Set("Authorization", "Bearer "+apiKey)
+			break
+		}
 	}
 	req.Header.Set("Accept", "application/json")
 
@@ -415,9 +556,5 @@ func (c *Client) fetchListModels(ctx context.Context, url, apiKey string, provid
 		return nil, comerrors.NewProviderError(provider, resp.StatusCode, strings.TrimSpace(string(body)), nil)
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	return parser(body)
+	return io.ReadAll(resp.Body)
 }

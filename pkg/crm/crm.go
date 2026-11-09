@@ -76,7 +76,7 @@ import (
 )
 
 type Inter interface {
-	Init(userID uint32) (*User, string, error)
+	Init(userID uint64) (*User, string, error)
 }
 
 const (
@@ -106,7 +106,7 @@ type AmoCRMSettings struct {
 }
 
 type UserCRMConfig struct {
-	UserID       uint32
+	UserID       uint64
 	Channels     ChannelsSettings
 	AltContactID int64 // ID канала для создания контактов без номера телефона
 }
@@ -121,7 +121,7 @@ type CRM struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	user sync.Map // key: uint32 (userID), value: *User
+	user sync.Map // key: uint64(userID), value: *User
 
 	respTimeOut       time.Duration      // Время жизни запроса к User
 	cacheTTL          time.Duration      // Время жизни записи в кэше
@@ -258,7 +258,7 @@ func New(parent context.Context, opts ...Option) *CRM {
 	return crm
 }
 
-func (c *CRM) Init(userID uint32) (*User, string, error) {
+func (c *CRM) Init(userID uint64) (*User, string, error) {
 	if userID == 0 {
 		// Возвращаем пустой User вместо nil
 		return &User{}, "", fmt.Errorf("userID не может быть 0")
@@ -374,7 +374,7 @@ func (c *CRM) Shutdown(shutCh chan<- com.LogMsg) {
 
 	// Завершаем всех пользователей
 	c.user.Range(func(key, value any) bool {
-		userID := key.(uint32)
+		userID := key.(uint64)
 		u := value.(*User)
 
 		// Отменяем контекст пользователя

@@ -72,7 +72,7 @@ func (c *Client) Close() error {
 // Possible errors:
 //   - codes.Unavailable — MasterKey not in Landing's cache (login required)
 //   - codes.Unauthenticated / codes.PermissionDenied — invalid service key
-func (c *Client) GetUserMasterKey(ctx context.Context, userId uint32) ([32]byte, error) {
+func (c *Client) GetUserMasterKey(ctx context.Context, userId uint64) ([32]byte, error) {
 	ctx, cancel := context.WithTimeout(c.ctxWithKey(ctx), cancelTimeout)
 	defer cancel()
 
@@ -118,7 +118,7 @@ func (c *Client) GetOperBotConfig(ctx context.Context) (*proto.BotConfigResponse
 
 func (c *Client) WidgetNewToken(
 	ctx context.Context,
-	userID uint32,
+	userID uint64,
 	respID uint64,
 	expired time.Duration,
 	origin string,
@@ -150,7 +150,7 @@ func (c *Client) WidgetNewToken(
 	return resp.Token, nil
 }
 
-func (c *Client) WidgetParseToken(ctx context.Context, tokenString string) (uint32, uint64, string, string, error) {
+func (c *Client) WidgetParseToken(ctx context.Context, tokenString string) (uint64, uint64, string, string, error) {
 	ctx, cancel := context.WithTimeout(c.ctxWithKey(ctx), cancelTimeout)
 	defer cancel()
 
@@ -174,7 +174,7 @@ func (c *Client) ctxWithKey(ctx context.Context) context.Context {
 // It requires a context, user ID, exam key, expiration settings, a list of allowed URLs, and a unique token identifier.
 func (c *Client) WidgetNewCode(
 	ctx context.Context,
-	userId uint32,
+	userId uint64,
 	examKey string,
 	expiresAt int64,
 	neverExpires bool,

@@ -14,7 +14,7 @@ import (
 )
 
 // GetAllUserModels получает все модели пользователя из таблицы user_models
-func (d *DB) GetAllUserModels(userID uint32) ([]comdom.UserModelRecord, error) {
+func (d *DB) GetAllUserModels(userID uint64) ([]comdom.UserModelRecord, error) {
 	if userID == 0 {
 		return nil, fmt.Errorf("получен пустой userID")
 	}
@@ -99,7 +99,7 @@ func (d *DB) GetAllUserModels(userID uint32) ([]comdom.UserModelRecord, error) {
 
 // RemoveModelFromUser удаляет связь между пользователем и моделью в таблице user_models
 // Также удаляет саму модель из user_gpt, если это была последняя связь с этой моделью
-func (d *DB) RemoveModelFromUser(userID uint32, modelId uint64) error {
+func (d *DB) RemoveModelFromUser(userID uint64, modelId uint64) error {
 	// Проверяем входные значения
 	if userID == 0 || modelId == 0 {
 		return fmt.Errorf("получены некорректные значения: userID или modelId равны 0")
@@ -244,7 +244,7 @@ func (d *DB) RemoveModelFromUser(userID uint32, modelId uint64) error {
 }
 
 func (d *DB) SaveUserModel(
-	userID uint32, provider comdom.ProviderType, name, assistantId string, data []byte, def comdom.DefaultProvidersModels, ids json.RawMessage, operator bool) error {
+	userID uint64, provider comdom.ProviderType, name, assistantId string, data []byte, def comdom.DefaultProvidersModels, ids json.RawMessage, operator bool) error {
 	// Проверяю входные значения
 	if userID == 0 || name == "" || assistantId == "" {
 		return fmt.Errorf("получены некорректные значения: userID, name или assistantId пусты")
@@ -442,7 +442,7 @@ func (d *DB) SaveUserModel(
 }
 
 // ReadUserModel получает данные модели пользователя и идентификаторы файлов
-func (d *DB) ReadUserModel(userID uint32) ([]byte, *comdom.VecIds, error) {
+func (d *DB) ReadUserModel(userID uint64) ([]byte, *comdom.VecIds, error) {
 	// Проверяем входное значение
 	if userID == 0 {
 		return nil, nil, fmt.Errorf("получен некорректный userID")
@@ -509,7 +509,7 @@ func (d *DB) ReadUserModel(userID uint32) ([]byte, *comdom.VecIds, error) {
 }
 
 // ReadUserModelByProvider получает сжатые данные модели пользователя по провайдеру
-func (d *DB) ReadUserModelByProvider(userID uint32, provider comdom.ProviderType) ([]byte, *comdom.VecIds, error) {
+func (d *DB) ReadUserModelByProvider(userID uint64, provider comdom.ProviderType) ([]byte, *comdom.VecIds, error) {
 	// Проверяем входные значения
 	if userID == 0 {
 		return nil, nil, fmt.Errorf("получен некорректный userID")
@@ -665,7 +665,7 @@ func (d *DB) fillReferenceModels(ctx context.Context, record *comdom.UserModelRe
 }
 
 // GetActiveModel получает активную модель пользователя
-func (d *DB) GetActiveModel(userID uint32) (*comdom.UserModelRecord, error) {
+func (d *DB) GetActiveModel(userID uint64) (*comdom.UserModelRecord, error) {
 	// Проверяем входное значение
 	if userID == 0 {
 		return nil, fmt.Errorf("получен некорректный userID")
@@ -754,7 +754,7 @@ func (d *DB) GetActiveModel(userID uint32) (*comdom.UserModelRecord, error) {
 
 // GetModelByProvider получает АКТИВНУЮ модель пользователя по провайдеру
 // Если модель не активна - возвращает nil
-func (d *DB) GetModelByProvider(userID uint32, provider comdom.ProviderType) (*comdom.UserModelRecord, error) {
+func (d *DB) GetModelByProvider(userID uint64, provider comdom.ProviderType) (*comdom.UserModelRecord, error) {
 	// Проверяем входные значения
 	if userID == 0 {
 		return nil, fmt.Errorf("получен некорректный userID")
@@ -848,7 +848,7 @@ func (d *DB) GetModelByProvider(userID uint32, provider comdom.ProviderType) (*c
 // GetModelByProviderAnyStatus получает модель пользователя по провайдеру НЕЗАВИСИМО от статуса активности
 // В отличие от GetModelByProvider, эта функция не требует IsActive = 1
 // Используется для обновления неактивных моделей
-func (d *DB) GetModelByProviderAnyStatus(userID uint32, provider comdom.ProviderType) (*comdom.UserModelRecord, error) {
+func (d *DB) GetModelByProviderAnyStatus(userID uint64, provider comdom.ProviderType) (*comdom.UserModelRecord, error) {
 	// Проверяем входные значения
 	if userID == 0 {
 		return nil, fmt.Errorf("получен некорректный userID")
@@ -945,7 +945,7 @@ func (d *DB) GetModelByProviderAnyStatus(userID uint32, provider comdom.Provider
 //   - modelId: ID записи из таблицы user_models
 //
 // Функция снимает IsActive с других моделей пользователя в этой же транзакции
-func (d *DB) SetActiveModel(userID uint32, modelId uint64) error {
+func (d *DB) SetActiveModel(userID uint64, modelId uint64) error {
 	if userID == 0 {
 		return fmt.Errorf("получен пустой userID")
 	}
@@ -1025,7 +1025,7 @@ func (d *DB) SetActiveModel(userID uint32, modelId uint64) error {
 //   - provider: тип провайдера (ProviderOpenAI, ProviderMistral, ...)
 //
 // Функция снимает IsActive с других моделей пользователя в этой же транзакции
-func (d *DB) SetActiveModelByProvider(userID uint32, provider comdom.ProviderType) error {
+func (d *DB) SetActiveModelByProvider(userID uint64, provider comdom.ProviderType) error {
 	if userID == 0 {
 		return fmt.Errorf("получен пустой userID")
 	}
@@ -1103,7 +1103,7 @@ func (d *DB) SetActiveModelByProvider(userID uint32, provider comdom.ProviderTyp
 
 // UpdateUserGPT обновляет поле Ids (AllIds) в таблице user_gpt
 // Используется для обновления информации о файлах и векторных хранилищах/библиотеках
-func (d *DB) UpdateUserGPT(userID uint32, modelId uint64, assistId string, allIds []byte) error {
+func (d *DB) UpdateUserGPT(userID uint64, modelId uint64, assistId string, allIds []byte) error {
 	if userID == 0 {
 		return fmt.Errorf("получен пустой userID")
 	}

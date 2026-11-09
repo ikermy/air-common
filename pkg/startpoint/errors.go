@@ -170,7 +170,7 @@ func isRetryableErrorPattern(err error) bool {
 }
 
 // AskWithRetry выполняет запрос к модели с retry-логикой
-func (s *Start) AskWithRetry(userID uint32, provider comdom.ProviderType, respId, dialogID uint64, arrAsk []string, files ...model.FileUpload) (model.AssistResponse, error) {
+func (s *Start) AskWithRetry(userID uint64, provider comdom.ProviderType, respId, dialogID uint64, arrAsk []string, files ...model.FileUpload) (model.AssistResponse, error) {
 	var lastErr error
 
 	for attempt := 0; attempt < mode.RetryMaxAttempts; attempt++ {

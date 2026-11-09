@@ -21,7 +21,7 @@ func NewRealtimeManager(ctx context.Context) *RealtimeManager {
 }
 
 // Start creates or returns the existing session for respID.
-func (m *RealtimeManager) Start(userID uint32, dialogID, respID uint64) (*MistralRealtimeSession, error) {
+func (m *RealtimeManager) Start(userID uint64, dialogID, respID uint64) (*MistralRealtimeSession, error) {
 	if m == nil {
 		return nil, fmt.Errorf("Mistral realtime manager is nil")
 	}

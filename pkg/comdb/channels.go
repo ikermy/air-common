@@ -11,7 +11,7 @@ import (
 // SaveChannelDataRaw stores a channel payload in the legacy channels table and
 // in user_channels/user_channel_configs. The payload is stored as-is: callers
 // are responsible for encryption.
-func (d *DB) SaveChannelDataRaw(userID uint32, channelType, payload string, enabled bool) error {
+func (d *DB) SaveChannelDataRaw(userID uint64, channelType, payload string, enabled bool) error {
 	if userID == 0 {
 		return fmt.Errorf("получен пустой userID")
 	}

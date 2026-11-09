@@ -29,7 +29,7 @@ func newFakeRealtimeProvider() *fakeRealtimeProvider {
 	}
 }
 
-func (f *fakeRealtimeProvider) StartRealtimeSession(userID uint32, dialogID, respId uint64) error {
+func (f *fakeRealtimeProvider) StartRealtimeSession(userID uint64, dialogID, respId uint64) error {
 	f.started = true
 	return nil
 }
@@ -67,7 +67,7 @@ type fakeRouter struct {
 	disconnected uint64
 }
 
-func (r *fakeRouter) GetRealtimeProvider(userID uint32) (model.RealtimeProvider, bool) {
+func (r *fakeRouter) GetRealtimeProvider(userID uint64) (model.RealtimeProvider, bool) {
 	if r.provider == nil {
 		return nil, false
 	}

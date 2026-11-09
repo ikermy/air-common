@@ -6,15 +6,15 @@ import "context"
 // Cleanup must be scheduled after the model deletion is committed (preferably
 // through a transactional outbox), not executed inside a SQL transaction.
 type VoiceResourceCleanup interface {
-	DeleteVoice(ctx context.Context, userID uint32, voiceID string) error
-	DeleteReferenceAudio(ctx context.Context, userID uint32, referenceAudioID string) error
+	DeleteVoice(ctx context.Context, userID uint64, voiceID string) error
+	DeleteReferenceAudio(ctx context.Context, userID uint64, referenceAudioID string) error
 }
 
 // VoiceCleanupJob describes external resources that must be removed after a
 // user model is deleted. It is safe to persist this value in an outbox and
 // retry it until both operations succeed.
 type VoiceCleanupJob struct {
-	UserID           uint32 `json:"user_id"`
+	UserID           uint64 `json:"user_id"`
 	ModelID          uint32 `json:"model_id"`
 	VoiceID          string `json:"voice_id,omitempty"`
 	ReferenceAudioID string `json:"reference_audio_id,omitempty"`

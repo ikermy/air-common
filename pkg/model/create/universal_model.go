@@ -27,7 +27,7 @@ func New(ctx context.Context, db DB) *UniversalModel {
 		},
 		universalModel: m, // Передаем ссылку на universalModel
 	}
-	m.openaiClient.SetKeyResolver(func(userID uint32) string {
+	m.openaiClient.SetKeyResolver(func(userID uint64) string {
 		if key, err := db.GetUserAPIKey(userID, comdom.ProviderOpenAI); err == nil {
 			return key
 		}
@@ -41,7 +41,7 @@ func New(ctx context.Context, db DB) *UniversalModel {
 		ctx:            ctx,
 		universalModel: m,
 	}
-	m.mistralClient.SetKeyResolver(func(userID uint32) string {
+	m.mistralClient.SetKeyResolver(func(userID uint64) string {
 		if key, err := db.GetUserAPIKey(userID, comdom.ProviderMistral); err == nil {
 			return key
 		}
@@ -55,7 +55,7 @@ func New(ctx context.Context, db DB) *UniversalModel {
 		ctx:            ctx,
 		universalModel: m,
 	}
-	m.googleClient.SetKeyResolver(func(userID uint32) string {
+	m.googleClient.SetKeyResolver(func(userID uint64) string {
 		if key, err := db.GetUserAPIKey(userID, comdom.ProviderGoogle); err == nil {
 			return key
 		}
@@ -66,7 +66,7 @@ func New(ctx context.Context, db DB) *UniversalModel {
 }
 
 // CreateModel creates provider resources and returns the database references.
-func (m *UniversalModel) CreateModel(userID uint32, provider comdom.ProviderType, modelData *comdom.UniversalModelData, fileIDs []comdom.Ids) (comdom.UMCR, error) {
+func (m *UniversalModel) CreateModel(userID uint64, provider comdom.ProviderType, modelData *comdom.UniversalModelData, fileIDs []comdom.Ids) (comdom.UMCR, error) {
 	if modelData == nil {
 		return comdom.UMCR{}, fmt.Errorf("modelData не может быть nil")
 	}
@@ -90,7 +90,7 @@ func (m *UniversalModel) CreateModel(userID uint32, provider comdom.ProviderType
 // SaveModel сохраняет модель в БД в универсальном формате
 // Работает для любого провайдера (OpenAI, Mistral..)
 // Автоматически устанавливает модель как активную если это первая модель пользователя
-func (m *UniversalModel) SaveModel(userID uint32, umcr comdom.UMCR, data *comdom.UniversalModelData) error {
+func (m *UniversalModel) SaveModel(userID uint64, umcr comdom.UMCR, data *comdom.UniversalModelData) error {
 	if data == nil {
 		return fmt.Errorf("не указана модель провайдера")
 	}

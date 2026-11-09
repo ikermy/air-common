@@ -7,7 +7,7 @@ import (
 )
 
 // SetContactAvailability сохраняет доступность контакта в конкретном провайдере
-func (d *DB) SetContactAvailability(userID uint32, contact, provider string, isAvailable bool) error {
+func (d *DB) SetContactAvailability(userID uint64, contact, provider string, isAvailable bool) error {
 	conn, _, cancel, err := d.connForUserCtx(userID)
 	if err != nil {
 		return fmt.Errorf("выбор шарда: %w", err)
@@ -44,7 +44,7 @@ func (d *DB) SetContactAvailability(userID uint32, contact, provider string, isA
 }
 
 // GetContactAvailability получает доступность контакта во всех провайдерах
-func (d *DB) GetContactAvailability(userID uint32, contact string) (map[string]bool, error) {
+func (d *DB) GetContactAvailability(userID uint64, contact string) (map[string]bool, error) {
 	conn, _, cancel, err := d.connForUserCtx(userID)
 	if err != nil {
 		return nil, fmt.Errorf("выбор шарда: %w", err)
@@ -82,7 +82,7 @@ func (d *DB) GetContactAvailability(userID uint32, contact string) (map[string]b
 }
 
 // GetContactsAvailableIn получает список контактов доступных в указанном провайдере
-func (d *DB) GetContactsAvailableIn(userID uint32, provider string) ([]string, error) {
+func (d *DB) GetContactsAvailableIn(userID uint64, provider string) ([]string, error) {
 	conn, _, cancel, err := d.connForUserCtx(userID)
 	if err != nil {
 		return nil, fmt.Errorf("выбор шарда: %w", err)
@@ -122,7 +122,7 @@ func (d *DB) GetContactsAvailableIn(userID uint32, provider string) ([]string, e
 }
 
 // GetContactsInBothProviders получает контакты доступные в обеих указанных платформах
-func (d *DB) GetContactsInBothProviders(userID uint32, provider1, provider2 string) ([]string, error) {
+func (d *DB) GetContactsInBothProviders(userID uint64, provider1, provider2 string) ([]string, error) {
 	conn, _, cancel, err := d.connForUserCtx(userID)
 	if err != nil {
 		return nil, fmt.Errorf("выбор шарда: %w", err)

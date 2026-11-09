@@ -15,7 +15,7 @@ import (
 // GoogleOAuthToken представляет токен Google OAuth для пользователя
 type GoogleOAuthToken struct {
 	ID           uint32    `json:"id"`
-	UserID       uint32    `json:"user_id"`
+	UserID       uint64    `json:"user_id"`
 	GoogleEmail  string    `json:"google_email"`
 	AccessToken  string    `json:"access_token"`
 	RefreshToken string    `json:"refresh_token"`
@@ -27,7 +27,7 @@ type GoogleOAuthToken struct {
 }
 
 // SaveGoogleToken сохраняет или обновляет Google OAuth токен пользователя
-func (d *DB) SaveGoogleToken(userID uint32, googleEmail string, token *oauth2.Token) error {
+func (d *DB) SaveGoogleToken(userID uint64, googleEmail string, token *oauth2.Token) error {
 	if userID == 0 {
 		return fmt.Errorf("получен некорректный userID")
 	}
@@ -108,7 +108,7 @@ func (d *DB) SaveGoogleToken(userID uint32, googleEmail string, token *oauth2.To
 }
 
 // GetGoogleToken получает Google OAuth токен пользователя
-func (d *DB) GetGoogleToken(userID uint32) (*oauth2.Token, string, error) {
+func (d *DB) GetGoogleToken(userID uint64) (*oauth2.Token, string, error) {
 	if userID == 0 {
 		return nil, "", fmt.Errorf("получен некорректный userID")
 	}
@@ -189,7 +189,7 @@ func (d *DB) GetGoogleToken(userID uint32) (*oauth2.Token, string, error) {
 }
 
 // RefreshGoogleTokenIfNeeded проверяет срок действия токена и обновляет его при необходимости
-func (d *DB) RefreshGoogleTokenIfNeeded(userID uint32, oauthConfig *oauth2.Config) error {
+func (d *DB) RefreshGoogleTokenIfNeeded(userID uint64, oauthConfig *oauth2.Config) error {
 	if userID == 0 {
 		return fmt.Errorf("получен некорректный userID")
 	}
@@ -229,7 +229,7 @@ func (d *DB) RefreshGoogleTokenIfNeeded(userID uint32, oauthConfig *oauth2.Confi
 }
 
 // DeleteGoogleToken удаляет Google OAuth токен пользователя
-func (d *DB) DeleteGoogleToken(userID uint32) error {
+func (d *DB) DeleteGoogleToken(userID uint64) error {
 	if userID == 0 {
 		return fmt.Errorf("получен некорректный userID")
 	}

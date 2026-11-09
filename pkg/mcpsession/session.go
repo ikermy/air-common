@@ -28,20 +28,20 @@ const TTL = 5 * time.Minute
 var ErrExpired = errors.New("session token expired")
 
 // Sign builds a signed X-Session-ID header value.
-func Sign(secret string, userID uint32, provider comdom.ProviderType, now time.Time) string {
+func Sign(secret string, userID uint64, provider comdom.ProviderType, now time.Time) string {
 	exp := now.Add(TTL).Unix()
 	msg := fmt.Sprintf("%s:%d:%d:%d", Version, userID, provider, exp)
 	return msg + ":" + signature(secret, msg)
 }
 
 // Parse validates a signed X-Session-ID header value.
-func Parse(secret, header string, now time.Time) (uint32, comdom.ProviderType, error) {
+func Parse(secret, header string, now time.Time) (uint64, comdom.ProviderType, error) {
 	parts := strings.Split(header, ":")
 	if len(parts) != 5 || parts[0] != Version {
 		return 0, 0, fmt.Errorf("invalid signed session format")
 	}
 
-	uid, err := strconv.ParseUint(parts[1], 10, 32)
+	uid, err := strconv.ParseUint(parts[1], 10, 64)
 	if err != nil {
 		return 0, 0, fmt.Errorf("invalid userId: %w", err)
 	}
@@ -71,7 +71,7 @@ func Parse(secret, header string, now time.Time) (uint32, comdom.ProviderType, e
 		return 0, 0, ErrExpired
 	}
 
-	return uint32(uid), comdom.ProviderType(pt), nil
+	return uid, comdom.ProviderType(pt), nil
 }
 
 // IsSigned reports whether the header looks like a signed session value.

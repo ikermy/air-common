@@ -16,69 +16,69 @@ type DB = comdb.Exterior
 // Inter интерфейс для работы с моделями Assistant
 type Inter interface {
 	NewMessage(operator Operator, msgType string, content *AssistResponse, name *string, files ...FileUpload) Message
-	GetFileAsReader(userID uint32, url string) (io.Reader, error)
+	GetFileAsReader(userID uint64, url string) (io.Reader, error)
 	GetOrSetRespGPT(assist Assistant, dialogID, respId uint64, respName string) (*RespModel, error)
 	GetCh(respId uint64) (*Ch, error)
 	GetRespIdByDialogID(dialogID uint64) (uint64, error)
 	SaveAllContextDuringExit()
-	Request(userID uint32, dialogID uint64, text string, files ...FileUpload) (AssistResponse, error)
-	RequestStreaming(userID uint32, dialogID uint64, text string, onDelta func(delta string, done bool) error, files ...FileUpload) error
+	Request(userID uint64, dialogID uint64, text string, files ...FileUpload) (AssistResponse, error)
+	RequestStreaming(userID uint64, dialogID uint64, text string, onDelta func(delta string, done bool) error, files ...FileUpload) error
 	CleanDialogData(dialogID uint64)
-	DeleteTempFile(userID uint32, fileID string) error
+	DeleteTempFile(userID uint64, fileID string) error
 	// TranscribeAudio транскрибирует аудио. userID обязателен: провайдеры
 	// резолвят через него персональный API-ключ (нельзя отбрасывать через `_`).
-	TranscribeAudio(userID uint32, audioData []byte, fileName string) (string, error)
+	TranscribeAudio(userID uint64, audioData []byte, fileName string) (string, error)
 	CleanUp()
-	DisconnectUser(userID uint32)
-	InvalidateUserAgentConfigCache(userID uint32)
+	DisconnectUser(userID uint64)
+	InvalidateUserAgentConfigCache(userID uint64)
 	Shutdown(shutCh chan<- com.LogMsg)
 	UpdateModelsListByProvider(ctx context.Context, union comdom.Union, apiKey string) ([]comdom.ProviderModel, error)
 }
 
 // RouterInterface минимальный интерфейс для доступа к методам роутера
 type RouterInterface interface {
-	ProvidersWithApiKeys(userID uint32) comdom.ProvidersAvailability
-	RevokeUserAPIKey(userID uint32, provider comdom.ProviderType) error
+	ProvidersWithApiKeys(userID uint64) comdom.ProvidersAvailability
+	RevokeUserAPIKey(userID uint64, provider comdom.ProviderType) error
 }
 
 // OpenAIManager расширяет Inter методами управления моделями OpenAI
 type OpenAIManager interface {
 	Inter
-	CreateModel(userID uint32, provider comdom.ProviderType, modelData *comdom.UniversalModelData, fileIDs []comdom.Ids) (comdom.UMCR, error)
-	UploadDocumentWithEmbedding(userID uint32, docName, content string, metadata comdom.DocumentMetadata) (string, error)
-	SearchSimilarDocuments(userID uint32, query string, limit int) ([]comdom.VectorDocument, error)
-	DeleteDocument(userID uint32, docID string) error
-	ListUserDocuments(userID uint32) ([]comdom.VectorDocument, error)
+	CreateModel(userID uint64, provider comdom.ProviderType, modelData *comdom.UniversalModelData, fileIDs []comdom.Ids) (comdom.UMCR, error)
+	UploadDocumentWithEmbedding(userID uint64, docName, content string, metadata comdom.DocumentMetadata) (string, error)
+	SearchSimilarDocuments(userID uint64, query string, limit int) ([]comdom.VectorDocument, error)
+	DeleteDocument(userID uint64, docID string) error
+	ListUserDocuments(userID uint64) ([]comdom.VectorDocument, error)
 }
 
 // MistralManager расширяет Inter для Mistral-специфичных методов работы с библиотеками
 type MistralManager interface {
 	Inter
-	CreateModel(userID uint32, provider comdom.ProviderType, modelData *comdom.UniversalModelData, fileIDs []comdom.Ids) (comdom.UMCR, error)
-	UploadFileToProvider(userID uint32, fileName string, fileData []byte) (string, error)
-	DeleteDocumentFromLibrary(userID uint32, documentID string) error
-	AddFileToLibrary(userID uint32, fileID, fileName string) error
-	CreateVoice(userID uint32, request comdom.CreateVoiceRequest) (comdom.Voice, error)
-	ListVoices(userID uint32, limit, offset int, voiceType string) (comdom.VoiceList, error)
-	GetVoice(userID uint32, voiceID string) (comdom.Voice, error)
-	UpdateVoice(userID uint32, voiceID string, request comdom.UpdateVoiceRequest) (comdom.Voice, error)
-	DeleteVoice(userID uint32, voiceID string) (comdom.Voice, error)
-	GetVoiceSample(userID uint32, voiceID string) (io.ReadCloser, string, error)
+	CreateModel(userID uint64, provider comdom.ProviderType, modelData *comdom.UniversalModelData, fileIDs []comdom.Ids) (comdom.UMCR, error)
+	UploadFileToProvider(userID uint64, fileName string, fileData []byte) (string, error)
+	DeleteDocumentFromLibrary(userID uint64, documentID string) error
+	AddFileToLibrary(userID uint64, fileID, fileName string) error
+	CreateVoice(userID uint64, request comdom.CreateVoiceRequest) (comdom.Voice, error)
+	ListVoices(userID uint64, limit, offset int, voiceType string) (comdom.VoiceList, error)
+	GetVoice(userID uint64, voiceID string) (comdom.Voice, error)
+	UpdateVoice(userID uint64, voiceID string, request comdom.UpdateVoiceRequest) (comdom.Voice, error)
+	DeleteVoice(userID uint64, voiceID string) (comdom.Voice, error)
+	GetVoiceSample(userID uint64, voiceID string) (io.ReadCloser, string, error)
 }
 
 // GoogleManager расширяет Inter для Google-специфичных методов
 type GoogleManager interface {
 	Inter
-	CreateModel(userID uint32, provider comdom.ProviderType, modelData *comdom.UniversalModelData, fileIDs []comdom.Ids) (comdom.UMCR, error)
-	UploadDocumentWithEmbedding(userID uint32, docName, content string, metadata comdom.DocumentMetadata) (string, error)
-	SearchSimilarDocuments(userID uint32, query string, limit int) ([]comdom.VectorDocument, error)
-	DeleteDocument(userID uint32, docID string) error
-	ListUserDocuments(userID uint32) ([]comdom.VectorDocument, error)
+	CreateModel(userID uint64, provider comdom.ProviderType, modelData *comdom.UniversalModelData, fileIDs []comdom.Ids) (comdom.UMCR, error)
+	UploadDocumentWithEmbedding(userID uint64, docName, content string, metadata comdom.DocumentMetadata) (string, error)
+	SearchSimilarDocuments(userID uint64, query string, limit int) ([]comdom.VectorDocument, error)
+	DeleteDocument(userID uint64, docID string) error
+	ListUserDocuments(userID uint64) ([]comdom.VectorDocument, error)
 }
 
 // ActionHandler интерфейс для обработки функций ассистента
 type ActionHandler interface {
-	RunAction(ctx context.Context, functionName, arguments string, provider comdom.ProviderType, userID uint32) string
+	RunAction(ctx context.Context, functionName, arguments string, provider comdom.ProviderType, userID uint64) string
 }
 
 // MCPToolDefinition описание инструмента от MCP сервера (tools/list).
@@ -93,8 +93,8 @@ type MCPToolDefinition struct {
 // Реализуется UniversalActionHandler (pkg/model/action_handler.go).
 type MCPConfigProvider interface {
 	ActionHandler
-	FetchToolsList(ctx context.Context, userID uint32, provider comdom.ProviderType) ([]MCPToolDefinition, error)
-	FetchSystemPrompt(ctx context.Context, userID uint32, provider comdom.ProviderType) (string, error)
+	FetchToolsList(ctx context.Context, userID uint64, provider comdom.ProviderType) ([]MCPToolDefinition, error)
+	FetchSystemPrompt(ctx context.Context, userID uint64, provider comdom.ProviderType) (string, error)
 }
 
 // RealtimeEvent — внутреннее событие голосовой realtime-сессии.
@@ -134,7 +134,7 @@ type RealtimeEvent struct {
 // RealtimeProvider опциональный интерфейс для голосовых сессий реального времени.
 // Реализуется OpenAIModel (OpenAI Realtime API) и GoogleModel (Google Multimodal Live API).
 type RealtimeProvider interface {
-	StartRealtimeSession(userID uint32, dialogID, respId uint64) error
+	StartRealtimeSession(userID uint64, dialogID, respId uint64) error
 	CloseRealtimeSession(respId uint64)
 	SendRealtimeAudio(respId uint64, pcm16 []byte) error
 	SubscribeEvents(respId uint64) (<-chan RealtimeEvent, error)
@@ -148,7 +148,7 @@ type RealtimeProvider interface {
 // RealtimeRouter — узкий интерфейс доступа к realtime-провайдеру,
 // необходимый startpoint.Start. Реализуется *Router.
 type RealtimeRouter interface {
-	GetRealtimeProvider(userID uint32) (RealtimeProvider, bool)
+	GetRealtimeProvider(userID uint64) (RealtimeProvider, bool)
 	DisconnectRealtimeSession(respId uint64)
 }
 
@@ -158,7 +158,7 @@ type RealtimeRouter interface {
 // Провайдеры без такого режима (например Google Live) этот интерфейс не реализуют.
 type RealtimeTranscriptionProvider interface {
 	RealtimeProvider
-	StartRealtimeTranscriptionSession(userID uint32, dialogID, respId uint64) error
+	StartRealtimeTranscriptionSession(userID uint64, dialogID, respId uint64) error
 }
 
 // DeltaProcessor интерфейс унифицированной обработки стриминговых дельт.

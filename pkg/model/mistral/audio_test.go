@@ -48,7 +48,7 @@ func (f audioRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 func testAudioClient(handler audioRoundTripper) *MistralAgentClient {
 	client := NewMistralAgentClient(context.Background())
 	client.httpClient = &http.Client{Transport: handler}
-	client.SetKeyResolver(func(uint32) string { return "urls-key" })
+	client.SetKeyResolver(func(uint64) string { return "urls-key" })
 	return client
 }
 

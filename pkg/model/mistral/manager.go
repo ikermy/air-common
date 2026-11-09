@@ -10,7 +10,7 @@ import (
 
 // CreateModel создаёт новую модель Mistral
 // Делегирует вызов к UniversalModel из пакета create
-func (m *Model) CreateModel(userID uint32, provider comdom.ProviderType, modelData *comdom.UniversalModelData, fileIDs []comdom.Ids) (comdom.UMCR, error) {
+func (m *Model) CreateModel(userID uint64, provider comdom.ProviderType, modelData *comdom.UniversalModelData, fileIDs []comdom.Ids) (comdom.UMCR, error) {
 	// Создаем экземпляр UniversalModel для делегирования
 	modelsManager := &create.UniversalModel{}
 
@@ -20,7 +20,7 @@ func (m *Model) CreateModel(userID uint32, provider comdom.ProviderType, modelDa
 // UploadFileToProvider загружает файл в Mistral Library
 // Создаёт новую библиотеку или использует существующую для пользователя
 // Один пользователь = одна библиотека
-func (m *Model) UploadFileToProvider(userID uint32, fileName string, fileData []byte) (string, error) {
+func (m *Model) UploadFileToProvider(userID uint64, fileName string, fileData []byte) (string, error) {
 	// 1. Получить или создать библиотеку для userID
 	libraryID, err := m.getOrCreateUserLibrary(userID)
 	if err != nil {
@@ -48,7 +48,7 @@ func (m *Model) UploadFileToProvider(userID uint32, fileName string, fileData []
 // DeleteDocumentFromLibrary удаляет документ из библиотеки пользователя Mistral
 // Один пользователь = одна библиотека
 // Если после удаления файла библиотека пустая - удаляет саму библиотеку
-func (m *Model) DeleteDocumentFromLibrary(userID uint32, documentID string) error {
+func (m *Model) DeleteDocumentFromLibrary(userID uint64, documentID string) error {
 	if documentID == "" {
 		return fmt.Errorf("documentID не может быть пустым")
 	}
@@ -102,7 +102,7 @@ func (m *Model) DeleteDocumentFromLibrary(userID uint32, documentID string) erro
 // ПРИМЕЧАНИЕ: В Mistral файлы загружаются непосредственно в библиотеку
 // Этот метод вызывается после UploadFileToProvider, когда файл уже загружен
 // fileID - это documentID, который был возвращён при загрузке
-func (m *Model) AddFileToLibrary(userID uint32, fileID, _ string) error {
+func (m *Model) AddFileToLibrary(userID uint64, fileID, _ string) error {
 	// В Mistral файлы загружаются сразу в библиотеку через UploadFileFromVectorStorage
 	// Этот метод нужен для совместимости с интерфейсом, но фактически файл уже в библиотеке
 	// Просто проверяем, что документ существует
@@ -125,7 +125,7 @@ func (m *Model) AddFileToLibrary(userID uint32, fileID, _ string) error {
 
 // getUserLibraryID получает ID библиотеки пользователя из БД
 // Один пользователь = одна библиотека
-func (m *Model) getUserLibraryID(userID uint32) (string, error) {
+func (m *Model) getUserLibraryID(userID uint64) (string, error) {
 	// Получаем все модели пользователя
 	userModels, err := m.db.GetAllUserModels(userID)
 	if err != nil {
@@ -165,7 +165,7 @@ func (m *Model) getUserLibraryID(userID uint32) (string, error) {
 
 // getOrCreateUserLibrary получает существующую библиотеку пользователя или создаёт новую
 // Один пользователь = одна библиотека
-func (m *Model) getOrCreateUserLibrary(userID uint32) (string, error) {
+func (m *Model) getOrCreateUserLibrary(userID uint64) (string, error) {
 	// Пытаемся получить существующую библиотеку
 	libraryID, err := m.getUserLibraryID(userID)
 	if err == nil {
@@ -197,7 +197,7 @@ func (m *Model) getOrCreateUserLibrary(userID uint32) (string, error) {
 }
 
 // saveLibraryID сохраняет ID библиотеки в модели пользователя
-func (m *Model) saveLibraryID(userID uint32, libraryID string) error {
+func (m *Model) saveLibraryID(userID uint64, libraryID string) error {
 	// Получаем все модели пользователя
 	userModels, err := m.db.GetAllUserModels(userID)
 	if err != nil {
@@ -252,7 +252,7 @@ func (m *Model) saveLibraryID(userID uint32, libraryID string) error {
 }
 
 // addFileToDatabase добавляет информацию о файле в FileIds БД
-func (m *Model) addFileToDatabase(userID uint32, fileID, fileName string) error {
+func (m *Model) addFileToDatabase(userID uint64, fileID, fileName string) error {
 	// Получаем все модели пользователя
 	userModels, err := m.db.GetAllUserModels(userID)
 	if err != nil {
@@ -328,7 +328,7 @@ func (m *Model) addFileToDatabase(userID uint32, fileID, fileName string) error 
 
 // removeFileFromDatabase удаляет информацию о файле из FileIds БД
 // Возвращает количество оставшихся файлов после удаления
-func (m *Model) removeFileFromDatabase(userID uint32, fileID string) (int, error) {
+func (m *Model) removeFileFromDatabase(userID uint64, fileID string) (int, error) {
 	// Получаем все модели пользователя
 	userModels, err := m.db.GetAllUserModels(userID)
 	if err != nil {
@@ -401,7 +401,7 @@ func (m *Model) removeFileFromDatabase(userID uint32, fileID string) (int, error
 
 // clearLibraryID очищает ID библиотеки из модели пользователя (устанавливает AllIds в NULL)
 // Вызывается после удаления пустой библиотеки из Mistral API
-func (m *Model) clearLibraryID(userID uint32) error {
+func (m *Model) clearLibraryID(userID uint64) error {
 	// Получаем все модели пользователя
 	userModels, err := m.db.GetAllUserModels(userID)
 	if err != nil {

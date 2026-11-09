@@ -40,7 +40,7 @@ func NewSheetsService(ctx context.Context, db comdb.Exterior, clientID, clientSe
 
 // getSheetsService создает Google Sheets сервис с OAuth токеном пользователя
 // Автоматически обновляет токен если истёк срок действия
-func (s *SheetsService) getSheetsService(userID uint32) (*sheets.Service, error) {
+func (s *SheetsService) getSheetsService(userID uint64) (*sheets.Service, error) {
 	// Получаем токен из БД
 	token, googleEmail, err := s.db.GetGoogleToken(userID)
 	if err != nil {
@@ -107,7 +107,7 @@ func (s *SheetsService) getSheetsService(userID uint32) (*sheets.Service, error)
 
 // ReadRangeParams параметры для чтения диапазона ячеек
 type ReadRangeParams struct {
-	UserID        uint32 `json:"user_id,string"`
+	UserID        uint64 `json:"user_id,string"`
 	SpreadsheetID string `json:"spreadsheet_id"` // ID таблицы из URL
 	Range         string `json:"range"`          // Например: "Sheet1!A1:D10"
 }
@@ -146,7 +146,7 @@ func (s *SheetsService) ReadRange(params ReadRangeParams) (string, error) {
 
 // WriteRangeParams параметры для записи данных
 type WriteRangeParams struct {
-	UserID        uint32  `json:"user_id,string"`
+	UserID        uint64  `json:"user_id,string"`
 	SpreadsheetID string  `json:"spreadsheet_id"`
 	Range         string  `json:"range"`  // Например: "Sheet1!A1"
 	Values        [][]any `json:"values"` // Двумерный массив значений
@@ -193,7 +193,7 @@ func (s *SheetsService) WriteRange(params WriteRangeParams) (string, error) {
 
 // AppendRangeParams параметры для добавления данных в конец таблицы
 type AppendRangeParams struct {
-	UserID        uint32  `json:"user_id,string"`
+	UserID        uint64  `json:"user_id,string"`
 	SpreadsheetID string  `json:"spreadsheet_id"`
 	Range         string  `json:"range"` // Например: "Sheet1!A:D"
 	Values        [][]any `json:"values"`
@@ -240,7 +240,7 @@ func (s *SheetsService) AppendRange(params AppendRangeParams) (string, error) {
 
 // CreateSpreadsheetParams параметры для создания новой таблицы
 type CreateSpreadsheetParams struct {
-	UserID     uint32   `json:"user_id,string"`
+	UserID     uint64   `json:"user_id,string"`
 	Title      string   `json:"title"`
 	SheetNames []string `json:"sheet_names"` // Названия листов, опционально
 }
@@ -295,7 +295,7 @@ func (s *SheetsService) CreateSpreadsheet(params CreateSpreadsheetParams) (strin
 
 // GetSpreadsheetInfoParams параметры для получения информации о таблице
 type GetSpreadsheetInfoParams struct {
-	UserID        uint32 `json:"user_id,string"`
+	UserID        uint64 `json:"user_id,string"`
 	SpreadsheetID string `json:"spreadsheet_id"`
 }
 

@@ -42,7 +42,7 @@ func (d *DB) SetShardResolver(r ShardResolver) {
 
 // ConnForUser returns the shard connection for userID, or the primary
 // connection when routing is not configured.
-func (d *DB) ConnForUser(ctx context.Context, userID uint32) (*sql.DB, error) {
+func (d *DB) ConnForUser(ctx context.Context, userID uint64) (*sql.DB, error) {
 	if d.shardResolver == nil || userID == 0 {
 		return d.Conn(), nil
 	}
@@ -66,7 +66,7 @@ func (d *DB) RefConn() *sql.DB {
 
 // connForUserCtx is a convenience wrapper for methods that previously called
 // d.Conn() directly and need the standard SQL timeout.
-func (d *DB) connForUserCtx(userID uint32) (*sql.DB, context.Context, context.CancelFunc, error) {
+func (d *DB) connForUserCtx(userID uint64) (*sql.DB, context.Context, context.CancelFunc, error) {
 	ctx, cancel := context.WithTimeout(d.Context(), sqlTimeToCancel*time.Second)
 	conn, err := d.ConnForUser(ctx, userID)
 	if err != nil {
@@ -105,7 +105,7 @@ func (d *DB) nextID() uint64 {
 }
 
 // MasterKeyResolver returns the user's decrypted MasterKey from cache or remote.
-type MasterKeyResolver func(userId uint32) ([32]byte, bool)
+type MasterKeyResolver func(userId uint64) ([32]byte, bool)
 
 // Метод инъекции:
 func (d *DB) SetMasterKeyResolver(r MasterKeyResolver) {

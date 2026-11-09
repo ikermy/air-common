@@ -9,7 +9,7 @@ import (
 )
 
 // CreateModel создаёт новую модель Google
-func (m *Model) CreateModel(userID uint32, provider comdom.ProviderType, modelData *comdom.UniversalModelData, fileIDs []comdom.Ids) (comdom.UMCR, error) {
+func (m *Model) CreateModel(userID uint64, provider comdom.ProviderType, modelData *comdom.UniversalModelData, fileIDs []comdom.Ids) (comdom.UMCR, error) {
 	// Создаем экземпляр universalModel для делегирования
 	modelsManager := &create.UniversalModel{}
 
@@ -22,7 +22,7 @@ func (m *Model) CreateModel(userID uint32, provider comdom.ProviderType, modelDa
 
 // UploadDocumentWithEmbedding загружает документ и сохраняет эмбеддинг в MariaDB
 // Автоматически использует modelId активной Google модели пользователя
-func (m *Model) UploadDocumentWithEmbedding(userID uint32, docName, content string, metadata comdom.DocumentMetadata) (string, error) {
+func (m *Model) UploadDocumentWithEmbedding(userID uint64, docName, content string, metadata comdom.DocumentMetadata) (string, error) {
 	// Получаем modelId активной Google модели
 	modelId, err := m.getActiveModelId(userID)
 	if err != nil {
@@ -50,7 +50,7 @@ func (m *Model) UploadDocumentWithEmbedding(userID uint32, docName, content stri
 }
 
 // SearchSimilarDocuments ищет похожие документы по запросу через векторный поиск
-func (m *Model) SearchSimilarDocuments(userID uint32, query string, limit int) ([]comdom.VectorDocument, error) {
+func (m *Model) SearchSimilarDocuments(userID uint64, query string, limit int) ([]comdom.VectorDocument, error) {
 	// Получаем modelId активной Google модели
 	modelId, err := m.getActiveModelId(userID)
 	if err != nil {
@@ -83,7 +83,7 @@ func (m *Model) SearchSimilarDocuments(userID uint32, query string, limit int) (
 }
 
 // DeleteDocument удаляет документ из БД по docID
-func (m *Model) DeleteDocument(userID uint32, docID string) error {
+func (m *Model) DeleteDocument(userID uint64, docID string) error {
 	// Получаем modelId активной Google модели
 	modelId, err := m.getActiveModelId(userID)
 	if err != nil {
@@ -94,7 +94,7 @@ func (m *Model) DeleteDocument(userID uint32, docID string) error {
 }
 
 // ListUserDocuments возвращает список документов модели из БД
-func (m *Model) ListUserDocuments(userID uint32) ([]comdom.VectorDocument, error) {
+func (m *Model) ListUserDocuments(userID uint64) ([]comdom.VectorDocument, error) {
 	// Получаем modelId активной Google модели
 	modelId, err := m.getActiveModelId(userID)
 	if err != nil {
@@ -105,7 +105,7 @@ func (m *Model) ListUserDocuments(userID uint32) ([]comdom.VectorDocument, error
 }
 
 // getActiveModelId получает modelId активной Google модели пользователя
-func (m *Model) getActiveModelId(userID uint32) (uint64, error) {
+func (m *Model) getActiveModelId(userID uint64) (uint64, error) {
 	// Получаем все модели пользователя и находим Google модель
 	allModels, err := m.db.GetAllUserModels(userID)
 	if err != nil {

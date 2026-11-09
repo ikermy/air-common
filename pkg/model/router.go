@@ -126,42 +126,42 @@ func (r *Router) mistralVoiceManager() (MistralManager, error) {
 	return manager, nil
 }
 
-func (r *Router) CreateMistralVoice(userID uint32, request comdom.CreateVoiceRequest) (comdom.Voice, error) {
+func (r *Router) CreateMistralVoice(userID uint64, request comdom.CreateVoiceRequest) (comdom.Voice, error) {
 	m, err := r.mistralVoiceManager()
 	if err != nil {
 		return comdom.Voice{}, err
 	}
 	return m.CreateVoice(userID, request)
 }
-func (r *Router) ListMistralVoices(userID uint32, limit, offset int, voiceType string) (comdom.VoiceList, error) {
+func (r *Router) ListMistralVoices(userID uint64, limit, offset int, voiceType string) (comdom.VoiceList, error) {
 	m, err := r.mistralVoiceManager()
 	if err != nil {
 		return comdom.VoiceList{}, err
 	}
 	return m.ListVoices(userID, limit, offset, voiceType)
 }
-func (r *Router) GetMistralVoice(userID uint32, voiceID string) (comdom.Voice, error) {
+func (r *Router) GetMistralVoice(userID uint64, voiceID string) (comdom.Voice, error) {
 	m, err := r.mistralVoiceManager()
 	if err != nil {
 		return comdom.Voice{}, err
 	}
 	return m.GetVoice(userID, voiceID)
 }
-func (r *Router) UpdateMistralVoice(userID uint32, voiceID string, request comdom.UpdateVoiceRequest) (comdom.Voice, error) {
+func (r *Router) UpdateMistralVoice(userID uint64, voiceID string, request comdom.UpdateVoiceRequest) (comdom.Voice, error) {
 	m, err := r.mistralVoiceManager()
 	if err != nil {
 		return comdom.Voice{}, err
 	}
 	return m.UpdateVoice(userID, voiceID, request)
 }
-func (r *Router) DeleteMistralVoice(userID uint32, voiceID string) (comdom.Voice, error) {
+func (r *Router) DeleteMistralVoice(userID uint64, voiceID string) (comdom.Voice, error) {
 	m, err := r.mistralVoiceManager()
 	if err != nil {
 		return comdom.Voice{}, err
 	}
 	return m.DeleteVoice(userID, voiceID)
 }
-func (r *Router) GetMistralVoiceSample(userID uint32, voiceID string) (io.ReadCloser, string, error) {
+func (r *Router) GetMistralVoiceSample(userID uint64, voiceID string) (io.ReadCloser, string, error) {
 	m, err := r.mistralVoiceManager()
 	if err != nil {
 		return nil, "", err
@@ -172,7 +172,7 @@ func (r *Router) GetMistralVoiceSample(userID uint32, voiceID string) (io.ReadCl
 // ─── Generic voice CRUD (провайдер-агностичный) ─────────────────────────────
 // Mistral обслуживается своим менеджером, ElevenLabs — leaf-клиентом.
 
-func (r *Router) elevenLabsVoiceClient(userID uint32) (*elevenlabs.Client, error) {
+func (r *Router) elevenLabsVoiceClient(userID uint64) (*elevenlabs.Client, error) {
 	if r.db == nil {
 		return nil, fmt.Errorf("БД не инициализирована")
 	}
@@ -187,7 +187,7 @@ func (r *Router) elevenLabsVoiceClient(userID uint32) (*elevenlabs.Client, error
 }
 
 // ListVoices возвращает голоса выбранного voice-backend.
-func (r *Router) ListVoices(userID uint32, backend comdom.ProviderType, limit, offset int, voiceType string) (comdom.VoiceList, error) {
+func (r *Router) ListVoices(userID uint64, backend comdom.ProviderType, limit, offset int, voiceType string) (comdom.VoiceList, error) {
 	switch backend {
 	case comdom.ProviderMistral:
 		return r.ListMistralVoices(userID, limit, offset, voiceType)
@@ -215,7 +215,7 @@ func (r *Router) ListVoices(userID uint32, backend comdom.ProviderType, limit, o
 }
 
 // GetVoice возвращает голос по ID.
-func (r *Router) GetVoice(userID uint32, backend comdom.ProviderType, voiceID string) (comdom.Voice, error) {
+func (r *Router) GetVoice(userID uint64, backend comdom.ProviderType, voiceID string) (comdom.Voice, error) {
 	switch backend {
 	case comdom.ProviderMistral:
 		return r.GetMistralVoice(userID, voiceID)
@@ -236,7 +236,7 @@ func (r *Router) GetVoice(userID uint32, backend comdom.ProviderType, voiceID st
 
 // CreateVoice создаёт клон голоса. Поддерживает два режима ElevenLabs:
 // instant (IVC, голос готов сразу) и professional (PVC, асинхронное обучение).
-func (r *Router) CreateVoice(userID uint32, backend comdom.ProviderType, request comdom.CreateVoiceRequest) (comdom.Voice, error) {
+func (r *Router) CreateVoice(userID uint64, backend comdom.ProviderType, request comdom.CreateVoiceRequest) (comdom.Voice, error) {
 	switch backend {
 	case comdom.ProviderMistral:
 		return r.CreateMistralVoice(userID, request)
@@ -329,7 +329,7 @@ func decodeVoiceSamples(request comdom.CreateVoiceRequest) ([]elevenlabs.VoiceSa
 }
 
 // UpdateVoice обновляет голос.
-func (r *Router) UpdateVoice(userID uint32, backend comdom.ProviderType, voiceID string, request comdom.UpdateVoiceRequest) (comdom.Voice, error) {
+func (r *Router) UpdateVoice(userID uint64, backend comdom.ProviderType, voiceID string, request comdom.UpdateVoiceRequest) (comdom.Voice, error) {
 	switch backend {
 	case comdom.ProviderMistral:
 		return r.UpdateMistralVoice(userID, voiceID, request)
@@ -355,7 +355,7 @@ func (r *Router) UpdateVoice(userID uint32, backend comdom.ProviderType, voiceID
 }
 
 // DeleteVoice удаляет голос.
-func (r *Router) DeleteVoice(userID uint32, backend comdom.ProviderType, voiceID string) (comdom.Voice, error) {
+func (r *Router) DeleteVoice(userID uint64, backend comdom.ProviderType, voiceID string) (comdom.Voice, error) {
 	switch backend {
 	case comdom.ProviderMistral:
 		return r.DeleteMistralVoice(userID, voiceID)
@@ -378,7 +378,7 @@ func (r *Router) DeleteVoice(userID uint32, backend comdom.ProviderType, voiceID
 }
 
 // GetVoiceSample возвращает аудио-превью голоса.
-func (r *Router) GetVoiceSample(userID uint32, backend comdom.ProviderType, voiceID string) (io.ReadCloser, string, error) {
+func (r *Router) GetVoiceSample(userID uint64, backend comdom.ProviderType, voiceID string) (io.ReadCloser, string, error) {
 	switch backend {
 	case comdom.ProviderMistral:
 		return r.GetMistralVoiceSample(userID, voiceID)
@@ -418,7 +418,7 @@ func mapElevenLabsVoice(v elevenlabs.Voice) comdom.Voice {
 // ─── Voice gateway: TTS/STT поверх выбранного backend'а ──────────────────────
 
 // activeVoiceConfig возвращает Voice-конфигурацию активной модели пользователя.
-func (r *Router) activeVoiceConfig(userID uint32) *comdom.VoiceConfig {
+func (r *Router) activeVoiceConfig(userID uint64) *comdom.VoiceConfig {
 	if r.modelsManager == nil {
 		return nil
 	}
@@ -430,7 +430,7 @@ func (r *Router) activeVoiceConfig(userID uint32) *comdom.VoiceConfig {
 }
 
 // SynthesizeSpeech синтезирует речь выбранным backend'ом (batch).
-func (r *Router) SynthesizeSpeech(userID uint32, backend comdom.ProviderType, req elevenlabs.SynthesizeRequest) (io.ReadCloser, string, error) {
+func (r *Router) SynthesizeSpeech(userID uint64, backend comdom.ProviderType, req elevenlabs.SynthesizeRequest) (io.ReadCloser, string, error) {
 	switch backend {
 	case comdom.ProviderElevenLabs:
 		client, err := r.elevenLabsVoiceClient(userID)
@@ -444,7 +444,7 @@ func (r *Router) SynthesizeSpeech(userID uint32, backend comdom.ProviderType, re
 }
 
 // SynthesizeSpeechStream синтезирует речь выбранным backend'ом (streaming).
-func (r *Router) SynthesizeSpeechStream(userID uint32, backend comdom.ProviderType, req elevenlabs.SynthesizeRequest) (<-chan []byte, error) {
+func (r *Router) SynthesizeSpeechStream(userID uint64, backend comdom.ProviderType, req elevenlabs.SynthesizeRequest) (<-chan []byte, error) {
 	switch backend {
 	case comdom.ProviderElevenLabs:
 		client, err := r.elevenLabsVoiceClient(userID)
@@ -458,7 +458,7 @@ func (r *Router) SynthesizeSpeechStream(userID uint32, backend comdom.ProviderTy
 }
 
 // TranscribeAudioWithBackend распознаёт аудио выбранным backend'ом.
-func (r *Router) TranscribeAudioWithBackend(userID uint32, backend comdom.ProviderType, req elevenlabs.TranscribeRequest) (string, error) {
+func (r *Router) TranscribeAudioWithBackend(userID uint64, backend comdom.ProviderType, req elevenlabs.TranscribeRequest) (string, error) {
 	switch backend {
 	case comdom.ProviderElevenLabs:
 		client, err := r.elevenLabsVoiceClient(userID)
@@ -477,7 +477,7 @@ func (r *Router) TranscribeAudioWithBackend(userID uint32, backend comdom.Provid
 
 // GenerateMusic генерирует музыку. Параметры, не заданные в req, берутся из
 // Voice.Music активной модели пользователя (model по умолчанию music_v1).
-func (r *Router) GenerateMusic(userID uint32, req elevenlabs.MusicRequest) (elevenlabs.MusicResult, error) {
+func (r *Router) GenerateMusic(userID uint64, req elevenlabs.MusicRequest) (elevenlabs.MusicResult, error) {
 	client, err := r.elevenLabsVoiceClient(userID)
 	if err != nil {
 		return elevenlabs.MusicResult{}, err
@@ -736,7 +736,7 @@ func (r *Router) NewMessage(operator Operator, msgType string, content *AssistRe
 }
 
 // GetFileAsReader делегирует к активному провайдеру пользователя
-func (r *Router) GetFileAsReader(userID uint32, url string) (io.Reader, error) {
+func (r *Router) GetFileAsReader(userID uint64, url string) (io.Reader, error) {
 	manager, err := r.GetActiveUserManager(userID)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка получения активного менеджера для UserID %d: %w", userID, err)
@@ -790,7 +790,7 @@ func (r *Router) SaveAllContextDuringExit() {
 }
 
 // Request направляет запрос к провайдеру, которому принадлежит диалог
-func (r *Router) Request(userID uint32, dialogID uint64, text string, files ...FileUpload) (AssistResponse, error) {
+func (r *Router) Request(userID uint64, dialogID uint64, text string, files ...FileUpload) (AssistResponse, error) {
 	for _, p := range []Inter{r.openai, r.mistral, r.google} {
 		if p == nil {
 			continue
@@ -804,7 +804,7 @@ func (r *Router) Request(userID uint32, dialogID uint64, text string, files ...F
 
 // tryProviderStreaming пытается выполнить streaming запрос к провайдеру.
 // Возвращает (true, err) если провайдер найден, (false, nil) если нет.
-func (r *Router) tryProviderStreaming(provider Inter, userID uint32, dialogID uint64, text string,
+func (r *Router) tryProviderStreaming(provider Inter, userID uint64, dialogID uint64, text string,
 	onDelta func(delta string, done bool) error, files ...FileUpload) (bool, error) {
 	if provider == nil {
 		return false, nil
@@ -813,7 +813,7 @@ func (r *Router) tryProviderStreaming(provider Inter, userID uint32, dialogID ui
 		return false, nil
 	}
 	if streamer, ok := provider.(interface {
-		RequestStreaming(userID uint32, dialogID uint64, text string,
+		RequestStreaming(userID uint64, dialogID uint64, text string,
 			onDelta func(delta string, done bool) error, files ...FileUpload) error
 	}); ok {
 		return true, streamer.RequestStreaming(userID, dialogID, text, onDelta, files...)
@@ -833,7 +833,7 @@ func (r *Router) tryProviderStreaming(provider Inter, userID uint32, dialogID ui
 }
 
 // RequestStreaming направляет streaming запрос к провайдеру диалога
-func (r *Router) RequestStreaming(userID uint32, dialogID uint64, text string,
+func (r *Router) RequestStreaming(userID uint64, dialogID uint64, text string,
 	onDelta func(delta string, done bool) error, files ...FileUpload) error {
 	for _, p := range []Inter{r.openai, r.mistral, r.google} {
 		if found, err := r.tryProviderStreaming(p, userID, dialogID, text, onDelta, files...); found {
@@ -849,7 +849,7 @@ func (r *Router) CleanDialogData(dialogID uint64) {
 }
 
 // GetActiveUserModel получает активную модель пользователя
-func (r *Router) GetActiveUserModel(userID uint32) (*comdom.UniversalModelData, error) {
+func (r *Router) GetActiveUserModel(userID uint64) (*comdom.UniversalModelData, error) {
 	if r.modelsManager == nil {
 		return nil, fmt.Errorf("модельный менеджер не инициализирован")
 	}
@@ -858,7 +858,7 @@ func (r *Router) GetActiveUserModel(userID uint32) (*comdom.UniversalModelData, 
 
 // GetActiveUserManager возвращает менеджера активного провайдера пользователя.
 // Использует comma-ok form для безопасного type assertion.
-func (r *Router) GetActiveUserManager(userID uint32) (Inter, error) {
+func (r *Router) GetActiveUserManager(userID uint64) (Inter, error) {
 	provider, err := r.db.GetActiveProvider(userID)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка получения активного провайдера для UserID %d: %w", userID, err)
@@ -902,7 +902,7 @@ func (r *Router) GetActiveUserManager(userID uint32) (Inter, error) {
 
 // TranscribeAudio транскрибирует аудио. Если в конфигурации активной модели
 // выбран ElevenLabs STT — используется он, иначе активный провайдер.
-func (r *Router) TranscribeAudio(userID uint32, audioData []byte, fileName string) (string, error) {
+func (r *Router) TranscribeAudio(userID uint64, audioData []byte, fileName string) (string, error) {
 	if voiceCfg := r.activeVoiceConfig(userID); voiceCfg != nil &&
 		voiceCfg.STTBackend != nil && *voiceCfg.STTBackend == comdom.ProviderElevenLabs {
 		req := elevenlabs.TranscribeRequest{FileName: fileName, Audio: audioData}
@@ -933,7 +933,7 @@ func (r *Router) TranscribeAudio(userID uint32, audioData []byte, fileName strin
 // пользователя. Возвращает ошибку, если реальный провайдер такой режим
 // не поддерживает (например Google Live API) — вызывающий должен откатиться
 // на batch-распознавание (TranscribeAudio).
-func (r *Router) StartRealtimeTranscription(userID uint32, dialogID, respId uint64) error {
+func (r *Router) StartRealtimeTranscription(userID uint64, dialogID, respId uint64) error {
 	rp, ok := r.GetRealtimeProvider(userID)
 	if !ok {
 		return fmt.Errorf("realtime не поддерживается активной моделью пользователя %d", userID)
@@ -948,7 +948,7 @@ func (r *Router) StartRealtimeTranscription(userID uint32, dialogID, respId uint
 // GetRealtimeProvider возвращает RealtimeProvider для активной модели пользователя.
 // Если для модели включён ElevenLabs realtime-каскад (Voice.RealtimeBackend),
 // возвращается cascade-провайдер; иначе — нативный realtime активного провайдера.
-func (r *Router) GetRealtimeProvider(userID uint32) (RealtimeProvider, bool) {
+func (r *Router) GetRealtimeProvider(userID uint64) (RealtimeProvider, bool) {
 	if _, _, ok := r.cascadeVoiceConfig(userID); ok {
 		return r.cascade(), true
 	}
@@ -1027,7 +1027,7 @@ func (r *Router) CleanUp() {
 
 // CreateModel создаёт новую модель у указанного провайдера
 func (r *Router) CreateModel(
-	userID uint32,
+	userID uint64,
 	provider comdom.ProviderType,
 	modelData *comdom.UniversalModelData,
 	fileIDs []comdom.Ids,
@@ -1059,7 +1059,7 @@ func (r *Router) CreateModel(
 	return umcr, nil
 }
 
-func (r *Router) syncProviderModelsCatalog(userID uint32, union comdom.Union) {
+func (r *Router) syncProviderModelsCatalog(userID uint64, union comdom.Union) {
 	if r.db == nil || !union.Provider.IsValid() {
 		return
 	}
@@ -1241,7 +1241,7 @@ func (r *Router) syncVoiceModels(ctx context.Context, provider comdom.ProviderTy
 }
 
 // UploadFileToProvider загружает файл в указанный провайдер (только Mistral)
-func (r *Router) UploadFileToProvider(userID uint32, provider comdom.ProviderType, fileName string, fileData []byte) (string, error) {
+func (r *Router) UploadFileToProvider(userID uint64, provider comdom.ProviderType, fileName string, fileData []byte) (string, error) {
 	switch provider {
 	case comdom.ProviderOpenAI:
 		return "", fmt.Errorf("OpenAI провайдер не поддерживает загрузку файлов")
@@ -1261,7 +1261,7 @@ func (r *Router) UploadFileToProvider(userID uint32, provider comdom.ProviderTyp
 }
 
 // DeleteTempFile удаляет загруженный временный файл через Mistral провайдер
-func (r *Router) DeleteTempFile(userID uint32, fileID string) error {
+func (r *Router) DeleteTempFile(userID uint64, fileID string) error {
 	if r.mistral == nil {
 		return fmt.Errorf("Mistral провайдер не инициализирован")
 	}
@@ -1273,7 +1273,7 @@ func (r *Router) DeleteTempFile(userID uint32, fileID string) error {
 }
 
 // DeleteFileFromProvider удаляет файл из указанного провайдера (только Mistral)
-func (r *Router) DeleteFileFromProvider(userID uint32, provider comdom.ProviderType, fileID string) error {
+func (r *Router) DeleteFileFromProvider(userID uint64, provider comdom.ProviderType, fileID string) error {
 	switch provider {
 	case comdom.ProviderOpenAI:
 		return fmt.Errorf("OpenAI провайдер не поддерживает удаление файлов")
@@ -1293,7 +1293,7 @@ func (r *Router) DeleteFileFromProvider(userID uint32, provider comdom.ProviderT
 }
 
 // AddFileFromFromProvider добавляет файл в хранилище провайдера (только Mistral)
-func (r *Router) AddFileFromFromProvider(provider comdom.ProviderType, userID uint32, fileID, fileName string) error {
+func (r *Router) AddFileFromFromProvider(provider comdom.ProviderType, userID uint64, fileID, fileName string) error {
 	switch provider {
 	case comdom.ProviderOpenAI:
 		return fmt.Errorf("OpenAI провайдер не поддерживает добавление файлов")
@@ -1317,7 +1317,7 @@ func (r *Router) AddFileFromFromProvider(provider comdom.ProviderType, userID ui
 // ============================================================================
 
 // UploadDocumentWithEmbedding загружает документ с генерацией эмбеддинга
-func (r *Router) UploadDocumentWithEmbedding(userID uint32, provider, docName, content string, metadata comdom.DocumentMetadata) (string, error) {
+func (r *Router) UploadDocumentWithEmbedding(userID uint64, provider, docName, content string, metadata comdom.DocumentMetadata) (string, error) {
 	providerType, err := comdom.FromString(provider)
 	if err != nil {
 		return "", fmt.Errorf("неверный provider: %w", err)
@@ -1345,7 +1345,7 @@ func (r *Router) UploadDocumentWithEmbedding(userID uint32, provider, docName, c
 }
 
 // SearchSimilarDocuments ищет похожие документы в Vector Store
-func (r *Router) SearchSimilarDocuments(userID uint32, provider, query string, limit int) ([]comdom.VectorDocument, error) {
+func (r *Router) SearchSimilarDocuments(userID uint64, provider, query string, limit int) ([]comdom.VectorDocument, error) {
 	providerType, err := comdom.FromString(provider)
 	if err != nil {
 		return nil, fmt.Errorf("неверный provider: %w", err)
@@ -1373,7 +1373,7 @@ func (r *Router) SearchSimilarDocuments(userID uint32, provider, query string, l
 }
 
 // DeleteDocument удаляет документ из Vector Store
-func (r *Router) DeleteDocument(userID uint32, provider, docID string) error {
+func (r *Router) DeleteDocument(userID uint64, provider, docID string) error {
 	providerType, err := comdom.FromString(provider)
 	if err != nil {
 		return fmt.Errorf("неверный provider: %w", err)
@@ -1402,7 +1402,7 @@ func (r *Router) DeleteDocument(userID uint32, provider, docID string) error {
 
 // ListUserDocuments возвращает список документов пользователя.
 // Если provider пустой — агрегирует документы всех провайдеров.
-func (r *Router) ListUserDocuments(userID uint32, provider string) ([]comdom.VectorDocument, error) {
+func (r *Router) ListUserDocuments(userID uint64, provider string) ([]comdom.VectorDocument, error) {
 	if provider == "" {
 		var allDocs []comdom.VectorDocument
 		if r.google != nil {
@@ -1453,7 +1453,7 @@ func (r *Router) ListUserDocuments(userID uint32, provider string) ([]comdom.Vec
 // ============================================================================
 
 // SaveModel сохраняет модель в БД
-func (r *Router) SaveModel(userID uint32, umcr comdom.UMCR, data *comdom.UniversalModelData) error {
+func (r *Router) SaveModel(userID uint64, umcr comdom.UMCR, data *comdom.UniversalModelData) error {
 	if r.modelsManager == nil {
 		return fmt.Errorf("модельный менеджер не инициализирован")
 	}
@@ -1461,7 +1461,7 @@ func (r *Router) SaveModel(userID uint32, umcr comdom.UMCR, data *comdom.Univers
 }
 
 // ReadModel читает модель пользователя по провайдеру
-func (r *Router) ReadModel(userID uint32, provider *comdom.ProviderType) (*comdom.UniversalModelData, error) {
+func (r *Router) ReadModel(userID uint64, provider *comdom.ProviderType) (*comdom.UniversalModelData, error) {
 	if r.modelsManager == nil {
 		return nil, fmt.Errorf("модельный менеджер не инициализирован")
 	}
@@ -1469,7 +1469,7 @@ func (r *Router) ReadModel(userID uint32, provider *comdom.ProviderType) (*comdo
 }
 
 // GetAllModelAsJSON получает все модели пользователя в виде JSON
-func (r *Router) GetAllModelAsJSON(userID uint32) ([]byte, error) {
+func (r *Router) GetAllModelAsJSON(userID uint64) ([]byte, error) {
 	if r.modelsManager == nil {
 		return nil, fmt.Errorf("модельный менеджер не инициализирован")
 	}
@@ -1477,7 +1477,7 @@ func (r *Router) GetAllModelAsJSON(userID uint32) ([]byte, error) {
 }
 
 // DeleteModel удаляет модель пользователя
-func (r *Router) DeleteModel(userID uint32, provider comdom.ProviderType, deleteFiles bool, progressCallback func(string)) error {
+func (r *Router) DeleteModel(userID uint64, provider comdom.ProviderType, deleteFiles bool, progressCallback func(string)) error {
 	if r.modelsManager == nil {
 		return fmt.Errorf("модельный менеджер не инициализирован")
 	}
@@ -1485,7 +1485,7 @@ func (r *Router) DeleteModel(userID uint32, provider comdom.ProviderType, delete
 }
 
 // UpdateModelToDB обновляет модель в БД (без обновления у провайдера)
-func (r *Router) UpdateModelToDB(userID uint32, data *comdom.UniversalModelData) error {
+func (r *Router) UpdateModelToDB(userID uint64, data *comdom.UniversalModelData) error {
 	if r.modelsManager == nil {
 		return fmt.Errorf("модельный менеджер не инициализирован")
 	}
@@ -1493,7 +1493,7 @@ func (r *Router) UpdateModelToDB(userID uint32, data *comdom.UniversalModelData)
 }
 
 // UpdateModelEveryWhere обновляет модель в БД и у провайдера
-func (r *Router) UpdateModelEveryWhere(userID uint32, data *comdom.UniversalModelData) error {
+func (r *Router) UpdateModelEveryWhere(userID uint64, data *comdom.UniversalModelData) error {
 	if r.modelsManager == nil {
 		return fmt.Errorf("модельный менеджер не инициализирован")
 	}
@@ -1501,7 +1501,7 @@ func (r *Router) UpdateModelEveryWhere(userID uint32, data *comdom.UniversalMode
 }
 
 // GetUserModels получает все модели пользователя
-func (r *Router) GetUserModels(userID uint32) ([]comdom.UniversalModelData, error) {
+func (r *Router) GetUserModels(userID uint64) ([]comdom.UniversalModelData, error) {
 	if r.modelsManager == nil {
 		return nil, fmt.Errorf("модельный менеджер не инициализирован")
 	}
@@ -1509,7 +1509,7 @@ func (r *Router) GetUserModels(userID uint32) ([]comdom.UniversalModelData, erro
 }
 
 // GetUserModelsResponse получает все модели пользователя для API
-func (r *Router) GetUserModelsResponse(userID uint32) (*comdom.UserModelsResponse, error) {
+func (r *Router) GetUserModelsResponse(userID uint64) (*comdom.UserModelsResponse, error) {
 	if r.modelsManager == nil {
 		return nil, fmt.Errorf("модельный менеджер не инициализирован")
 	}
@@ -1517,7 +1517,7 @@ func (r *Router) GetUserModelsResponse(userID uint32) (*comdom.UserModelsRespons
 }
 
 // SetActiveUserModel переключает активную модель пользователя
-func (r *Router) SetActiveUserModel(userID uint32, provider comdom.ProviderType) error {
+func (r *Router) SetActiveUserModel(userID uint64, provider comdom.ProviderType) error {
 	if r.modelsManager == nil {
 		return fmt.Errorf("модельный менеджер не инициализирован")
 	}
@@ -1525,7 +1525,7 @@ func (r *Router) SetActiveUserModel(userID uint32, provider comdom.ProviderType)
 }
 
 // GetUserModelByProvider получает модель пользователя по провайдеру
-func (r *Router) GetUserModelByProvider(userID uint32, provider comdom.ProviderType) (*comdom.UniversalModelData, error) {
+func (r *Router) GetUserModelByProvider(userID uint64, provider comdom.ProviderType) (*comdom.UniversalModelData, error) {
 	if r.modelsManager == nil {
 		return nil, fmt.Errorf("модельный менеджер не инициализирован")
 	}
@@ -1533,7 +1533,7 @@ func (r *Router) GetUserModelByProvider(userID uint32, provider comdom.ProviderT
 }
 
 // ProvidersWithApiKeys возвращает два списка провайдеров: с API-ключом и без.
-func (r *Router) ProvidersWithApiKeys(userID uint32) comdom.ProvidersAvailability {
+func (r *Router) ProvidersWithApiKeys(userID uint64) comdom.ProvidersAvailability {
 	if r.modelsManager == nil {
 		return comdom.ProvidersAvailability{}
 	}
@@ -1556,7 +1556,7 @@ func (r *Router) GetProviderCapabilities() map[string][]string {
 }
 
 // InvalidateUserAgentConfigCache инвалидирует кэш конфигурации модели для пользователя
-func (r *Router) InvalidateUserAgentConfigCache(userID uint32) {
+func (r *Router) InvalidateUserAgentConfigCache(userID uint64) {
 	r.forEachProvider(func(p Inter) { p.InvalidateUserAgentConfigCache(userID) })
 }
 
@@ -1564,7 +1564,7 @@ func (r *Router) InvalidateUserAgentConfigCache(userID uint32) {
 // закрывает realtime-соединения, отменяет контексты респондентов, удаляет их из кэша.
 // Используется при глобальном отключении пользователя (например, блокировка аккаунта).
 // Для отключения конкретного провайдера используйте RevokeUserAPIKey.
-func (r *Router) DisconnectUser(userID uint32) {
+func (r *Router) DisconnectUser(userID uint64) {
 	if r.cascadeProvider != nil {
 		r.cascadeProvider.closeUser(userID)
 	}
@@ -1574,7 +1574,7 @@ func (r *Router) DisconnectUser(userID uint32) {
 // RevokeUserAPIKey выполняет graceful завершение всех сессий пользователя
 // для указанного провайдера и удаляет API-ключ из БД.
 // Порядок: сначала DisconnectUser у конкретного провайдера, затем удаление ключа.
-func (r *Router) RevokeUserAPIKey(userID uint32, provider comdom.ProviderType) error {
+func (r *Router) RevokeUserAPIKey(userID uint64, provider comdom.ProviderType) error {
 	// Завершаем сессии только у указанного провайдера
 	if p, err := r.getModel(provider); err == nil {
 		p.DisconnectUser(userID)

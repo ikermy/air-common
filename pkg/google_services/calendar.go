@@ -35,7 +35,7 @@ func NewCalendarService(ctx context.Context, db comdb.Exterior, clientID, client
 
 // getCalendarService создает Google Calendar сервис с OAuth токеном пользователя
 // Автоматически обновляет токен если истёк срок действия
-func (s *CalendarService) getCalendarService(userID uint32) (*calendar.Service, error) {
+func (s *CalendarService) getCalendarService(userID uint64) (*calendar.Service, error) {
 	// Получаем токен из БД
 	token, googleEmail, err := s.db.GetGoogleToken(userID)
 	if err != nil {
@@ -102,7 +102,7 @@ func (s *CalendarService) getCalendarService(userID uint32) (*calendar.Service, 
 
 // CreateEventParams параметры для создания события
 type CreateEventParams struct {
-	UserID      uint32   `json:"user_id,string"` // Поддерживаем JSON как string, но храним как uint32
+	UserID      uint64   `json:"user_id,string"` // Поддерживаем JSON как string, но храним как uint32
 	Title       string   `json:"title"`
 	Description string   `json:"description"`
 	StartTime   string   `json:"start_time"` // RFC3339: "2026-02-04T10:00:00Z"
@@ -189,7 +189,7 @@ func (s *CalendarService) CreateEvent(params CreateEventParams) (string, error) 
 
 // ListEventsParams параметры для получения списка событий
 type ListEventsParams struct {
-	UserID     uint32 `json:"user_id,string"`
+	UserID     uint64 `json:"user_id,string"`
 	TimeMin    string `json:"time_min"`    // RFC3339, опционально
 	TimeMax    string `json:"time_max"`    // RFC3339, опционально
 	MaxResults int64  `json:"max_results"` // По умолчанию 10
@@ -271,7 +271,7 @@ func (s *CalendarService) ListEvents(params ListEventsParams) (string, error) {
 
 // DeleteEventParams параметры для удаления события
 type DeleteEventParams struct {
-	UserID  uint32 `json:"user_id,string"`
+	UserID  uint64 `json:"user_id,string"`
 	EventID string `json:"event_id"`
 }
 
@@ -303,7 +303,7 @@ func (s *CalendarService) DeleteEvent(params DeleteEventParams) (string, error) 
 
 // GetEventParams параметры для получения события
 type GetEventParams struct {
-	UserID  uint32 `json:"user_id,string"`
+	UserID  uint64 `json:"user_id,string"`
 	EventID string `json:"event_id"`
 }
 

@@ -26,7 +26,7 @@ func (d *DB) processReadDialogResult(ctx context.Context, dialogId uint64, raw j
 	var dataStr string
 	if err := json.Unmarshal(dataField, &dataStr); err == nil && crypto.IsEncryptedWithMasterKey(dataStr) {
 		if d.MasterKeyResolver != nil {
-			var userId uint32
+			var userId uint64
 			if err := d.Conn().QueryRowContext(ctx,
 				"SELECT `User` FROM dialogs WHERE Id = ? LIMIT 1", dialogId).Scan(&userId); err == nil {
 				if mk, ok := d.MasterKeyResolver(userId); ok {

@@ -20,7 +20,7 @@ import (
 // Результат отправляется в канал ch. Канал закрывается в конце горутины.
 // При критической ошибке (не найден respModel) — поле err заполнено.
 // При некритических ошибках (эмбеддинг/поиск) — продолжаем без RAG.
-func (m *Model) applyRAG(userID uint32, dialogID uint64, text string, ch chan<- openaiRagResp) {
+func (m *Model) applyRAG(userID uint64, dialogID uint64, text string, ch chan<- openaiRagResp) {
 	defer close(ch)
 
 	//totalStart := time.Now()
@@ -180,7 +180,7 @@ func (m *Model) applyRAG(userID uint32, dialogID uint64, text string, ch chan<- 
 }
 
 // Request выполняет синхронный запрос к модели (с буферизацией streaming ответов)
-func (m *Model) Request(userID uint32, dialogID uint64, text string, files ...model.FileUpload) (model.AssistResponse, error) {
+func (m *Model) Request(userID uint64, dialogID uint64, text string, files ...model.FileUpload) (model.AssistResponse, error) {
 	return model.StreamingToSync(text, files, func(onDelta func(string, bool) error, files ...model.FileUpload) error {
 		return m.RequestStreaming(userID, dialogID, text, onDelta, files...)
 	})
@@ -188,7 +188,7 @@ func (m *Model) Request(userID uint32, dialogID uint64, text string, files ...mo
 
 // RequestStreaming выполняет запрос с потоковой передачей delta-событий
 // Использует Responses API (новый подход OpenAI с поддержкой file_search, code_interpreter, web_search)
-func (m *Model) RequestStreaming(userID uint32, dialogID uint64, text string, onDelta func(delta string, done bool) error, files ...model.FileUpload) error {
+func (m *Model) RequestStreaming(userID uint64, dialogID uint64, text string, onDelta func(delta string, done bool) error, files ...model.FileUpload) error {
 	if text == "" && len(files) == 0 {
 		return fmt.Errorf("пустое сообщение и нет файлов")
 	}
@@ -440,7 +440,7 @@ func unmarshalAssistResponse(text string, response *model.AssistResponse) error 
 
 // createUserMessageWithFiles создает сообщение пользователя с поддержкой файлов
 // Для Chat Completions API: изображения через image_url, документы через file_search в tools
-func (m *Model) createUserMessageWithFiles(text string, files []model.FileUpload, _ uint32) ChatMessage {
+func (m *Model) createUserMessageWithFiles(text string, files []model.FileUpload, _ uint64) ChatMessage {
 	// Если нет файлов - простое текстовое сообщение
 	if len(files) == 0 {
 		return ChatMessage{

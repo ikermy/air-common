@@ -135,7 +135,7 @@ func New(parent context.Context, d DB, actionHandler model.ActionHandler) *Model
 	// Клиент не принимает глобальный ключ — персональный ключ читается из БД через keyResolver.
 	openaiClient := create.NewOpenAIAgentClient(ctx)
 
-	openaiClient.SetKeyResolver(func(userID uint32) string {
+	openaiClient.SetKeyResolver(func(userID uint64) string {
 		if key, err := d.GetUserAPIKey(userID, comdom.ProviderOpenAI); err == nil {
 			return key
 		}
@@ -209,7 +209,7 @@ func (m *Model) NewMessage(operator model.Operator, msgType string, content *mod
 	}
 }
 
-func (m *Model) GetFileAsReader(userID uint32, url string) (io.Reader, error) {
+func (m *Model) GetFileAsReader(userID uint64, url string) (io.Reader, error) {
 	if url == "" {
 		return nil, fmt.Errorf("не указан источник файла: отсутствуют URL")
 	}
@@ -312,7 +312,7 @@ func (m *Model) GetRespIdByDialogID(dialogID uint64) (uint64, error) {
 // loadAgentConfig загружает конфигурацию агента для OpenAI модели из БД
 // По образцу Google провайдера - конфигурация хранится в БД, а не в OpenAI API
 // Возвращает конфигурацию агента и haunter флаг явно
-func (m *Model) loadAgentConfig(userID uint32, _ *RespModel) (*AgentConfig, bool, error) {
+func (m *Model) loadAgentConfig(userID uint64, _ *RespModel) (*AgentConfig, bool, error) {
 	// Получаем API-ключ напрямую через DB: это обеспечивает правильную обработку $mk$-ключей —
 	// если MasterKey недоступен, ошибка и уведомление пропагируются явно, а не теряются в HasAPIKey.
 	apiKey, err := m.db.GetUserAPIKey(userID, comdom.ProviderOpenAI)
@@ -423,7 +423,7 @@ func (m *Model) loadAgentConfig(userID uint32, _ *RespModel) (*AgentConfig, bool
 // Если MCP доступен: system_prompt = modelData.Prompt + hint от MCP, function-tools от MCP.
 // Если MCP недоступен: system_prompt = modelData.Prompt (без инструкций), function-tools не добавляются.
 // Нативные OpenAI инструменты (code_interpreter, web_search) добавляются всегда локально.
-func (m *Model) buildAgentConfiguration(userID uint32, config *AgentConfig, compressedData []byte) error {
+func (m *Model) buildAgentConfiguration(userID uint64, config *AgentConfig, compressedData []byte) error {
 	// Распаковываем данные модели
 	modelData, err := m.universalModel.DecompressModelData(compressedData, nil)
 	if err != nil {
@@ -594,7 +594,7 @@ func (m *Model) addMessageToCache(dialogID uint64, message ChatMessage) {
 
 // preloadDialogHistoryIfNeeded автоматически загружает историю диалога если кэш пустой
 // Вызывается неявно в GetOrSetRespGPT для обеспечения контекста с первого сообщения
-func (m *Model) preloadDialogHistoryIfNeeded(dialogID uint64, _ uint32) {
+func (m *Model) preloadDialogHistoryIfNeeded(dialogID uint64, _ uint64) {
 	// Проверяем наличие кэша
 	if _, found := m.getDialogHistoryFromCache(dialogID); found {
 		// Кэш уже есть - ничего не делаем
@@ -661,7 +661,7 @@ func (m *Model) CleanDialogData(dialogID uint64) {
 	m.dialogCache.Delete(dialogID)
 }
 
-func (m *Model) DeleteTempFile(userID uint32, fileID string) error {
+func (m *Model) DeleteTempFile(userID uint64, fileID string) error {
 	// Удаляем временный файл из OpenAI
 	if err := m.client.DeleteFile(m.ctx, userID, fileID); err != nil {
 		return fmt.Errorf("ошибка удаления временного файла: %w", err)
@@ -669,7 +669,7 @@ func (m *Model) DeleteTempFile(userID uint32, fileID string) error {
 	return nil
 }
 
-func (m *Model) TranscribeAudio(userID uint32, audioData []byte, fileName string) (string, error) {
+func (m *Model) TranscribeAudio(userID uint64, audioData []byte, fileName string) (string, error) {
 	// Используем существующий метод OpenAIAgentClient.TranscribeAudio
 	if m.client == nil {
 		return "", fmt.Errorf("OpenAI клиент не инициализирован")
@@ -864,7 +864,7 @@ func (m *Model) cleanupAllResponders() {
 // InvalidateUserAgentConfigCache инвалидирует кэш конфигурации модели для пользователя
 // Вызывается при обновлении модели чтобы новые сессии получили актуальные настройки
 // Удаляет все кэшированные респондентов пользователя из m.responders
-func (m *Model) InvalidateUserAgentConfigCache(userID uint32) {
+func (m *Model) InvalidateUserAgentConfigCache(userID uint64) {
 	var invalidatedCount int
 	m.responders.Range(func(key, value any) bool {
 		respModel := value.(*RespModel)
@@ -885,7 +885,7 @@ func (m *Model) InvalidateUserAgentConfigCache(userID uint32) {
 // 1. Закрывает все realtime-сессии (WebSocket + каналы)
 // 2. Отменяет контексты всех респондентов
 // 3. Удаляет респондентов из кэша
-func (m *Model) DisconnectUser(userID uint32) {
+func (m *Model) DisconnectUser(userID uint64) {
 	// Шаг 1: закрываем realtime-сессии пользователя
 	m.realtimeSessions.Range(func(key, value any) bool {
 		rs := value.(*RealtimeSession)

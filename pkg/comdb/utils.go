@@ -12,7 +12,7 @@ import (
 	"github.com/ikermy/air-common/pkg/mode"
 )
 
-func (d *DB) UserTimeZone(userID uint32) (string, error) {
+func (d *DB) UserTimeZone(userID uint64) (string, error) {
 	if userID == 0 {
 		return "", fmt.Errorf("получены некорректные данные: userID")
 	}
@@ -47,7 +47,7 @@ func (d *DB) UserTimeZone(userID uint32) (string, error) {
 	return tz.String, nil
 }
 
-func (d *DB) UserLanguage(userID uint32) string {
+func (d *DB) UserLanguage(userID uint64) string {
 	if userID == 0 {
 		return "en"
 	}
@@ -80,7 +80,7 @@ func (d *DB) UserLanguage(userID uint32) string {
 	return ln.String
 }
 
-func (d *DB) SetUserSubscriptionNotified(user uint32) error {
+func (d *DB) SetUserSubscriptionNotified(user uint64) error {
 	ctx, cancel := context.WithTimeout(d.Context(), sqlTimeToCancel*time.Second)
 	defer cancel()
 
@@ -107,7 +107,7 @@ func (d *DB) SetUserSubscriptionNotified(user uint32) error {
 }
 
 // GetNotificationChannel получает данные каналов уведомлений пользователя
-func (d *DB) GetNotificationChannel(userID uint32) (json.RawMessage, error) {
+func (d *DB) GetNotificationChannel(userID uint64) (json.RawMessage, error) {
 	if userID == 0 {
 		return nil, fmt.Errorf("получен пустой userID")
 	}
@@ -175,7 +175,7 @@ func (d *DB) GetNotificationChannel(userID uint32) (json.RawMessage, error) {
 }
 
 // GetUserSubscriptionLimites получает лимиты подписки пользователя
-func (d *DB) GetUserSubscriptionLimites(userID uint32) (json.RawMessage, error) {
+func (d *DB) GetUserSubscriptionLimites(userID uint64) (json.RawMessage, error) {
 	if userID == 0 {
 		return nil, fmt.Errorf("получен пустой userID")
 	}
@@ -226,7 +226,7 @@ func (d *DB) GetUserSubscriptionLimites(userID uint32) (json.RawMessage, error) 
 }
 
 // DisableAllUserChannel отключает все каналы пользователя
-func (d *DB) DisableAllUserChannel(userID uint32) error {
+func (d *DB) DisableAllUserChannel(userID uint64) error {
 	if userID == 0 {
 		return fmt.Errorf("получен пустой userID")
 	}
@@ -266,14 +266,14 @@ func (d *DB) DisableAllUserChannel(userID uint32) error {
 }
 
 // disableAllUserChannelV2 отражает DisableAllUserChannel в user_channels.
-func disableAllUserChannelV2(ctx context.Context, conn *sql.DB, userID uint32) error {
+func disableAllUserChannelV2(ctx context.Context, conn *sql.DB, userID uint64) error {
 	_, err := conn.ExecContext(ctx,
 		`UPDATE user_channels SET enabled = 0 WHERE user_id = ?`, userID)
 	return err
 }
 
 // SetChannelEnabled включает или отключает канал пользователя
-func (d *DB) SetChannelEnabled(userID uint32, chName string, status bool) error {
+func (d *DB) SetChannelEnabled(userID uint64, chName string, status bool) error {
 	if userID == 0 || chName == "" {
 		return fmt.Errorf("получены некорректные значения: userID или chName пусты")
 	}
@@ -291,8 +291,10 @@ func (d *DB) SetChannelEnabled(userID uint32, chName string, status bool) error 
 		return fmt.Errorf("выбор шарда: %w", err)
 	}
 
+	// ВАЖНО: обновляем только флаг `*_enabled`, не саму колонку с данными
+	// канала (иначе сессия WhatsApp/Telegram затирается значением 0/1).
 	if _, err := conn.ExecContext(ctx,
-		fmt.Sprintf("UPDATE channels SET `%s` = ? WHERE UserId = ?", ch.LegacyColumn), status, userID); err != nil {
+		fmt.Sprintf("UPDATE channels SET `%s_enabled` = ? WHERE UserId = ?", ch.LegacyColumn), status, userID); err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
 			return fmt.Errorf("тайм-аут (%d с) при сохранении статуса канала: %w", mode.GetSQLTimeToCancel(), err)
@@ -311,7 +313,7 @@ func (d *DB) SetChannelEnabled(userID uint32, chName string, status bool) error 
 }
 
 // setChannelEnabledV2 mirrors SetChannelEnabled into user_channels.
-func setChannelEnabledV2(ctx context.Context, conn *sql.DB, userID uint32, channelSlug string, status bool) error {
+func setChannelEnabledV2(ctx context.Context, conn *sql.DB, userID uint64, channelSlug string, status bool) error {
 	ch, ok := comdom.ChannelBySlug(channelSlug)
 	if !ok {
 		return fmt.Errorf("неизвестный тип канала: %s", channelSlug)

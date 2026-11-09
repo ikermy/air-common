@@ -88,7 +88,7 @@ func (d *DB) SaveContext(threadId uint64, provider comdom.ProviderType, dialogCo
 	defer func() { _ = tx.Rollback() }()
 
 	var (
-		userID     uint32
+		userID     uint64
 		currentCtx sql.NullString
 	)
 	if err := tx.QueryRowContext(ctx,

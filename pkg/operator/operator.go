@@ -15,18 +15,18 @@ import (
 )
 
 //type CallBack interface {
-//	DisableOperatorMode(userID uint32, DialogID uint64) error
+//	DisableOperatorMode(userID uint64, DialogID uint64) error
 //}
 
 // Inter - интерфейс для отправки сообщений от и для операторов
 type Inter interface {
-	AskOperator(ctx context.Context, userID uint32, dialogID uint64, question model.Message) (model.Message, error)
-	SendToOperator(ctx context.Context, userID uint32, dialogID uint64, question model.Message) error
-	ReceiveFromOperator(ctx context.Context, userID uint32, dialogID uint64) <-chan model.Message // Канал для получения ответов
-	DeleteSession(userID uint32, dialogID uint64) error
-	GetConnectionErrors(ctx context.Context, userID uint32, dialogID uint64) <-chan string
+	AskOperator(ctx context.Context, userID uint64, dialogID uint64, question model.Message) (model.Message, error)
+	SendToOperator(ctx context.Context, userID uint64, dialogID uint64, question model.Message) error
+	ReceiveFromOperator(ctx context.Context, userID uint64, dialogID uint64) <-chan model.Message // Канал для получения ответов
+	DeleteSession(userID uint64, dialogID uint64) error
+	GetConnectionErrors(ctx context.Context, userID uint64, dialogID uint64) <-chan string
 
-	CloseOperatorSSE(ctx context.Context, userID uint32, dialogID uint64) error
+	CloseOperatorSSE(ctx context.Context, userID uint64, dialogID uint64) error
 }
 
 type OperatorCh struct {
@@ -34,7 +34,7 @@ type OperatorCh struct {
 	TxCh       chan model.Message
 	RxCh       chan model.Message
 	DialogID   uint64
-	userID     uint32
+	userID     uint64
 }
 
 type Operator struct {
@@ -46,7 +46,7 @@ type Operator struct {
 
 // ключ для сессии оператора
 type opKey struct {
-	userID   uint32
+	userID   uint64
 	dialogID uint64
 }
 
@@ -87,7 +87,7 @@ func (o *Operator) Close() {
 }
 
 // DeleteSession удаляет сессию оператора для заданного пользователя и диалога
-func (o *Operator) DeleteSession(userID uint32, dialogID uint64) error {
+func (o *Operator) DeleteSession(userID uint64, dialogID uint64) error {
 	key := opKey{userID: userID, dialogID: dialogID}
 	val, ok := o.operatorChMap.Load(key)
 	if !ok {
@@ -102,7 +102,7 @@ func (o *Operator) DeleteSession(userID uint32, dialogID uint64) error {
 }
 
 // внутренняя функция: получить/создать сессию с таймером простоя
-func (o *Operator) getOrCreateSession(userID uint32, dialogID uint64) (*session, error) {
+func (o *Operator) getOrCreateSession(userID uint64, dialogID uint64) (*session, error) {
 	key := opKey{userID: userID, dialogID: dialogID}
 	if val, ok := o.operatorChMap.Load(key); ok {
 		//logger.Debug("Найдена существующая сессия (user=%d, dialog=%d)", userID, dialogID)
@@ -142,7 +142,7 @@ func (o *Operator) getOrCreateSession(userID uint32, dialogID uint64) (*session,
 
 // GetConnectionErrors возвращает канал для получения ошибок подключения
 // Если сессия ещё не создана, возвращает пустой канал (не создаёт сессию)
-func (o *Operator) GetConnectionErrors(_ context.Context, userID uint32, dialogID uint64) <-chan string {
+func (o *Operator) GetConnectionErrors(_ context.Context, userID uint64, dialogID uint64) <-chan string {
 	key := opKey{userID: userID, dialogID: dialogID}
 
 	// Проверяем, существует ли уже сессия (БЕЗ создания новой)
@@ -353,7 +353,7 @@ func (o *Operator) listenerSession(key opKey, s *session) {
 }
 
 // notifyServerSessionClose уведомляет сервер о закрытии сессии оператора
-//func (o *Operator) notifyServerSessionClose(userID uint32, DialogID uint64, sid int64) error {
+//func (o *Operator) notifyServerSessionClose(userID uint64, DialogID uint64, sid int64) error {
 //	closeURL := fmt.Sprintf("http://localhost:%s/close?user_id=%d&dialog_id=%d&sid=%d",
 //		o.port, userID, DialogID, sid)
 //
@@ -386,7 +386,7 @@ func (o *Operator) sendMessage(baseURL string, s *session, msg model.Message) er
 
 	// Формируем конверт
 	type envelope struct {
-		UserID   uint32         `json:"user_id"`
+		UserID   uint64         `json:"user_id"`
 		DialogID uint64         `json:"dialog_id"`
 		SID      int64          `json:"sid"`
 		Msg      *model.Message `json:"msg,omitempty"`
@@ -421,7 +421,7 @@ func (o *Operator) sendMessage(baseURL string, s *session, msg model.Message) er
 }
 
 // AskOperator отправляет вопрос оператору и ожидает ответ, удерживая SSE-сессию активной
-func (o *Operator) AskOperator(ctx context.Context, userID uint32, dialogID uint64, question model.Message) (model.Message, error) {
+func (o *Operator) AskOperator(ctx context.Context, userID uint64, dialogID uint64, question model.Message) (model.Message, error) {
 	// Получаем или создаём долгоживущую сессию
 	s, err := o.getOrCreateSession(userID, dialogID)
 	if err != nil {
@@ -455,7 +455,7 @@ func (o *Operator) AskOperator(ctx context.Context, userID uint32, dialogID uint
 }
 
 // SendToOperator отправляет сообщение оператору без ожидания ответа
-func (o *Operator) SendToOperator(ctx context.Context, userID uint32, dialogID uint64, question model.Message) error {
+func (o *Operator) SendToOperator(ctx context.Context, userID uint64, dialogID uint64, question model.Message) error {
 	s, err := o.getOrCreateSession(userID, dialogID)
 	if err != nil {
 		return fmt.Errorf("failed to create/get operator session: %w", err)
@@ -475,7 +475,7 @@ func (o *Operator) SendToOperator(ctx context.Context, userID uint32, dialogID u
 }
 
 // ReceiveFromOperator возвращает канал для получения ответов от оператора
-func (o *Operator) ReceiveFromOperator(ctx context.Context, userID uint32, dialogID uint64) <-chan model.Message {
+func (o *Operator) ReceiveFromOperator(ctx context.Context, userID uint64, dialogID uint64) <-chan model.Message {
 	s, err := o.getOrCreateSession(userID, dialogID)
 	if err != nil {
 		// Возвращаем закрытый канал в случае ошибки
@@ -495,7 +495,7 @@ func (o *Operator) ReceiveFromOperator(ctx context.Context, userID uint32, dialo
 }
 
 // CloseOperatorSSE закрывает SSE-сессию оператора после получения сообщения что оператор отключился
-func (o *Operator) CloseOperatorSSE(ctx context.Context, userID uint32, dialogID uint64) error {
+func (o *Operator) CloseOperatorSSE(ctx context.Context, userID uint64, dialogID uint64) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()

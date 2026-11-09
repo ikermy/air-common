@@ -22,9 +22,9 @@ type Inter interface {
 	SetUserAsk(dialogID, respId uint64, ask string, askLimit ...uint32) bool
 	SaveDialog(creator comdom.CreatorType, treadId uint64, resp *model.AssistResponse)
 	GetDialogHistory(dialogID uint64, limit int) ([]Message, error)
-	Meta(userID uint32, dialogID uint64, meta string, respName string, assistName string, metaAction string) error
+	Meta(userID uint64, dialogID uint64, meta string, respName string, assistName string, metaAction string) error
 	CallOptional(val any) error
-	SendEvent(userID uint32, event, userName, assistName, target string)
+	SendEvent(userID uint64, event, userName, assistName, target string)
 	SendNotification(msg com.CarpCh) error
 
 	// TranslateMessageWithUserID возвращает локализованное сообщение для пользователя.
@@ -35,7 +35,7 @@ type Inter interface {
 	//
 	// operator.mode.is.disabled
 	//
-	TranslateMessageWithUserID(userID uint32, message string) string
+	TranslateMessageWithUserID(userID uint64, message string) string
 	TranslateMessageWithLang(lang, message string) string
 }
 
@@ -444,7 +444,7 @@ func (e *Endpoint) SaveDialog(creator comdom.CreatorType, treadId uint64, resp *
 }
 
 // Meta Метод вызывается из common.startpoint
-func (e *Endpoint) Meta(userID uint32, dialogID uint64, meta string, respName string, assistName string, metaAction string) error {
+func (e *Endpoint) Meta(userID uint64, dialogID uint64, meta string, respName string, assistName string, metaAction string) error {
 	err := e.db.UpdateDialogsMeta(dialogID, meta)
 	if err != nil {
 		return fmt.Errorf("ошибка обновления метаданных для диалога: %d, пользователь: %d: %v", userID, dialogID, err)

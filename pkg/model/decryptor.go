@@ -15,7 +15,7 @@ import (
 // MasterKeyProvider умеет получать пользовательский MasterKey от Landing-сервиса.
 // rpc.Client удовлетворяет этому интерфейсу без изменений (метод GetUserMasterKey уже совпадает).
 type MasterKeyProvider interface {
-	GetUserMasterKey(ctx context.Context, userID uint32) ([32]byte, error)
+	GetUserMasterKey(ctx context.Context, userID uint64) ([32]byte, error)
 }
 
 // ErrMasterKeyUnavailable возвращается когда API-ключ зашифрован MasterKey пользователя,
@@ -53,7 +53,7 @@ func WrapDBWithMasterKeyDecryption(ctx context.Context, db comdb.Exterior, mkPro
 //   - Ключ зашифрован $mk$ и mkProvider == nil → уведомление "reauth-userkey" + ErrMasterKeyUnavailable.
 //   - Ключ зашифрован $mk$ и GetUserMasterKey вернул ошибку (codes.Unavailable = ключ не в кэше,
 //     пользователь не входил с момента перезапуска Landing) → уведомление "reauth-userkey" + ErrMasterKeyUnavailable.
-func (d *masterKeyDecryptingDB) GetUserAPIKey(userID uint32, provider comdom.ProviderType) (string, error) {
+func (d *masterKeyDecryptingDB) GetUserAPIKey(userID uint64, provider comdom.ProviderType) (string, error) {
 	key, err := d.Exterior.GetUserAPIKey(userID, provider)
 	if err != nil {
 		return "", err

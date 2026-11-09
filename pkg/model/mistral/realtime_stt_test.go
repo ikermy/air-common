@@ -152,7 +152,7 @@ func requireMistralRealtimeIntegration(t *testing.T) string {
 func TestMistralRealtimeMintClientSessionIntegration(t *testing.T) {
 	apiKey := requireMistralRealtimeIntegration(t)
 	client := NewMistralAgentClient(context.Background())
-	client.SetKeyResolver(func(uint32) string { return apiKey })
+	client.SetKeyResolver(func(uint64) string { return apiKey })
 
 	result, err := client.MintRealtimeToken(context.Background(), 1, "voxtral-mini-transcribe-realtime-2602")
 	if err != nil {

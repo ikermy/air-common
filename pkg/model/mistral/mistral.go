@@ -26,17 +26,17 @@ type MistralAgentClient struct {
 	cancel      context.CancelFunc
 	url         string
 	httpClient  *http.Client
-	keyResolver func(userID uint32) string // Резолвер персональных ключей; nil → пустой ключ
+	keyResolver func(userID uint64) string // Резолвер персональных ключей; nil → пустой ключ
 }
 
 // SetKeyResolver устанавливает функцию-резолвер персонального API-ключа пользователя.
-func (m *MistralAgentClient) SetKeyResolver(fn func(userID uint32) string) {
+func (m *MistralAgentClient) SetKeyResolver(fn func(userID uint64) string) {
 	m.keyResolver = fn
 }
 
 // resolveKey возвращает персональный API-ключ пользователя через keyResolver.
 // Глобального ключа нет: при отсутствии ключа возвращается пустая строка.
-func (m *MistralAgentClient) resolveKey(userID uint32) string {
+func (m *MistralAgentClient) resolveKey(userID uint64) string {
 	if m.keyResolver != nil && userID != 0 {
 		if key := m.keyResolver(userID); key != "" {
 			return key
@@ -47,7 +47,7 @@ func (m *MistralAgentClient) resolveKey(userID uint32) string {
 
 // HasAPIKey возвращает true если для пользователя есть действующий API-ключ.
 // Используется для ранней проверки перед выполнением запросов.
-func (m *MistralAgentClient) HasAPIKey(userID uint32) bool {
+func (m *MistralAgentClient) HasAPIKey(userID uint64) bool {
 	return m.resolveKey(userID) != ""
 }
 
@@ -117,7 +117,7 @@ type MistralDocument struct {
 
 // CreateLibrary создаёт новую библиотеку документов
 // POST /v1/libraries
-func (m *MistralAgentClient) CreateLibrary(userID uint32, name, description string) (*MistralLibrary, error) {
+func (m *MistralAgentClient) CreateLibrary(userID uint64, name, description string) (*MistralLibrary, error) {
 	payload := map[string]any{
 		"name": name,
 	}
@@ -163,7 +163,7 @@ func (m *MistralAgentClient) CreateLibrary(userID uint32, name, description stri
 
 // DeleteLibrary удаляет библиотеку
 // DELETE /v1/libraries/{library_id}
-func (m *MistralAgentClient) DeleteLibrary(userID uint32, libraryID string) error {
+func (m *MistralAgentClient) DeleteLibrary(userID uint64, libraryID string) error {
 	url := fmt.Sprintf(mode.MistralBaseURL+"/libraries/%s", libraryID)
 
 	req, err := http.NewRequestWithContext(m.ctx, http.MethodDelete, url, nil)
@@ -189,7 +189,7 @@ func (m *MistralAgentClient) DeleteLibrary(userID uint32, libraryID string) erro
 
 // UploadDocumentToLibrary загружает документ в библиотеку
 // POST /v1/libraries/{library_id}/documents
-func (m *MistralAgentClient) UploadDocumentToLibrary(userID uint32, libraryID, fileName string, fileData []byte) (string, error) {
+func (m *MistralAgentClient) UploadDocumentToLibrary(userID uint64, libraryID, fileName string, fileData []byte) (string, error) {
 	url := fmt.Sprintf(mode.MistralBaseURL+"/libraries/%s/documents", libraryID)
 
 	// Создаём multipart форму
@@ -240,7 +240,7 @@ func (m *MistralAgentClient) UploadDocumentToLibrary(userID uint32, libraryID, f
 
 // DeleteDocumentFromLibrary удаляет документ из библиотеки
 // DELETE /v1/libraries/{library_id}/documents/{document_id}
-func (m *MistralAgentClient) DeleteDocumentFromLibrary(userID uint32, libraryID, documentID string) error {
+func (m *MistralAgentClient) DeleteDocumentFromLibrary(userID uint64, libraryID, documentID string) error {
 	url := fmt.Sprintf(mode.MistralBaseURL+"/libraries/%s/documents/%s", libraryID, documentID)
 
 	req, err := http.NewRequestWithContext(m.ctx, http.MethodDelete, url, nil)
@@ -266,7 +266,7 @@ func (m *MistralAgentClient) DeleteDocumentFromLibrary(userID uint32, libraryID,
 
 // GetDocumentStatus получает статус документа
 // GET /v1/libraries/{library_id}/documents/{document_id}
-func (m *MistralAgentClient) GetDocumentStatus(userID uint32, libraryID, documentID string) (string, error) {
+func (m *MistralAgentClient) GetDocumentStatus(userID uint64, libraryID, documentID string) (string, error) {
 	url := fmt.Sprintf(mode.MistralBaseURL+"/libraries/%s/documents/%s", libraryID, documentID)
 
 	req, err := http.NewRequestWithContext(m.ctx, http.MethodGet, url, nil)
@@ -301,7 +301,7 @@ func (m *MistralAgentClient) GetDocumentStatus(userID uint32, libraryID, documen
 
 // DownloadFile скачивает файл (изображение) по file_id через Mistral Files API
 // Документация: https://docs.mistral.ai/api/#tag/files/operation/files_api_routes_download_file
-func (m *MistralAgentClient) DownloadFile(userID uint32, fileID string) ([]byte, error) {
+func (m *MistralAgentClient) DownloadFile(userID uint64, fileID string) ([]byte, error) {
 	url := fmt.Sprintf(mode.MistralBaseURL+"/files/%s/content", fileID)
 
 	req, err := http.NewRequestWithContext(m.ctx, http.MethodGet, url, nil)
@@ -360,7 +360,7 @@ type ConversationContent struct {
 
 // StartConversation начинает новый диалог с агентом через Conversations API
 // Документация: https://docs.mistral.ai/api/#tag/conversations
-func (m *MistralAgentClient) StartConversation(agentID string, inputs any, userID uint32) (ConversationResponse, error) {
+func (m *MistralAgentClient) StartConversation(agentID string, inputs any, userID uint64) (ConversationResponse, error) {
 	conversationsURL := mode.MistralConversationsURL
 
 	// Формат payload согласно документации:
@@ -411,7 +411,7 @@ func (m *MistralAgentClient) StartConversation(agentID string, inputs any, userI
 }
 
 // ContinueConversation продолжает существующий диалог через Conversations API
-func (m *MistralAgentClient) ContinueConversation(conversationID string, inputs any, userID uint32) (ConversationResponse, error) {
+func (m *MistralAgentClient) ContinueConversation(conversationID string, inputs any, userID uint64) (ConversationResponse, error) {
 	conversationsURL := fmt.Sprintf("%s/%s", mode.MistralConversationsURL, conversationID)
 
 	payload := map[string]any{
@@ -461,7 +461,7 @@ func (m *MistralAgentClient) ContinueConversation(conversationID string, inputs 
 
 // SendFunctionResult отправляет результат функции в conversation
 // Согласно документации Mistral Conversations API
-func (m *MistralAgentClient) SendFunctionResult(conversationID string, toolCallID string, functionResult string, userID uint32) (ConversationResponse, error) {
+func (m *MistralAgentClient) SendFunctionResult(conversationID string, toolCallID string, functionResult string, userID uint64) (ConversationResponse, error) {
 	conversationsURL := fmt.Sprintf("%s/%s", mode.MistralConversationsURL, conversationID)
 
 	inputs := []map[string]any{
@@ -525,7 +525,7 @@ func (m *MistralAgentClient) SendFunctionResult(conversationID string, toolCallI
 
 // PatchAgent обновляет конфигурацию Mistral Agent через PATCH /v1/agents/{agent_id}.
 // Используется для синхронизации инструментов (tools) с текущим набором MCP-функций.
-func (m *MistralAgentClient) PatchAgent(agentID string, tools []map[string]any, userID uint32) error {
+func (m *MistralAgentClient) PatchAgent(agentID string, tools []map[string]any, userID uint64) error {
 	patchURL := fmt.Sprintf("%s/%s", mode.MistralAgentsBaseURL, agentID)
 
 	payload := map[string]any{
@@ -562,7 +562,7 @@ func (m *MistralAgentClient) PatchAgent(agentID string, tools []map[string]any, 
 // StartConversationStreaming начинает новый диалог с агентом в streaming режиме
 // onDelta вызывается для каждого delta события с текстом или JSON событиями function calls
 // Возвращает ConversationResponse с накопленными данными и usage токенов
-func (m *MistralAgentClient) StartConversationStreaming(agentID string, inputs any, onDelta func(string) error, userID uint32) (ConversationResponse, error) {
+func (m *MistralAgentClient) StartConversationStreaming(agentID string, inputs any, onDelta func(string) error, userID uint64) (ConversationResponse, error) {
 	conversationsURL := mode.MistralConversationsURL
 
 	payload := map[string]any{
@@ -602,7 +602,7 @@ func (m *MistralAgentClient) StartConversationStreaming(agentID string, inputs a
 }
 
 // ContinueConversationStreaming продолжает диалог в streaming режиме
-func (m *MistralAgentClient) ContinueConversationStreaming(conversationID string, inputs any, onDelta func(string) error, userID uint32) (ConversationResponse, error) {
+func (m *MistralAgentClient) ContinueConversationStreaming(conversationID string, inputs any, onDelta func(string) error, userID uint64) (ConversationResponse, error) {
 	conversationsURL := fmt.Sprintf("%s/%s", mode.MistralConversationsURL, conversationID)
 
 	payload := map[string]any{
@@ -642,7 +642,7 @@ func (m *MistralAgentClient) ContinueConversationStreaming(conversationID string
 
 // SendMultipleFunctionResultsStreaming отправляет результаты НЕСКОЛЬКИХ функций в streaming режиме
 // functionResults - массив объектов с полями: tool_call_id, result, object, type
-func (m *MistralAgentClient) SendMultipleFunctionResultsStreaming(conversationID string, functionResults []map[string]any, onDelta func(string) error, userID uint32) (ConversationResponse, error) {
+func (m *MistralAgentClient) SendMultipleFunctionResultsStreaming(conversationID string, functionResults []map[string]any, onDelta func(string) error, userID uint64) (ConversationResponse, error) {
 	conversationsURL := fmt.Sprintf("%s/%s", mode.MistralConversationsURL, conversationID)
 
 	payload := map[string]any{
@@ -870,7 +870,7 @@ func (m *MistralAgentClient) readStreamingResponse(body io.Reader, onDelta func(
 
 // DeleteFile удаляет файл из Mistral Files API по его ID
 // Документация: https://docs.mistral.ai/api/#tag/files/operation/files_api_routes_delete_file
-func (m *MistralAgentClient) DeleteFile(userID uint32, fileID string) error {
+func (m *MistralAgentClient) DeleteFile(userID uint64, fileID string) error {
 	if fileID == "" {
 		return fmt.Errorf("fileID не может быть пустым")
 	}

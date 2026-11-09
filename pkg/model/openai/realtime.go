@@ -27,7 +27,7 @@ type RealtimeSession struct {
 	ctx         context.Context // Контекст сессии — отменяется при CloseRealtimeSession
 	cancel      context.CancelFunc
 	agentConfig *AgentConfig // Ссылка на конфиг агента (не копируется)
-	userID      uint32
+	userID      uint64
 	dialogID    uint64 // treadId из TestSession — для сохранения транскрипции в БД
 	respId      uint64
 
@@ -171,7 +171,7 @@ func (m *Model) GetRealtimeGenerating(respId uint64) *atomic.Bool {
 
 // StartRealtimeSession создаёт WSS-соединение к OpenAI Realtime API и запускает pump-горутины.
 // Вызывается после GetOrSetRespGPT — RespModel уже должен существовать в m.responders.
-func (m *Model) StartRealtimeSession(userID uint32, dialogID, respId uint64) error {
+func (m *Model) StartRealtimeSession(userID uint64, dialogID, respId uint64) error {
 	return m.startRealtime(userID, dialogID, respId, false)
 }
 
@@ -179,11 +179,11 @@ func (m *Model) StartRealtimeSession(userID uint32, dialogID, respId uint64) err
 // распознавание речи»: сервер не генерирует ответ (create_response=false), но
 // отдаёт события input_transcript_delta/done. Реализует
 // model.RealtimeTranscriptionProvider.
-func (m *Model) StartRealtimeTranscriptionSession(userID uint32, dialogID, respId uint64) error {
+func (m *Model) StartRealtimeTranscriptionSession(userID uint64, dialogID, respId uint64) error {
 	return m.startRealtime(userID, dialogID, respId, true)
 }
 
-func (m *Model) startRealtime(userID uint32, dialogID, respId uint64, transcriptionOnly bool) error {
+func (m *Model) startRealtime(userID uint64, dialogID, respId uint64, transcriptionOnly bool) error {
 	if existing := m.GetRealtimeSession(respId); existing != nil {
 		//logger.Debug("StartRealtimeSession: сессия уже существует для respId=%d", respId, userID)
 		return nil
@@ -194,7 +194,7 @@ func (m *Model) startRealtime(userID uint32, dialogID, respId uint64, transcript
 		// A responder is normally created by the message path.  A realtime call
 		// can arrive first, however (notably after switching the active model),
 		// so bootstrap the same responder/configuration lazily.
-		record, loadErr := m.db.GetActiveModel(uint32(userID))
+		record, loadErr := m.db.GetActiveModel(uint64(userID))
 		if loadErr != nil {
 			return fmt.Errorf("StartRealtimeSession: не удалось получить активную модель для respId=%d: %w", respId, loadErr)
 		}

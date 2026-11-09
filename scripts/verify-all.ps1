@@ -8,11 +8,13 @@ $ErrorActionPreference = "Continue"
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 if (-not $root) { $root = "D:\project\marusia" }
 
-# Go 1.27 may still see a stale GOROOT in the environment.
+# Go 1.27 may still see a stale GOROOT in the environment (e.g. D:\Go).
+# Prefer the current installation at C:\Program Files\Go when it exists.
+if (Test-Path "C:\Program Files\Go\src\runtime") {
+    $env:GOROOT = "C:\Program Files\Go"
+}
 if (-not (Test-Path (Join-Path $env:GOROOT "src\runtime"))) {
-    if (Test-Path "C:\Program Files\Go\src\runtime") {
-        $env:GOROOT = "C:\Program Files\Go"
-    }
+    throw "GOROOT is not set to a valid Go installation: '$env:GOROOT'"
 }
 $env:Path = "$env:GOROOT\bin;$env:Path"
 
@@ -32,17 +34,17 @@ foreach ($module in $modules) {
     Write-Host "=== $module ===" -ForegroundColor Cyan
 
     & go -C $dir build ./...
-    if ($LASTEXITCODE -ne 0) { $failed += "$module:build"; continue }
+    if ($LASTEXITCODE -ne 0) { $failed += "${module}:build"; continue }
 
     & go -C $dir vet ./...
-    if ($LASTEXITCODE -ne 0) { $failed += "$module:vet"; continue }
+    if ($LASTEXITCODE -ne 0) { $failed += "${module}:vet"; continue }
 
     & go -C $dir test -count=1 -timeout 300s ./...
-    if ($LASTEXITCODE -ne 0) { $failed += "$module:test"; continue }
+    if ($LASTEXITCODE -ne 0) { $failed += "${module}:test"; continue }
 
     if ($Race) {
         & go -C $dir test -race -count=1 -timeout 300s ./...
-        if ($LASTEXITCODE -ne 0) { $failed += "$module:race"; continue }
+        if ($LASTEXITCODE -ne 0) { $failed += "${module}:race"; continue }
     }
     Write-Host "OK $module" -ForegroundColor Green
 }

@@ -77,14 +77,14 @@ type GoogleAgentClient struct {
 	universalModel *UniversalModel // Ссылка на universalModel
 	promptFetcher  GooglePromptHintFetcher
 	toolsFetcher   GoogleFunctionDeclarationsFetcher
-	keyResolver    func(userID uint32) string // Резолвер персональных ключей; nil → пустой ключ
+	keyResolver    func(userID uint64) string // Резолвер персональных ключей; nil → пустой ключ
 }
 
 // GooglePromptHintFetcher опционально получает prompt hint от внешнего MCP-источника.
-type GooglePromptHintFetcher func(ctx context.Context, userID uint32, provider comdom.ProviderType) (string, error)
+type GooglePromptHintFetcher func(ctx context.Context, userID uint64, provider comdom.ProviderType) (string, error)
 
 // GoogleFunctionDeclarationsFetcher опционально получает function declarations от внешнего MCP-источника.
-type GoogleFunctionDeclarationsFetcher func(ctx context.Context, userID uint32, provider comdom.ProviderType) ([]FunctionDeclaration, error)
+type GoogleFunctionDeclarationsFetcher func(ctx context.Context, userID uint64, provider comdom.ProviderType) ([]FunctionDeclaration, error)
 
 // ============================================================================
 // TYPED STRUCTURES FOR FUNCTION DECLARATIONS
@@ -136,13 +136,13 @@ func (m *GoogleAgentClient) SetMCPConfigFetchers(promptFetcher GooglePromptHintF
 }
 
 // SetKeyResolver устанавливает функцию-резолвер персонального API-ключа пользователя.
-func (m *GoogleAgentClient) SetKeyResolver(fn func(userID uint32) string) {
+func (m *GoogleAgentClient) SetKeyResolver(fn func(userID uint64) string) {
 	m.keyResolver = fn
 }
 
 // resolveKey возвращает персональный API-ключ пользователя через keyResolver.
 // Глобального ключа нет: при отсутствии ключа возвращается пустая строка.
-func (m *GoogleAgentClient) resolveKey(userID uint32) string {
+func (m *GoogleAgentClient) resolveKey(userID uint64) string {
 	if m.keyResolver != nil && userID != 0 {
 		if key := m.keyResolver(userID); key != "" {
 			return key
@@ -152,13 +152,13 @@ func (m *GoogleAgentClient) resolveKey(userID uint32) string {
 }
 
 // GetAPIKeyForUser возвращает персональный API-ключ пользователя (или пустую строку).
-func (m *GoogleAgentClient) GetAPIKeyForUser(userID uint32) string {
+func (m *GoogleAgentClient) GetAPIKeyForUser(userID uint64) string {
 	return m.resolveKey(userID)
 }
 
 // HasAPIKey возвращает true если для пользователя есть действующий API-ключ.
 // Используется для ранней проверки перед выполнением запросов.
-func (m *GoogleAgentClient) HasAPIKey(userID uint32) bool {
+func (m *GoogleAgentClient) HasAPIKey(userID uint64) bool {
 	return m.resolveKey(userID) != ""
 }
 
@@ -252,7 +252,7 @@ func executeGoogleAPIDeleteRequest(ctx context.Context, url string) error {
 }
 
 // createGoogleAgent создает нового Gemini агента с указанными параметрами
-func (m *GoogleAgentClient) createGoogleAgent(modelData *comdom.UniversalModelData, userID uint32, _ []comdom.Ids) (comdom.UMCR, error) {
+func (m *GoogleAgentClient) createGoogleAgent(modelData *comdom.UniversalModelData, userID uint64, _ []comdom.Ids) (comdom.UMCR, error) {
 	if modelData == nil {
 		return comdom.UMCR{}, fmt.Errorf("modelData не может быть nil")
 	}
@@ -301,8 +301,13 @@ func (m *GoogleAgentClient) createGoogleAgent(modelData *comdom.UniversalModelDa
 
 	// 2. Function Calling инструменты — только от MCP.
 	// При недоступности MCP инструменты не добавляются (MCP_MIGRATION.md раздел 14).
+	//
+	// Gemini запрещает комбинировать встроенные инструменты (google_search) с
+	// function calling: "Built-in tools ({google_search}) and Function Calling
+	// cannot be combined in the same request". Явно включённый WebSearch имеет
+	// приоритет, поэтому MCP-инструменты в этом режиме не запрашиваются.
 	var allFunctions []FunctionDeclaration
-	if m.toolsFetcher != nil {
+	if !modelData.WebSearch && m.toolsFetcher != nil {
 		if fetched, fetchErr := m.toolsFetcher(m.ctx, userID, comdom.ProviderGoogle); fetchErr == nil {
 			allFunctions = fetched
 		}
@@ -315,10 +320,11 @@ func (m *GoogleAgentClient) createGoogleAgent(modelData *comdom.UniversalModelDa
 	}
 
 	// 3. Code Interpreter — нативный инструмент, только если нет function_declarations
+	// и не включён WebSearch (встроенные инструменты не комбинируются).
 	// ВАЖНО: Google Gemini НЕ поддерживает одновременное использование
 	// function_declarations и code_execution в одном запросе
 	hasAnyFunctionDeclarations := len(allFunctions) > 0
-	if modelData.Interpreter && !hasAnyFunctionDeclarations {
+	if modelData.Interpreter && !hasAnyFunctionDeclarations && !modelData.WebSearch {
 		googleTools = append(googleTools, GoogleTool{})
 	}
 
@@ -348,7 +354,7 @@ func (m *GoogleAgentClient) createGoogleAgent(modelData *comdom.UniversalModelDa
 	}
 
 	// Добавляем code_execution отдельно если нужно
-	if modelData.Interpreter && !hasAnyFunctionDeclarations {
+	if modelData.Interpreter && !hasAnyFunctionDeclarations && !modelData.WebSearch {
 		toolsForPayload = append(toolsForPayload, map[string]any{
 			"code_execution": map[string]any{},
 		})
@@ -422,7 +428,7 @@ func (m *GoogleAgentClient) createGoogleAgent(modelData *comdom.UniversalModelDa
 // DeleteGoogleAgent deleteGoogleAgent удаляет Google Gemini агента по ID
 // Примечание: Google Gemini использует модели напрямую, без создания отдельных агентов
 // Поэтому "удаление" агента - это просто удаление записи из БД
-func (m *GoogleAgentClient) DeleteGoogleAgent(userID uint32, agentID string) error {
+func (m *GoogleAgentClient) DeleteGoogleAgent(userID uint64, agentID string) error {
 	if agentID == "" {
 		return fmt.Errorf("agentID не может быть пустым")
 	}
@@ -467,7 +473,7 @@ func (m *GoogleAgentClient) DeleteGoogleAgent(userID uint32, agentID string) err
 // - aspectRatio: "16:9", "9:16", "1:1" (по умолчанию "16:9")
 // - duration: длительность в секундах 4-8 (по умолчанию 4)
 // Возвращает: данные видео, MIME тип, ошибку
-func (m *GoogleAgentClient) GenerateVideo(userID uint32, prompt string, aspectRatio string, duration int) ([]byte, string, error) {
+func (m *GoogleAgentClient) GenerateVideo(userID uint64, prompt string, aspectRatio string, duration int) ([]byte, string, error) {
 	if prompt == "" {
 		return nil, "", fmt.Errorf("пустой промпт для генерации видео")
 	}
@@ -602,7 +608,7 @@ Please create a visually stunning video that captures the essence of the descrip
 }
 
 // DownloadVideoFromURI скачивает видео по URI из Google File API
-func (m *GoogleAgentClient) DownloadVideoFromURI(userID uint32, fileURI string) ([]byte, error) {
+func (m *GoogleAgentClient) DownloadVideoFromURI(userID uint64, fileURI string) ([]byte, error) {
 	if fileURI == "" {
 		return nil, fmt.Errorf("пустой URI файла")
 	}
@@ -664,7 +670,7 @@ func parseAudioTranscriptionResponse(responseBody []byte) (string, error) {
 // TranscribeAudio транскрибирует аудио файл в текст
 // Google Gemini поддерживает: MP3, WAV, FLAC, AAC, OGG, и другие форматы
 // Для файлов до 20MB использует inline_data (base64)
-func (m *GoogleAgentClient) TranscribeAudio(userID uint32, audioData []byte, mimeType string) (string, error) {
+func (m *GoogleAgentClient) TranscribeAudio(userID uint64, audioData []byte, mimeType string) (string, error) {
 	if len(audioData) == 0 {
 		return "", fmt.Errorf("пустые аудиоданные")
 	}
@@ -716,7 +722,7 @@ func (m *GoogleAgentClient) TranscribeAudio(userID uint32, audioData []byte, mim
 }
 
 // TranscribeAudioFile транскрибирует аудио файл используя File API (для больших файлов > 20MB)
-func (m *GoogleAgentClient) TranscribeAudioFile(userID uint32, fileURI string) (string, error) {
+func (m *GoogleAgentClient) TranscribeAudioFile(userID uint64, fileURI string) (string, error) {
 	if fileURI == "" {
 		return "", fmt.Errorf("пустой URI файла")
 	}
@@ -759,7 +765,7 @@ func (m *GoogleAgentClient) TranscribeAudioFile(userID uint32, fileURI string) (
 }
 
 // DeleteAudioFile удаляет загруженный аудио файл из Google File API
-func (m *GoogleAgentClient) DeleteAudioFile(userID uint32, fileName string) error {
+func (m *GoogleAgentClient) DeleteAudioFile(userID uint64, fileName string) error {
 	if fileName == "" {
 		return fmt.Errorf("пустое имя файла")
 	}
@@ -824,7 +830,7 @@ func GenerateGoogleEmbedding(ctx context.Context, apiKey, text string) ([]float3
 }
 
 // updateGoogleModelInPlace обновляет модель google
-func (m *UniversalModel) updateGoogleModelInPlace(userID uint32, existing, updated *comdom.UniversalModelData) error {
+func (m *UniversalModel) updateGoogleModelInPlace(userID uint64, existing, updated *comdom.UniversalModelData) error {
 	if m.googleClient == nil {
 		return fmt.Errorf("google клиент не инициализирован")
 	}
@@ -1020,7 +1026,7 @@ func (m *UniversalModel) updateGoogleModelInPlace(userID uint32, existing, updat
 }
 
 // deleteGoogleModel удаляет модель google
-func (m *UniversalModel) deleteGoogleModel(_ uint32, modelData *comdom.UserModelRecord, _ bool, progressCallback func(string)) error {
+func (m *UniversalModel) deleteGoogleModel(_ uint64, modelData *comdom.UserModelRecord, _ bool, progressCallback func(string)) error {
 	if m.googleClient == nil {
 		return fmt.Errorf("google client not initialized")
 	}
@@ -1035,7 +1041,7 @@ func (m *UniversalModel) deleteGoogleModel(_ uint32, modelData *comdom.UserModel
 // createGoogleModel создает модель Google — обёртка для парсинга JSON и делегирования клиенту
 // ПРИМЕЧАНИЕ: filedomain.Ids игнорируются для Google моделей, так как Google API не хранит файлы.
 // Вместо этого документы загружаются как эмбеддинги в нашу БД через UploadDocumentWithEmbedding().
-func (m *UniversalModel) createGoogleModel(userID uint32, modelData *comdom.UniversalModelData, fileIds []comdom.Ids) (comdom.UMCR, error) {
+func (m *UniversalModel) createGoogleModel(userID uint64, modelData *comdom.UniversalModelData, fileIds []comdom.Ids) (comdom.UMCR, error) {
 	if m.googleClient == nil {
 		return comdom.UMCR{}, fmt.Errorf("google клиент не инициализирован")
 	}
@@ -1062,7 +1068,7 @@ func (m *UniversalModel) createGoogleModel(userID uint32, modelData *comdom.Univ
 // GenerateImage генерирует изображение через Google Gemini API с Imagen 3
 // ВАЖНО: Google Gemini 2.0+ поддерживает встроенную генерацию изображений
 // Возвращает: imageData (PNG bytes), mimeType, error
-func (m *GoogleAgentClient) GenerateImage(userID uint32, prompt string, aspectRatio string) ([]byte, string, error) {
+func (m *GoogleAgentClient) GenerateImage(userID uint64, prompt string, aspectRatio string) ([]byte, string, error) {
 	if prompt == "" {
 		return nil, "", fmt.Errorf("prompt не может быть пустым")
 	}

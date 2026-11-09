@@ -20,7 +20,7 @@ import (
 // для избежания дублирования кода с OpenAIAgentClient.GenerateEmbedding()
 //
 // Используется внутри UploadDocumentWithEmbedding, SearchSimilarDocuments и других публичных методов OpenAIModel
-func (m *Model) GenerateEmbedding(userID uint32, text string) ([]float32, error) {
+func (m *Model) GenerateEmbedding(userID uint64, text string) ([]float32, error) {
 	return create.GenerateOpenAIEmbedding(m.ctx, m.client.GetAPIKeyForUser(userID), text)
 }
 
@@ -40,6 +40,6 @@ func (m *Model) searchSimilarEmbeddings(modelId uint64, queryEmbedding []float32
 	return m.db.SearchSimilarEmbeddings(modelId, comdom.ProviderOpenAI, queryEmbedding, limit)
 }
 
-func (m *Model) saveEmbedding(userID uint32, modelId uint64, docID, docName, content string, embedding []float32, metadata comdom.DocumentMetadata) error {
+func (m *Model) saveEmbedding(userID uint64, modelId uint64, docID, docName, content string, embedding []float32, metadata comdom.DocumentMetadata) error {
 	return m.db.SaveEmbedding(userID, modelId, comdom.ProviderOpenAI, docID, docName, content, embedding, metadata)
 }

@@ -8,7 +8,7 @@ import (
 
 // InstMsg - структура для передачи мгновенных сообщений в панель управления
 type InstMsg struct {
-	UID uint32
+	UID uint64
 	Msg string
 }
 
@@ -18,7 +18,7 @@ type CarpCh struct {
 	UserName   string
 	AssistName string
 	Target     string
-	UserID     uint32
+	UserID     uint64
 }
 
 // ErrorCode - константы кодов ошибок подписки
@@ -36,7 +36,7 @@ const (
 type SubscriptionError struct {
 	Message string
 	Code    ErrorCode
-	UserID  uint32
+	UserID  uint64
 }
 
 // Error реализует интерфейс error
@@ -46,11 +46,11 @@ func (e *SubscriptionError) Error() string {
 
 // SubscriptionProvider интерфейс для получения данных подписки
 type SubscriptionProvider interface {
-	GetUserSubscriptionLimites(userID uint32) (json.RawMessage, error)
+	GetUserSubscriptionLimites(userID uint64) (json.RawMessage, error)
 }
 
 // CheckUserSubscription проверяет подписку пользователя
-func CheckUserSubscription(provider SubscriptionProvider, userID uint32) error {
+func CheckUserSubscription(provider SubscriptionProvider, userID uint64) error {
 	subscription, err := provider.GetUserSubscriptionLimites(userID)
 	if err != nil {
 		return &SubscriptionError{

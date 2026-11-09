@@ -59,7 +59,7 @@ type RealtimeClientSession struct {
 }
 
 // MintRealtimeToken creates an rt_* token scoped to one transcription model.
-func (m *MistralAgentClient) MintRealtimeToken(ctx context.Context, userID uint32, modelName string) (RealtimeClientSession, error) {
+func (m *MistralAgentClient) MintRealtimeToken(ctx context.Context, userID uint64, modelName string) (RealtimeClientSession, error) {
 	if strings.TrimSpace(modelName) == "" {
 		return RealtimeClientSession{}, fmt.Errorf("не задана realtime STT-модель Mistral")
 	}
@@ -415,7 +415,7 @@ func (n *AudioNormalizer) Flush() []byte {
 // TranscribeAudio sends one audio segment to the Mistral transcription API.
 // Continuous streaming transport is intentionally kept separate: this method
 // is the stable multipart primitive for finalized audio segments.
-func (m *MistralAgentClient) TranscribeAudio(ctx context.Context, userID uint32, modelName, language, fileName string, audio []byte) (string, error) {
+func (m *MistralAgentClient) TranscribeAudio(ctx context.Context, userID uint64, modelName, language, fileName string, audio []byte) (string, error) {
 	if len(audio) == 0 {
 		return "", fmt.Errorf("пустой аудиосегмент")
 	}
@@ -473,7 +473,7 @@ func (m *MistralAgentClient) TranscribeAudio(ctx context.Context, userID uint32,
 
 // StreamTranscribeAudio sends a completed audio segment and consumes the
 // official SSE transcription stream (text.delta/segment/done).
-func (m *MistralAgentClient) StreamTranscribeAudio(ctx context.Context, userID uint32, modelName, language, fileName string, audio []byte, onEvent func(TranscriptionStreamEvent) error) error {
+func (m *MistralAgentClient) StreamTranscribeAudio(ctx context.Context, userID uint64, modelName, language, fileName string, audio []byte, onEvent func(TranscriptionStreamEvent) error) error {
 	if len(audio) == 0 || modelName == "" {
 		return fmt.Errorf("не заданы audio или STT-модель Mistral")
 	}
@@ -538,7 +538,7 @@ func (m *MistralAgentClient) StreamTranscribeAudio(ctx context.Context, userID u
 }
 
 // Speech opens a streaming TTS response. The caller owns and must close Body.
-func (m *MistralAgentClient) Speech(ctx context.Context, userID uint32, request SpeechRequest) (io.ReadCloser, string, error) {
+func (m *MistralAgentClient) Speech(ctx context.Context, userID uint64, request SpeechRequest) (io.ReadCloser, string, error) {
 	if request.Model == "" || request.Input == "" {
 		return nil, "", fmt.Errorf("не заданы модель или текст TTS Mistral")
 	}
@@ -568,7 +568,7 @@ func (m *MistralAgentClient) Speech(ctx context.Context, userID uint32, request 
 }
 
 // Voices returns the voices available to the current Mistral account.
-func (m *MistralAgentClient) Voices(ctx context.Context, userID uint32) ([]MistralVoice, error) {
+func (m *MistralAgentClient) Voices(ctx context.Context, userID uint64) ([]MistralVoice, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, m.audioURL(mistralVoicesPath), nil)
 	if err != nil {
 		return nil, err
@@ -600,7 +600,7 @@ func (m *MistralAgentClient) Voices(ctx context.Context, userID uint32) ([]Mistr
 	return result.Voices, nil
 }
 
-func (m *MistralAgentClient) ListVoices(ctx context.Context, userID uint32, limit, offset int, voiceType string) (VoiceList, error) {
+func (m *MistralAgentClient) ListVoices(ctx context.Context, userID uint64, limit, offset int, voiceType string) (VoiceList, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, m.audioURL(mistralVoicesPath), nil)
 	if err != nil {
 		return VoiceList{}, err
@@ -633,27 +633,27 @@ func (m *MistralAgentClient) ListVoices(ctx context.Context, userID uint32, limi
 	return result, nil
 }
 
-func (m *MistralAgentClient) CreateVoice(ctx context.Context, userID uint32, input CreateVoiceRequest) (MistralVoice, error) {
+func (m *MistralAgentClient) CreateVoice(ctx context.Context, userID uint64, input CreateVoiceRequest) (MistralVoice, error) {
 	var out MistralVoice
 	err := m.voiceJSON(ctx, userID, http.MethodPost, "", input, &out)
 	return out, err
 }
-func (m *MistralAgentClient) GetVoice(ctx context.Context, userID uint32, voiceID string) (MistralVoice, error) {
+func (m *MistralAgentClient) GetVoice(ctx context.Context, userID uint64, voiceID string) (MistralVoice, error) {
 	var out MistralVoice
 	err := m.voiceJSON(ctx, userID, http.MethodGet, "/"+url.PathEscape(voiceID), nil, &out)
 	return out, err
 }
-func (m *MistralAgentClient) UpdateVoice(ctx context.Context, userID uint32, voiceID string, input UpdateVoiceRequest) (MistralVoice, error) {
+func (m *MistralAgentClient) UpdateVoice(ctx context.Context, userID uint64, voiceID string, input UpdateVoiceRequest) (MistralVoice, error) {
 	var out MistralVoice
 	err := m.voiceJSON(ctx, userID, http.MethodPatch, "/"+url.PathEscape(voiceID), input, &out)
 	return out, err
 }
-func (m *MistralAgentClient) DeleteVoice(ctx context.Context, userID uint32, voiceID string) (MistralVoice, error) {
+func (m *MistralAgentClient) DeleteVoice(ctx context.Context, userID uint64, voiceID string) (MistralVoice, error) {
 	var out MistralVoice
 	err := m.voiceJSON(ctx, userID, http.MethodDelete, "/"+url.PathEscape(voiceID), nil, &out)
 	return out, err
 }
-func (m *MistralAgentClient) GetVoiceSample(ctx context.Context, userID uint32, voiceID string) (io.ReadCloser, string, error) {
+func (m *MistralAgentClient) GetVoiceSample(ctx context.Context, userID uint64, voiceID string) (io.ReadCloser, string, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, m.audioURL(mistralVoicesPath+"/"+url.PathEscape(voiceID)+"/sample"), nil)
 	if err != nil {
 		return nil, "", err
@@ -670,7 +670,7 @@ func (m *MistralAgentClient) GetVoiceSample(ctx context.Context, userID uint32, 
 	return response.Body, response.Header.Get("Content-Type"), nil
 }
 
-func (m *MistralAgentClient) voiceJSON(ctx context.Context, userID uint32, method, suffix string, input, output any) error {
+func (m *MistralAgentClient) voiceJSON(ctx context.Context, userID uint64, method, suffix string, input, output any) error {
 	var reader io.Reader
 	if input != nil {
 		data, err := json.Marshal(input)
@@ -714,7 +714,7 @@ func (m *MistralAgentClient) audioURL(path string) string {
 	return strings.TrimRight(mode.MistralBaseURL, "/") + path
 }
 
-func (m *MistralAgentClient) setAudioHeaders(request *http.Request, userID uint32, contentType string) {
+func (m *MistralAgentClient) setAudioHeaders(request *http.Request, userID uint64, contentType string) {
 	request.Header.Set("Accept", "application/json")
 	if contentType != "" {
 		request.Header.Set("Content-Type", contentType)

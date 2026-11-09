@@ -94,7 +94,7 @@ func (s *Start) trySendAnswer(answerCh chan<- Answer, ans Answer) {
 	}
 }
 
-func (s *Start) sendFallbackAnswer(userID uint32, answerCh chan<- Answer, err error) {
+func (s *Start) sendFallbackAnswer(userID uint64, answerCh chan<- Answer, err error) {
 	msg := s.End.TranslateMessageWithUserID(userID, "model.response.failed")
 	s.trySendAnswer(answerCh, Answer{
 		Answer: model.AssistResponse{Message: msg},
@@ -156,7 +156,7 @@ func operatorSystemAnswer(message string) Answer {
 	}
 }
 
-func (s *Start) operatorTimeoutMessage(userId uint32) string {
+func (s *Start) operatorTimeoutMessage(userId uint64) string {
 	seconds := int(mode.GetOperatorResponseTimeout().Seconds())
 
 	if seconds%60 == 0 && seconds >= 60 {
@@ -194,7 +194,7 @@ func (s *Start) startOperatorMode(u *model.RespModel, treadId uint64, timeoutCh 
 // handleProviderLimitError обрабатывает лимитную ошибку AI-провайдера:
 // отправляет уведомление пользователю через внешние каналы и возвращает deaf=false для продолжения цикла.
 // Возвращает true, если вызывающий должен выполнить continue.
-func (s *Start) handleProviderLimitError(userID uint32, respName, assistName, errMsg string) bool {
+func (s *Start) handleProviderLimitError(userID uint64, respName, assistName, errMsg string) bool {
 	s.End.SendEvent(userID, "ai-provider-limit", respName, assistName, errMsg)
 	return true
 }
@@ -217,7 +217,7 @@ type Answer struct {
 
 // BotInterface - интерфейс для различных реализаций ботов
 type BotInterface interface {
-	DisableOperatorMode(userID uint32, dialogID uint64, silent ...bool) error
+	DisableOperatorMode(userID uint64, dialogID uint64, silent ...bool) error
 }
 
 type Model = model.Inter
@@ -694,7 +694,7 @@ func (s *Start) Shutdown(shutCh chan<- com.LogMsg) {
 	}
 }
 
-func (s *Start) ask(userID uint32, respId, dialogID uint64, arrAsk []string, files ...model.FileUpload) (model.AssistResponse, error) {
+func (s *Start) ask(userID uint64, respId, dialogID uint64, arrAsk []string, files ...model.FileUpload) (model.AssistResponse, error) {
 	var emptyResponse model.AssistResponse
 	answerCh := make(chan model.AssistResponse, 1)
 	errCh := make(chan error, 1)

@@ -6,7 +6,7 @@ type LogMsg struct {
 	Mod string
 	Msg any
 	Log int
-	UID uint32
+	UID uint64
 }
 
 type Bus struct {

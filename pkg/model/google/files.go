@@ -18,7 +18,7 @@ import (
 // - Vector Storage: хранение эмбеддингов в MariaDB 12
 // - Similarity Search: поиск по косинусному сходству в БД
 // ============================================================================
-func (m *Model) DeleteTempFile(userID uint32, fileID string) error {
+func (m *Model) DeleteTempFile(userID uint64, fileID string) error {
 	if m.client == nil {
 		return fmt.Errorf("google клиент не инициализирован")
 	}
@@ -33,7 +33,7 @@ func (m *Model) DeleteTempFile(userID uint32, fileID string) error {
 	return nil
 }
 
-func (m *Model) GetFileAsReader(userID uint32, url string) (io.Reader, error) {
+func (m *Model) GetFileAsReader(userID uint64, url string) (io.Reader, error) {
 	if url == "" {
 		return nil, fmt.Errorf("не указан источник файла")
 	}
@@ -60,7 +60,7 @@ func (m *Model) GetFileAsReader(userID uint32, url string) (io.Reader, error) {
 	return resp.Body, nil
 }
 
-func (m *Model) downloadFileFromGoogle(userID uint32, fileURI string) ([]byte, error) {
+func (m *Model) downloadFileFromGoogle(userID uint64, fileURI string) ([]byte, error) {
 	if m.client == nil {
 		return nil, fmt.Errorf("google client не инициализирован")
 	}
@@ -100,7 +100,7 @@ func (m *Model) downloadFileFromGoogle(userID uint32, fileURI string) ([]byte, e
 // для избежания дублирования кода с GoogleAgentClient.GenerateEmbedding()
 //
 // Используется внутри UploadDocumentWithEmbedding, SearchSimilarDocuments и других публичных методов GoogleModel
-func (m *Model) GenerateEmbedding(userID uint32, text string) ([]float32, error) {
+func (m *Model) GenerateEmbedding(userID uint64, text string) ([]float32, error) {
 	// Проверяем кэш
 	if cached, found := m.getCachedEmbedding(text); found {
 		return cached, nil
@@ -134,6 +134,6 @@ func (m *Model) searchSimilarEmbeddings(modelId uint64, queryEmbedding []float32
 	return m.db.SearchSimilarEmbeddings(modelId, comdom.ProviderGoogle, queryEmbedding, limit)
 }
 
-func (m *Model) saveEmbedding(userID uint32, modelId uint64, docID, docName, content string, embedding []float32, metadata comdom.DocumentMetadata) error {
+func (m *Model) saveEmbedding(userID uint64, modelId uint64, docID, docName, content string, embedding []float32, metadata comdom.DocumentMetadata) error {
 	return m.db.SaveEmbedding(userID, modelId, comdom.ProviderGoogle, docID, docName, content, embedding, metadata)
 }

@@ -82,6 +82,33 @@ mariadb --default-character-set=utf8mb4 < docs/sql/phase5_contract.sql
 
 4. Проверить: нет `service_*bot*`, routine и EVENT; новые колонки/ключи на месте.
 
+## 5.1. Финальная миграция пользователей (deadline 2026-12-31T23:59:59Z)
+
+1. Проверить флаги orchestrator:
+   - `USER_MIGRATION_FINALIZE=true` (по умолчанию);
+   - `USER_MIGRATION_DEADLINE=2026-12-31T23:59:59Z`;
+   - `USER_MIGRATION_CHECK_INTERVAL=1h`.
+2. До deadline наблюдать:
+   ```sql
+   SELECT COUNT(*) FROM user_auth WHERE EmailHash IS NULL;
+   ```
+   Пользователи мигрируют lazy при входе; в логах `DB: lazy migration: осталось ...`.
+3. После deadline воркер пакетно удаляет немигрировавших, пишет
+   `audit_log.action='user.final_migration_purge'` и переводит `EmailHash` в `NOT NULL`.
+   Проверка:
+   ```sql
+   SELECT `value` FROM app_config WHERE `key`='users.email_hash_migration';
+   SELECT COUNT(*) FROM user_auth WHERE EmailHash IS NULL; -- 0
+   SHOW COLUMNS FROM user_auth LIKE 'EmailHash';           -- NO
+   ```
+4. Ручной fallback (если scheduler не запускался): `docs/sql/final_migration_cutover.sql`.
+   Только после `non_migrated_users = 0` и `schema_migrations.dirty = 0`.
+5. В contract-фазе снимается `AUTO_INCREMENT` с `users.Id` (см. `phase5_contract.sql`);
+   до этого `IDGEN_ENABLED=true` обязателен на всех репликах.
+6. Откат: восстановить snapshot БД (удалённые пользователи не восстанавливаются
+   из audit_log); вернуть `EmailHash` в `NULL` и `AUTO_INCREMENT` можно только
+   вместе с кодом предыдущей версии.
+
 ## 6. Права и TLS
 
 `docs/sql/phase6_privileges.sql`:

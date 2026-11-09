@@ -22,14 +22,25 @@ pwsh ./scripts/verify-all.ps1 -Race
 
 ## 2. Тег и публикация
 
+Полуавтоматический локальный вариант (не пушит без `-Push`):
+
+```powershell
+pwsh ./scripts/release-air-common.ps1 -Version v1.61.0
+# после ревью:
+pwsh ./scripts/release-air-common.ps1 -Version v1.61.0 -Push -SkipVerify
+```
+
+Или вручную:
+
 ```bash
 git -C air-common checkout new-arch
 git -C air-common tag v1.61.0
 git -C air-common push origin v1.61.0
 ```
 
-Версия — semver. Для breaking changes в публичных API — major/minor по политике проекта.
-После push модуль доступен как `github.com/ikermy/air-common@v1.61.0`.
+Скрипт отказывается работать на `master`/`main`, проверяет major модуля
+(сейчас нет `/v2`, поэтому `v2.x` Go не примет) и прогоняет `verify-all`.
+Версия — semver. После push модуль доступен как `github.com/ikermy/air-common@v1.61.0`.
 
 Проверка:
 

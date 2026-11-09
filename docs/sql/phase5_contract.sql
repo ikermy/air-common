@@ -103,3 +103,26 @@ ALTER TABLE `dialogs`
   DROP COLUMN `Context`,
   DROP COLUMN `messages_migrated`,
   DROP COLUMN `messages_migrated_at`;
+
+-- ── 7. Final user migration (deadline 2026-12-31T23:59:59Z) ─────────────────
+-- Precondition: the Go scheduler (USER_MIGRATION_FINALIZE=true) has purged all
+-- users with user_auth.EmailHash IS NULL. This block is idempotent and is a
+-- manual fallback for ops if the scheduler did not run.
+-- SELECT COUNT(*) AS non_migrated FROM `user_auth` WHERE `EmailHash` IS NULL; -- must be 0
+ALTER TABLE `user_auth`
+  MODIFY `EmailHash` VARCHAR(64) NOT NULL COLLATE 'utf8mb4_general_ci';
+
+INSERT INTO `app_config` (`key`, `value`)
+VALUES ('users.email_hash_migration', CONCAT('finalized:', DATE_FORMAT(UTC_TIMESTAMP(), '%Y-%m-%dT%H:%i:%sZ')))
+ON DUPLICATE KEY UPDATE `value` = VALUES(`value`);
+
+-- ── 8. No AUTO_INCREMENT for user IDs ───────────────────────────────────────
+-- New users are created with Snowflake IDs (IDGEN_ENABLED=true). The legacy
+-- AUTO_INCREMENT path must not be used after this point.
+-- Precondition: IDGEN_ENABLED=true on every orchestrator replica.
+ALTER TABLE `users`
+  MODIFY `Id` BIGINT UNSIGNED NOT NULL;
+
+-- user_auth.Id remains a surrogate key with AUTO_INCREMENT: nothing references
+-- it (all queries use UserId) and it is only used as a stable row key by
+-- pkg/dbverify. It can be dropped/replaced in a later cleanup.

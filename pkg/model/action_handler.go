@@ -51,7 +51,7 @@ func NewUniversalActionHandler(ctx context.Context) *UniversalActionHandler {
 
 // sessionHeader строит X-Session-ID: подписанный при наличии секрета,
 // иначе legacy-формат "userId:provider".
-func (h *UniversalActionHandler) sessionHeader(userID uint32, provider comdom.ProviderType) string {
+func (h *UniversalActionHandler) sessionHeader(userID uint64, provider comdom.ProviderType) string {
 	if h.sessionSecret == "" {
 		return fmt.Sprintf("%d:%d", userID, provider)
 	}
@@ -60,7 +60,7 @@ func (h *UniversalActionHandler) sessionHeader(userID uint32, provider comdom.Pr
 
 // callMCP отправляет единый JSON-RPC запрос к MCP серверу (POST /mcp).
 // UserID и provider передаются через заголовок X-Session-ID — инструменты не получают user_id в аргументах.
-func (h *UniversalActionHandler) callMCP(ctx context.Context, toolName, arguments string, provider comdom.ProviderType, userID uint32) string {
+func (h *UniversalActionHandler) callMCP(ctx context.Context, toolName, arguments string, provider comdom.ProviderType, userID uint64) string {
 	// Парсим строку аргументов в map
 	var args map[string]any
 	if arguments != "" && arguments != "{}" {
@@ -157,7 +157,7 @@ func (h *UniversalActionHandler) callMCP(ctx context.Context, toolName, argument
 
 // callMCPMethod отправляет произвольный JSON-RPC запрос к MCP серверу.
 // Используется как внутренний транспорт для FetchToolsList и FetchSystemPrompt.
-func (h *UniversalActionHandler) callMCPMethod(ctx context.Context, method string, params map[string]any, provider comdom.ProviderType, userID uint32) ([]byte, error) {
+func (h *UniversalActionHandler) callMCPMethod(ctx context.Context, method string, params map[string]any, provider comdom.ProviderType, userID uint64) ([]byte, error) {
 	reqBody := map[string]any{
 		"jsonrpc": "2.0",
 		"id":      "1",
@@ -197,7 +197,7 @@ func (h *UniversalActionHandler) callMCPMethod(ctx context.Context, method strin
 // FetchToolsList реализует MCPConfigProvider: вызывает MCP tools/list и возвращает
 // function-инструменты для данного пользователя (без user_id в inputSchema).
 // Нативные OpenAI инструменты (code_interpreter, web_search) не включаются.
-func (h *UniversalActionHandler) FetchToolsList(ctx context.Context, userID uint32, provider comdom.ProviderType) ([]MCPToolDefinition, error) {
+func (h *UniversalActionHandler) FetchToolsList(ctx context.Context, userID uint64, provider comdom.ProviderType) ([]MCPToolDefinition, error) {
 	body, err := h.callMCPMethod(ctx, "tools/list", map[string]any{}, provider, userID)
 	if err != nil {
 		return nil, err
@@ -241,7 +241,7 @@ func (h *UniversalActionHandler) FetchToolsList(ctx context.Context, userID uint
 // FetchSystemPrompt реализует MCPConfigProvider: вызывает MCP prompts/get с name=system
 // и возвращает prompt hint для данного пользователя.
 // Вызывающий код сам добавляет modelData.Prompt перед ним.
-func (h *UniversalActionHandler) FetchSystemPrompt(ctx context.Context, userID uint32, provider comdom.ProviderType) (string, error) {
+func (h *UniversalActionHandler) FetchSystemPrompt(ctx context.Context, userID uint64, provider comdom.ProviderType) (string, error) {
 	body, err := h.callMCPMethod(ctx, "prompts/get", map[string]any{"name": "system"}, provider, userID)
 	if err != nil {
 		return "", err
@@ -276,7 +276,7 @@ func (h *UniversalActionHandler) FetchSystemPrompt(ctx context.Context, userID u
 
 // MCPToolDefinition — тип определён в model_router.go того же пакета.
 
-func (h *UniversalActionHandler) RunAction(ctx context.Context, functionName, arguments string, provider comdom.ProviderType, userID uint32) string {
+func (h *UniversalActionHandler) RunAction(ctx context.Context, functionName, arguments string, provider comdom.ProviderType, userID uint64) string {
 	// Все инструменты — через MCP сервер (включая lead_target).
 	// MCP сервер сам решает какие инструменты доступны пользователю и выполняет их.
 	return h.callMCP(ctx, functionName, arguments, provider, userID)

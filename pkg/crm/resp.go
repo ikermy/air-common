@@ -106,7 +106,7 @@ type UpdateLeadStateResponse struct {
 	Success bool   `json:"success"`
 }
 
-func (u *User) sendRESP(method, url string, userID uint32, data ...[]byte) (*http.Response, error) {
+func (u *User) sendRESP(method, url string, userID uint64, data ...[]byte) (*http.Response, error) {
 	var bodyData io.Reader
 	if len(data) > 0 {
 		bodyData = bytes.NewBuffer(data[0])
@@ -139,7 +139,7 @@ func (u *User) sendRESP(method, url string, userID uint32, data ...[]byte) (*htt
 }
 
 // ChannelsSettings Получение настроек каналов пользователя
-func (u *User) ChannelsSettings(userID uint32) (*ChannelsSettings, error) {
+func (u *User) ChannelsSettings(userID uint64) (*ChannelsSettings, error) {
 	if userID == 0 {
 		return nil, fmt.Errorf("userID не может быть 0")
 	}

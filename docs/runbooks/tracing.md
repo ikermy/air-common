@@ -42,6 +42,28 @@ PII в спаны не пишется: только route, tool, user ID; арг
 - Рекомендуемый retention: 7–14 дней для hot-хранилища, 30 дней — выборочно.
 - Сэмплирование: `parentbased_traceidratio`, старт с 10–20%, при стабильности — выше.
 
+### 4.1. Локальный/дев-стек
+
+```bash
+docker compose -f air_orchestrator/build/air-tracing.yml up -d
+# Jaeger UI: http://localhost:16686
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-collector:4318/v1/traces
+```
+
+- `monitoring/otel-collector.yaml` — OTLP receiver, `memory_limiter`, `batch`,
+  tail sampling: 100% ошибок и трейсов > 1 c, 10% остальных;
+- коллектор и Jaeger подключены к внешним сетям `air_shared` и `monitoring_shared`,
+  поэтому сервисы dev-стека видят `otel-collector` по имени;
+- для prod tail sampling и retention настраиваются в инфраструктурном коллекторе,
+  конфиг в репозитории — эталон.
+
+### 4.2. SLO-дашборд
+
+`air_orchestrator/monitoring/perses/provisioning/dashboards/air-slo.json` —
+availability, 5xx ratio, p95/p99, ошибки и смена generation DB-роутера.
+Правила и алерты: `docs/ops/prometheus-rules.yml`.
+
 ## 5. Отключение
 
 Убрать `OTEL_EXPORTER_OTLP_*` и перезапустить сервис. Логи останутся без `[trace=...]`,

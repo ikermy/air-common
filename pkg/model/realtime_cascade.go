@@ -65,7 +65,7 @@ type cascadeSession struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	userID   uint32
+	userID   uint64
 	dialogID uint64
 	respID   uint64
 
@@ -129,7 +129,7 @@ func (p *cascadeProvider) hasCascadeSession(respId uint64) bool {
 
 // cascadeVoiceConfig возвращает Voice-конфигурацию активной модели, если для неё
 // включён ElevenLabs realtime-каскад.
-func (r *Router) cascadeVoiceConfig(userID uint32) (*comdom.UniversalModelData, *comdom.VoiceConfig, bool) {
+func (r *Router) cascadeVoiceConfig(userID uint64) (*comdom.UniversalModelData, *comdom.VoiceConfig, bool) {
 	if r.modelsManager == nil {
 		return nil, nil, false
 	}
@@ -143,7 +143,7 @@ func (r *Router) cascadeVoiceConfig(userID uint32) (*comdom.UniversalModelData, 
 	return data, data.Voice, true
 }
 
-func (p *cascadeProvider) StartRealtimeSession(userID uint32, dialogID, respID uint64) error {
+func (p *cascadeProvider) StartRealtimeSession(userID uint64, dialogID, respID uint64) error {
 	if p == nil || p.router == nil {
 		return fmt.Errorf("realtime cascade не инициализирован")
 	}
@@ -521,7 +521,7 @@ func (p *cascadeProvider) SetRealtimeDisconnectCallback(respID uint64, callback 
 }
 
 // closeUser закрывает все каскадные сессии пользователя (например, при отзыве ключа).
-func (p *cascadeProvider) closeUser(userID uint32) {
+func (p *cascadeProvider) closeUser(userID uint64) {
 	if p == nil {
 		return
 	}

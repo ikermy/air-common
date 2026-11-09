@@ -20,12 +20,12 @@ type UserBotBackfillStats struct {
 
 type userBotRef struct {
 	id     uint64
-	userID uint32
+	userID uint64
 }
 
 type legacyBotRow struct {
 	id        uint64
-	userID    uint32
+	userID    uint64
 	botID     int64
 	alias     string
 	authData  string

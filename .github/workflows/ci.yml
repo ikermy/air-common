@@ -46,3 +46,19 @@ jobs:
         with:
           go-version-input: '1.27.x'
           go-package: ./...
+
+      - name: Lint (new issues only)
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          only-new-issues: true
+          args: --timeout=5m
+
+      - name: Coverage report
+        run: go test -coverprofile=coverage.out ./...
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+          if-no-files-found: ignore
