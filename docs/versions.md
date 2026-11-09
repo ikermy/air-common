@@ -4,7 +4,7 @@
 
 | Модуль | Go | `air-common` | `air-logger` | Примечание |
 |---|---|---|---|---|
-| `air-common` | 1.27.3 (локально) / CI 1.27.x | v2.0.1 (`.../v2`) | v2 | библиотека, module path `github.com/ikermy/air-common/v2` |
+| `air-common` | 1.27.3 (локально) / CI 1.27.x | v2.0.2 (`.../v2`) | v2 | библиотека, module path `github.com/ikermy/air-common/v2` |
 | `air-logger` | 1.27.x | — | — | CI: build/vet/test/race |
 | `air_orchestrator` | 1.27.3 | локально через `go.work` (в go.mod — опубликованная версия) | v2 | реальный образ собирается из workspace |
 | `air_lead-hunter` | 1.27.3 | локально через `go.work` | v2 | тесты зелёные |
