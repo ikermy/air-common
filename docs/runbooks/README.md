@@ -19,4 +19,4 @@
 - `docs/ops/prometheus-rules.yml` — recording rules и алерты.
 - `docs/ops/loadtest.js` — k6-сценарии для `/readyz` и MCP.
 - `scripts/bump-air-common.ps1` — bump версии библиотеки во всех сервисах + verify.
-- `docs/production-migration-plan.md` — полный план и статус.
+- Внутренний production-план и статус — вне публичного репозитория.
