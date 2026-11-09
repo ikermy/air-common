@@ -13,6 +13,22 @@
 SELECT version, dirty FROM schema_migrations ORDER BY version;
 ```
 
+## 1.1. CLI миграций
+
+```bash
+# статус (read-only)
+DB_HOST=host:3306 DB_NAME=air DB_USER=... DB_PASSWORD=... \
+  go run ./cmd/migrate -status
+
+# применить все pending-миграции (требует подтверждения)
+DB_HOST=host:3306 DB_NAME=air DB_USER=... DB_PASSWORD=... \
+  go run ./cmd/migrate -up -confirm
+```
+
+`-up` без `-confirm` (или `MIGRATE_CONFIRM=yes`) отказывается работать.
+Перед запуском на prod: backup + restore-check, затем прогон на копии.
+Если миграция упала, в `schema_migrations` останется `dirty=1` — сначала
+восстановить копию/исправить схему, повторный `-up` заблокирован.
 ## 2. Expand (миграции)
 
 Миграции применяются автоматически при `RUN_MIGRATIONS=true` (idempotent runner).
