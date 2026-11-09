@@ -50,3 +50,6 @@ require (
 )
 
 replace cloud.google.com/go/compute => cloud.google.com/go/compute v1.75.0
+
+// v2.0.1 shipped a corrupted protobuf descriptor (init panic).
+retract v2.0.1

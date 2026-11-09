@@ -444,7 +444,7 @@ const file_pkg_rpc_proto_svc_config_proto_rawDesc = "" +
 	"\x10WidgetParseToken\x12\x15.svcpb.WidgetRawToken\x1a\x16.svcpb.WidgetTokenData\x12=\n" +
 	"\rWidgetNewCode\x12\x15.svcpb.WidgetCodeData\x1a\x15.svcpb.WidgetRawToken\x12?\n" +
 	"\x0fWidgetParseCode\x12\x15.svcpb.WidgetRawToken\x1a\x15.svcpb.WidgetCodeData\x12H\n" +
-	"\x17WidgetParseExpiredToken\x12\x15.svcpb.WidgetRawToken\x1a\x16.svcpb.WidgetTokenDataB,Z*github.com/ikermy/air-common/v2/pkg/rpc/protob\x06proto3"
+	"\x17WidgetParseExpiredToken\x12\x15.svcpb.WidgetRawToken\x1a\x16.svcpb.WidgetTokenDataB/Z-github.com/ikermy/air-common/v2/pkg/rpc/protob\x06proto3"
 
 var (
 	file_pkg_rpc_proto_svc_config_proto_rawDescOnce sync.Once
