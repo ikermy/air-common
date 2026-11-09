@@ -43,8 +43,8 @@ jobs:
       - name: Race tests (critical packages)
         run: go test -race ./pkg/idgen/... ./pkg/dbrouter/... ./pkg/telemetry/...
 
+      # Run govulncheck directly instead of golang/govulncheck-action: the action
+      # restores its own tar cache, which emits "Cannot open: File exists" and
+      # "tar failed to restore" annotations when the cache archive is stale.
       - name: Vulnerability check
-        uses: golang/govulncheck-action@v1
-        with:
-          go-version-input: '1.27.x'
-          go-package: ./...
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
