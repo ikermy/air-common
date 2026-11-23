@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -135,12 +134,14 @@ func New(parent context.Context) (*DB, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &DB{
-		mainCTX:             parent,
-		ctx:                 ctx,
-		cancel:              cancel,
-		dsn:                 dsn,
-		conn:                conn,
-		DialogV2ReadEnabled: strings.EqualFold(os.Getenv("DIALOG_MESSAGES_READ_ENABLED"), "true"),
+		mainCTX: parent,
+		ctx:     ctx,
+		cancel:  cancel,
+		dsn:     dsn,
+		conn:    conn,
+		// Чтение v2 включено всегда; легаси-фолбэк остаётся только для строк,
+		// которые ещё не перенесены lazy-backfill'ом.
+		DialogV2ReadEnabled: true,
 	}, nil
 }
 
