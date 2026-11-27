@@ -1,0 +1,154 @@
+syntax = "proto3";
+
+package air.v1;
+
+option go_package = "github.com/ikermy/air-common/v2/gen/go/air/v1;airv1";
+
+// AirData — data-plane между агентом air_phantom, orchestrator и web-viewer.
+//
+// Авторизация (gRPC metadata):
+//   Agent  : "authorization: Device <device-token>"
+//   Viewer : "authorization: Bearer <session-token>"
+//
+// Трассировка: "traceparent" в metadata (W3C Trace Context).
+//
+// Версионирование: пакет air.v1; breaking changes — air.v2.
+service AirData {
+  // ModelStream — стриминг ответа модели. Клиент присылает ModelStart
+  // (текст, контекст, файлы), сервер отвечает потоком ModelDelta и ModelDone/ModelError.
+  rpc ModelStream(stream ModelRequest) returns (stream ModelEvent);
+
+  // RealtimeStt — поток PCM16 в одну сторону, partial/final транскрипты обратно.
+  rpc RealtimeStt(stream SttRequest) returns (stream SttEvent);
+
+  // Relay — двунаправленный канал агента (нативный gRPC).
+  // Первый фрейм агента: hello. Далее payload — JSON domain.Event/command.
+  rpc Relay(stream RelayFrame) returns (stream RelayFrame);
+
+  // Watch — viewer получает поток фреймов сессии.
+  // Server-streaming специально: gRPC-Web в браузере не поддерживает bidi.
+  // Viewer — только вывод, команды ему не нужны.
+  rpc Watch(WatchRequest) returns (stream RelayFrame);
+}
+
+// ── ModelStream ──────────────────────────────────────────────────────────────
+
+message File {
+  string name = 1;       // имя файла (для логов/провайдера)
+  string mime_type = 2;  // например image/png
+  bytes data = 3;        // содержимое
+}
+
+message ModelRequest {
+  oneof payload {
+    ModelStart start = 1;
+    ModelCancel cancel = 2;
+  }
+}
+
+message ModelStart {
+  string request_id = 1;  // UUID запроса, коррелирует события
+  string origin = 2;      // mic | loopback | screenshot | text
+  string text = 3;        // текст запроса
+  string context = 4;     // выбранный контекст/промпт (не секрет)
+  uint64 dialog_id = 5;   // 0 = новый диалог
+  repeated File files = 6;
+  string protocol_version = 7;
+}
+
+message ModelCancel {
+  string request_id = 1;
+}
+
+message ModelEvent {
+  string request_id = 1;
+  oneof event {
+    ModelDelta delta = 2;
+    ModelDone done = 3;
+    ModelError error = 4;
+  }
+}
+
+message ModelDelta {
+  string text = 1;
+}
+
+message ModelDone {
+  string message = 1;  // финальный текст (если приходил не только дельтами)
+}
+
+message ModelError {
+  string code = 1;     // unauthorized | rate_limited | provider_error | ...
+  string message = 2;
+}
+
+// ── RealtimeStt ──────────────────────────────────────────────────────────────
+
+message SttRequest {
+  oneof payload {
+    SttStart start = 1;
+    SttAudio audio = 2;
+    SttStop stop = 3;
+  }
+}
+
+message SttStart {
+  string session_id = 1;  // локальный id STT-сессии
+  string origin = 2;      // mic | loopback
+  uint32 sample_rate = 3; // 16000
+  uint32 channels = 4;    // 1
+  string language = 5;    // ru
+}
+
+message SttAudio {
+  bytes pcm16 = 1;        // PCM16 little-endian
+  uint64 sequence = 2;
+}
+
+message SttStop {}
+
+message SttEvent {
+  string session_id = 1;
+  oneof event {
+    SttPartial partial = 2;
+    SttFinal final = 3;
+    SttError error = 4;
+  }
+}
+
+message SttPartial {
+  string text = 1;
+}
+
+message SttFinal {
+  string text = 1;
+}
+
+message SttError {
+  string code = 1;
+  string message = 2;
+}
+
+// ── Relay ────────────────────────────────────────────────────────────────────
+
+message RelayFrame {
+  string session_id = 1;
+  uint64 sequence = 2;  // монотонный в рамках сессии
+  string type = 3;      // hello | join | status | stt | request_started | answer_delta | ...
+  bytes payload = 4;    // JSON domain.Event/command (MVP); позже — типизированные oneof
+
+  // Первый фрейм агента.
+  AgentHello hello = 10;
+}
+
+message AgentHello {
+  string device_id = 1;
+  string agent_version = 2;
+  string protocol_version = 3;
+}
+
+message WatchRequest {
+  string session_id = 1;
+  string pairing_code = 2;
+  uint64 last_sequence = 3;
+}

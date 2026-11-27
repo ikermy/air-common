@@ -50,8 +50,16 @@ build/
 *.db
 *.sqlite
 
+# Production database dumps must never be published
+docs/air_prod.sql
+*.dump
+*.sql.gz
+
 # Generated files
-gen/
+# gen/ is committed: it contains the shared air.v1 protobuf code (Go + TS).
+gen/*
+!gen/go/
+!gen/ts/
 generated/
 
 # Exclude documentation and migration dumps

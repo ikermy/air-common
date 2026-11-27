@@ -1,2 +1,2 @@
-v2.0.4
-release: air-common v2.0.4 (v2 reads default on)
+v2.1.0
+release: air-common v2.1.0 (air.v1 proto + Go/TS codegen)
